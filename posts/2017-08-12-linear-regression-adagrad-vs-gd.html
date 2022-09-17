@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2017-08-12">
+
+<title>blog - Programatically understanding Adagrad</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">blog</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html">About</a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/"><i class="bi bi-github" role="img">
+</i> 
+ </a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com"><i class="bi bi-twitter" role="img">
+</i> 
+ </a>
+  </li>  
+</ul>
+              <div id="quarto-search" class="" title="Search"></div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Programatically understanding Adagrad</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">ML</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">August 12, 2017</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#formulation-borrowed-from-herehttpruder.iooptimizing-gradient-descent" id="toc-formulation-borrowed-from-herehttpruder.iooptimizing-gradient-descent" class="nav-link active" data-scroll-target="#formulation-borrowed-from-herehttpruder.iooptimizing-gradient-descent">Formulation ([borrowed from here])((http://ruder.io/optimizing-gradient-descent/)))</a></li>
+  <li><a href="#customary-imports" id="toc-customary-imports" class="nav-link" data-scroll-target="#customary-imports">Customary imports</a></li>
+  <li><a href="#true-model" id="toc-true-model" class="nav-link" data-scroll-target="#true-model">True model</a></li>
+  <li><a href="#generating-data" id="toc-generating-data" class="nav-link" data-scroll-target="#generating-data">Generating data</a></li>
+  <li><a href="#model-to-be-learnt" id="toc-model-to-be-learnt" class="nav-link" data-scroll-target="#model-to-be-learnt">Model to be learnt</a></li>
+  <li><a href="#defining-the-cost-function" id="toc-defining-the-cost-function" class="nav-link" data-scroll-target="#defining-the-cost-function">Defining the cost function</a></li>
+  <li><a href="#dry-run-of-cost-and-gradient-functioning" id="toc-dry-run-of-cost-and-gradient-functioning" class="nav-link" data-scroll-target="#dry-run-of-cost-and-gradient-functioning">Dry run of cost and gradient functioning</a></li>
+  <li><a href="#adagrad-algorithm-applied-on-whole-data-batch" id="toc-adagrad-algorithm-applied-on-whole-data-batch" class="nav-link" data-scroll-target="#adagrad-algorithm-applied-on-whole-data-batch">Adagrad algorithm (applied on whole data batch)</a></li>
+  <li><a href="#experiment-time" id="toc-experiment-time" class="nav-link" data-scroll-target="#experiment-time">Experiment time!</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<p>In this post, I’ll be using <a href="http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf">Adagrad</a> for solving linear regression. As usual, the purpose of this post is educational. <a href="http://ruder.io/optimizing-gradient-descent/">This link</a> gives a good overview of Adagrad alongwith other variants of Gradient Descent. To summarise from the link:</p>
+<blockquote class="blockquote">
+<p>It adapts the learning rate to the parameters, performing larger updates for infrequent and smaller updates for frequent parameters. For this reason, it is well-suited for dealing with sparse data.</p>
+</blockquote>
+<p>As I’d done previously, I’ll be using <a href="https://github.com/HIPS/autograd">Autograd</a> to compute the gradients. Please note Autograd and not Adagrad!</p>
+<section id="formulation-borrowed-from-herehttpruder.iooptimizing-gradient-descent" class="level3">
+<h3 class="anchored" data-anchor-id="formulation-borrowed-from-herehttpruder.iooptimizing-gradient-descent">Formulation ([borrowed from here])((http://ruder.io/optimizing-gradient-descent/)))</h3>
+<p>In regular gradient descent, we would update the <span class="math inline">\(i^{th}\)</span> parameter in the <span class="math inline">\(t+1^{th}\)</span> iteration, given the learning rate <span class="math inline">\(\eta\)</span>, where <span class="math inline">\(g_{t, i}\)</span> represents the gradient of the cost wrt <span class="math inline">\(i^{th}\)</span> param at time <span class="math inline">\(t\)</span>.</p>
+<p><span class="math display">\[ \theta_{t+1, i} = \theta_{t, i} - \eta \cdot g_{t, i}  \tag{Eq 1} \]</span></p>
+<p>In Adagrad, we update as follows:</p>
+<p><span class="math display">\[\theta_{t+1, i} = \theta_{t, i} - \dfrac{\eta}{\sqrt{G_{t, ii} + \epsilon}} \cdot g_{t, i} \tag{Eq 2}\]</span></p>
+<p>Here,</p>
+<p><span class="math inline">\(G_{t} \in \mathbb{R}^{d \times d}\)</span> is a diagonal matrix where each diagonal element <span class="math inline">\(i, i\)</span> is the sum of the squares of the gradients w.r.t. <span class="math inline">\(\theta_i\)</span> up to time step <span class="math inline">\(t\)</span> , while <span class="math inline">\(\epsilon\)</span> is a smoothing term that avoids division by zero (usually on the order of 1e−8).</p>
+</section>
+<section id="customary-imports" class="level3">
+<h3 class="anchored" data-anchor-id="customary-imports">Customary imports</h3>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> autograd.numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="true-model" class="level3">
+<h3 class="anchored" data-anchor-id="true-model">True model</h3>
+<p><span class="math display">\[Y = 10 X + 6\]</span></p>
+</section>
+<section id="generating-data" class="level3">
+<h3 class="anchored" data-anchor-id="generating-data">Generating data</h3>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">0</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="dv">50</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> np.linspace(<span class="dv">1</span>, <span class="dv">50</span>, n_samples)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>Y <span class="op">=</span> <span class="dv">10</span><span class="op">*</span>X <span class="op">+</span> <span class="dv">6</span> <span class="op">+</span> <span class="dv">2</span><span class="op">*</span>np.random.randn(n_samples)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>plt.plot(X, Y, <span class="st">'k.'</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"X"</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Y"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2017-08-12-linear-regression-adagrad-vs-gd_files/figure-html/cell-4-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="model-to-be-learnt" class="level3">
+<h3 class="anchored" data-anchor-id="model-to-be-learnt">Model to be learnt</h3>
+<p>We want to learn <code>W</code> and <code>b</code> such that:</p>
+<p><span class="math display">\[Y = 10 W+ b\]</span></p>
+</section>
+<section id="defining-the-cost-function" class="level3">
+<h3 class="anchored" data-anchor-id="defining-the-cost-function">Defining the cost function</h3>
+<p>We will now write a general cost function that accepts a list of parameters.</p>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cost(param_list):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    w, b <span class="op">=</span> param_list</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> w<span class="op">*</span>X<span class="op">+</span>b</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.sqrt(((pred <span class="op">-</span> Y) <span class="op">**</span> <span class="dv">2</span>).mean(axis<span class="op">=</span><span class="va">None</span>))<span class="op">/</span>(<span class="dv">2</span><span class="op">*</span><span class="bu">len</span>(Y))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="dry-run-of-cost-and-gradient-functioning" class="level3">
+<h3 class="anchored" data-anchor-id="dry-run-of-cost-and-gradient-functioning">Dry run of cost and gradient functioning</h3>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cost of w=0, b=0</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>w, b <span class="op">=</span> <span class="fl">0.</span>, <span class="fl">0.</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cost at w=</span><span class="sc">{}</span><span class="st">, b=</span><span class="sc">{}</span><span class="st"> is: </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(w, b, cost([w, b])))</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Cost of w=10, b=4. Should be lower than w=0, b=0</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>w, b <span class="op">=</span> <span class="fl">10.</span>, <span class="fl">4.</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cost at w=</span><span class="sc">{}</span><span class="st">, b=</span><span class="sc">{}</span><span class="st"> is: </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(w, b, cost([w, b])))</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Computing the gradient at w=0, b=0</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> autograd <span class="im">import</span> grad</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>grad_cost <span class="op">=</span>grad(cost)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>w, b <span class="op">=</span> <span class="fl">0.</span>, <span class="fl">0.</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Gradient at w=</span><span class="sc">{}</span><span class="st">, b=</span><span class="sc">{}</span><span class="st"> is: </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(w, b, grad_cost([w, b])))</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Computing the gradient at w=10, b=4. We would expect it to be smaller than at 0, 0</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>w, b <span class="op">=</span> <span class="fl">10.</span>, <span class="fl">4.</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Gradient at w=</span><span class="sc">{}</span><span class="st">, b=</span><span class="sc">{}</span><span class="st"> is: </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(w, b, grad_cost([w, b])))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Cost at w=0.0, b=0.0 is: 2.98090446495
+Cost at w=10.0, b=4.0 is: 0.0320479471939
+Gradient at w=0.0, b=0.0 is: [array(-0.29297046699711365), array(-0.008765162440358071)]
+Gradient at w=10.0, b=4.0 is: [array(-0.14406455246023858), array(-0.007117830452061141)]</code></pre>
+</div>
+</div>
+</section>
+<section id="adagrad-algorithm-applied-on-whole-data-batch" class="level3">
+<h3 class="anchored" data-anchor-id="adagrad-algorithm-applied-on-whole-data-batch">Adagrad algorithm (applied on whole data batch)</h3>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> adagrad_gd(param_init, cost, niter<span class="op">=</span><span class="dv">5</span>, lr<span class="op">=</span><span class="fl">1e-2</span>, eps<span class="op">=</span><span class="fl">1e-8</span>, random_seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">    param_init: List of initial values of parameters</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">    cost: cost function</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">    niter: Number of iterations to run</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">    lr: Learning rate</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">    eps: Fudge factor, to avoid division by zero</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> copy <span class="im">import</span> deepcopy</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> math</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Fixing the random_seed</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    np.random.seed(random_seed)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Function to compute the gradient of the cost function</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    grad_cost <span class="op">=</span> grad(cost)</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    params <span class="op">=</span> deepcopy(param_init)</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    param_array, grad_array, lr_array, cost_array <span class="op">=</span> [params], [], [[lr <span class="cf">for</span> _ <span class="kw">in</span> params]], [cost(params)]</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Initialising sum of squares of gradients for each param as 0</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    sum_squares_gradients <span class="op">=</span> [np.zeros_like(param) <span class="cf">for</span> param <span class="kw">in</span> params]</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(niter):</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        out_params <span class="op">=</span> []</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        gradients <span class="op">=</span> grad_cost(params)</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="co"># At each iteration, we add the square of the gradients to `sum_squares_gradients`</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>        sum_squares_gradients<span class="op">=</span> [eps <span class="op">+</span> sum_prev <span class="op">+</span> np.square(g) <span class="cf">for</span> sum_prev, g <span class="kw">in</span> <span class="bu">zip</span>(sum_squares_gradients, gradients)]</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Adapted learning rate for parameter list</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        lrs <span class="op">=</span> [np.divide(lr, np.sqrt(sg)) <span class="cf">for</span> sg <span class="kw">in</span> sum_squares_gradients]</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Paramter update</span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> [param<span class="op">-</span>(adapted_lr<span class="op">*</span>grad_param) <span class="cf">for</span> param, adapted_lr, grad_param <span class="kw">in</span> <span class="bu">zip</span>(params, lrs, gradients)]</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        param_array.append(params)</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>        lr_array.append(lrs)</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        grad_array.append(gradients)</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        cost_array.append(cost(params))</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> params, param_array, grad_array, lr_array, cost_array</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="experiment-time" class="level3">
+<h3 class="anchored" data-anchor-id="experiment-time">Experiment time!</h3>
+<section id="evolution-of-learning-rates-for-w-and-b" class="level4">
+<h4 class="anchored" data-anchor-id="evolution-of-learning-rates-for-w-and-b">Evolution of learning rates for <code>W</code> and <code>b</code></h4>
+<p>Let us see how the learning rate for <code>W</code> and <code>b</code> will evolve over time. I will fix the initial learning rate to 0.01 as mot of the Adagrad literature out there seems to suggest.</p>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fixing the random seed for reproducible init params for `W` and `b`</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">0</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>param_init <span class="op">=</span> [np.random.randn(), np.random.randn()]</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>lr <span class="op">=</span> <span class="fl">0.01</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>eps<span class="op">=</span><span class="fl">1e-8</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>niter<span class="op">=</span><span class="dv">1000</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>ada_params, ada_param_array, ada_grad_array, ada_lr_array, ada_cost_array <span class="op">=</span> adagrad_gd(param_init, cost, niter<span class="op">=</span>niter, lr<span class="op">=</span>lr, eps<span class="op">=</span>eps)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let us first see the evolution of cost wrt time</p>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>pd.Series(ada_cost_array, name<span class="op">=</span><span class="st">'Cost'</span>).plot(title<span class="op">=</span><span class="st">'Adagrad: Cost v/s # Iterations'</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Cost"</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"# Iterations"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2017-08-12-linear-regression-adagrad-vs-gd_files/figure-html/cell-9-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>Ok. While There seems to be a drop in the cost, the converegence will be very slow. Remember that we had earlier found</p>
+<blockquote class="blockquote">
+<p>Cost at w=10.0, b=4.0 is: 0.0320479471939</p>
+</blockquote>
+<p>I’m sure this means that our parameter estimates are similar to the initial parameters and far from the true parameters. Let’s just confirm the same.</p>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"After </span><span class="sc">{}</span><span class="st"> iterations, learnt `W` = </span><span class="sc">{}</span><span class="st"> and learnt `b` = </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(niter, <span class="op">*</span>ada_params))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>After 1000 iterations, learnt `W` = 2.38206194526 and learnt `b` = 1.01811878873</code></pre>
+</div>
+</div>
+<p>I would suspect that the learning rate, courtesy of the adaptive nature is falling very rapidly! How would the vanilla gradient descent have done starting with the same learning rate and initial values? My hunch is it would do better. Let’s confirm!</p>
+</section>
+<section id="gd-vs-adagrad" class="level4">
+<h4 class="anchored" data-anchor-id="gd-vs-adagrad">GD vs Adagrad!</h4>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gd(param_init, cost,  niter<span class="op">=</span><span class="dv">5</span>, lr<span class="op">=</span><span class="fl">0.01</span>, random_seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    np.random.seed(random_seed)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> copy <span class="im">import</span> deepcopy</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    grad_cost <span class="op">=</span> grad(cost)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    params <span class="op">=</span> deepcopy(param_init)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    param_array, grad_array, cost_array <span class="op">=</span> [params], [], [cost(params)]</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(niter):</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        out_params <span class="op">=</span> []</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>        gradients <span class="op">=</span> grad_cost(params)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> [param<span class="op">-</span>lr<span class="op">*</span>grad_param <span class="cf">for</span> param, grad_param <span class="kw">in</span> <span class="bu">zip</span>(params, gradients)]</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>        param_array.append(params)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>        grad_array.append(gradients)</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>        cost_array.append(cost(params))</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> params, param_array, grad_array, cost_array</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fixing the random seed for reproducible init params for `W` and `b`</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">0</span>)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>param_init <span class="op">=</span> [np.random.randn(), np.random.randn()]</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>lr <span class="op">=</span> <span class="fl">0.01</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>niter<span class="op">=</span><span class="dv">1000</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>gd_params, gd_param_array, gd_grad_array, gd_cost <span class="op">=</span> gd(param_init, cost, niter<span class="op">=</span>niter, lr<span class="op">=</span>lr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>pd.Series(ada_cost_array, name<span class="op">=</span><span class="st">'Cost'</span>).plot(label<span class="op">=</span><span class="st">'Adagrad'</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>pd.Series(gd_cost, name<span class="op">=</span><span class="st">'Cost'</span>).plot(label<span class="op">=</span><span class="st">'GD'</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Cost"</span>)</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"# Iterations"</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>plt.legend()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<pre><code>&lt;matplotlib.legend.Legend at 0x1153b4ad0&gt;</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="2017-08-12-linear-regression-adagrad-vs-gd_files/figure-html/cell-13-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<p>Ok. So, indeed with learning rate of 0.01, gradient descent fares better. Let’s just confirm that for Adagrad, the learning rates diminish rapidly leading to little reduction in cost!</p>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(np.array(ada_lr_array), columns<span class="op">=</span>[<span class="st">'LR for W'</span>, <span class="st">'LR for b'</span>])[::<span class="dv">50</span>].plot(subplots<span class="op">=</span><span class="va">True</span>, marker<span class="op">=</span><span class="st">'o'</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"# Iterations"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<pre><code>&lt;matplotlib.text.Text at 0x11569c4d0&gt;</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="2017-08-12-linear-regression-adagrad-vs-gd_files/figure-html/cell-14-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<p>There are a couple of interesting observations:</p>
+<ol type="1">
+<li>The learning rate for <code>b</code> actually increases from its initial value of 0.01. Even after 1000 iterations, it remains more than its initial value. This can be explained by the fact that the suim of squares gradients wrt <code>b</code> would be less than 1. Thus, the denominator term by which the learning rate gets divided will be less than 1. Thus, increasing the learning rate wrt b. This can however be fixed by choosing <span class="math inline">\(\epsilon=1.0\)</span></li>
+<li>The learning rate for <code>W</code> falls very rapidly. Learning would be negligble for <code>W</code> after the initial few iterations. This can be fixed by choosing a larger initial learning rate <span class="math inline">\(\eta\)</span>.</li>
+</ol>
+</section>
+<section id="evolution-of-w-and-b-wrt-eta-and-epsilon" class="level4">
+<h4 class="anchored" data-anchor-id="evolution-of-w-and-b-wrt-eta-and-epsilon">Evolution of <code>W</code> and <code>b</code>, wrt <span class="math inline">\(\eta\)</span> and <span class="math inline">\(\epsilon\)</span></h4>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fixing the random seed for reproducible init params for `W` and `b`</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> {}</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> lr <span class="kw">in</span> [<span class="fl">0.01</span>, <span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">10</span>]:</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    out[lr] <span class="op">=</span> {}</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> eps <span class="kw">in</span> [<span class="fl">1e-8</span>, <span class="fl">1e-1</span>, <span class="dv">1</span>]:</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(lr, eps)</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>        np.random.seed(<span class="dv">0</span>)</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        param_init <span class="op">=</span> [np.random.randn(), np.random.randn()]</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>        niter<span class="op">=</span><span class="dv">10000</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>        ada_params, ada_param_array, ada_grad_array, ada_lr_array, ada_cost_array <span class="op">=</span> adagrad_gd(param_init,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>                                                                                               cost, </span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>                                                                                               niter<span class="op">=</span>niter,</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>                                                                                               lr<span class="op">=</span>lr, </span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>                                                                                               eps<span class="op">=</span>eps)</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>        out[lr][eps] <span class="op">=</span> {<span class="st">'Final-params'</span>:ada_params,</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>                       <span class="st">'Param-array'</span>:ada_param_array,</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>                       <span class="st">'Cost-array'</span>:ada_cost_array}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(0.01, 1e-08)
+(0.01, 0.1)
+(0.01, 1)
+(0.1, 1e-08)
+(0.1, 0.1)
+(0.1, 1)
+(1, 1e-08)
+(1, 0.1)
+(1, 1)
+(10, 1e-08)
+(10, 0.1)
+(10, 1)</code></pre>
+</div>
+</div>
+<section id="plotting-cost-vs-iterations" class="level5">
+<h5 class="anchored" data-anchor-id="plotting-cost-vs-iterations">Plotting cost v/s # Iterations</h5>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(nrows<span class="op">=</span><span class="dv">3</span>, ncols<span class="op">=</span><span class="dv">4</span>, sharex<span class="op">=</span><span class="va">True</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">6</span>), sharey<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> row, eps <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">1e-8</span>, <span class="fl">1e-1</span>, <span class="dv">1</span>]):</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> column, lr <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">0.01</span>, <span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">10</span>]):</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>        pd.Series(out[lr][eps][<span class="st">'Cost-array'</span>]).plot(ax<span class="op">=</span>ax[row, column])</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>        ax[<span class="dv">0</span>, column].set_title(<span class="st">"Eta=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(lr))</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    ax[row, <span class="dv">0</span>].set_ylabel(<span class="st">"Eps=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(eps))</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>fig.text(<span class="fl">0.5</span>, <span class="fl">0.0</span>, <span class="st">'# Iterations'</span>)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">"Cost v/s # Iterations"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2017-08-12-linear-regression-adagrad-vs-gd_files/figure-html/cell-16-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>It seems that choosing <span class="math inline">\(\eta=1\)</span> or above the cost usually converges quickly. This seems to be different from most literature recommending <span class="math inline">\(\eta=0.01\)</span>. Aside: I confirmed that even using Tensorflow on the same dataset with Adagrad optimizer, the optimal learning rates are similar to the ones we found here!</p>
+</section>
+<section id="w-vs-iterations" class="level5">
+<h5 class="anchored" data-anchor-id="w-vs-iterations"><code>W</code> v/s # Iterations</h5>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(nrows<span class="op">=</span><span class="dv">3</span>, ncols<span class="op">=</span><span class="dv">4</span>, sharex<span class="op">=</span><span class="va">True</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">6</span>), sharey<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> row, eps <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">1e-8</span>, <span class="fl">1e-1</span>, <span class="dv">1</span>]):</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> column, lr <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">0.01</span>, <span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">10</span>]):</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>        pd.DataFrame(out[lr][eps][<span class="st">'Param-array'</span>])[<span class="dv">0</span>].plot(ax<span class="op">=</span>ax[row, column])</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>        ax[<span class="dv">0</span>, column].set_title(<span class="st">"Eta=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(lr))</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    ax[row, <span class="dv">0</span>].set_ylabel(<span class="st">"Eps=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(eps))</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>fig.text(<span class="fl">0.5</span>, <span class="fl">0.0</span>, <span class="st">'# Iterations'</span>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">"W v/s # Iterations"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2017-08-12-linear-regression-adagrad-vs-gd_files/figure-html/cell-17-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="b-vs-iterations" class="level5">
+<h5 class="anchored" data-anchor-id="b-vs-iterations"><code>b</code> v/s # Iterations</h5>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(nrows<span class="op">=</span><span class="dv">3</span>, ncols<span class="op">=</span><span class="dv">4</span>, sharex<span class="op">=</span><span class="va">True</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">6</span>), sharey<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> row, eps <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">1e-8</span>, <span class="fl">1e-1</span>, <span class="dv">1</span>]):</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> column, lr <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">0.01</span>, <span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">10</span>]):</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>        pd.DataFrame(out[lr][eps][<span class="st">'Param-array'</span>])[<span class="dv">1</span>].plot(ax<span class="op">=</span>ax[row, column])</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>        ax[<span class="dv">0</span>, column].set_title(<span class="st">"Eta=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(lr))</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    ax[row, <span class="dv">0</span>].set_ylabel(<span class="st">"Eps=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(eps))</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>fig.text(<span class="fl">0.5</span>, <span class="fl">0.0</span>, <span class="st">'# Iterations'</span>)</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">"b v/s # Iterations"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2017-08-12-linear-regression-adagrad-vs-gd_files/figure-html/cell-18-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>Across the above two plots, we can see that at high <span class="math inline">\(\eta\)</span>, there are oscillations! In general, <span class="math inline">\(\eta=1\)</span> and <span class="math inline">\(\epsilon=1e-8\)</span> seem to give the best set of results.</p>
+</section>
+</section>
+<section id="visualising-the-model-learning" class="level4">
+<h4 class="anchored" data-anchor-id="visualising-the-model-learning">Visualising the model learning</h4>
+<div class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.animation <span class="im">import</span> FuncAnimation</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(nrows<span class="op">=</span><span class="dv">3</span>, ncols<span class="op">=</span><span class="dv">4</span>, sharex<span class="op">=</span><span class="va">True</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">6</span>), sharey<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> update(i):</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">#fig.clf()</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> row, eps <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">1e-8</span>, <span class="fl">1e-1</span>, <span class="dv">1</span>]):</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> column, lr <span class="kw">in</span> <span class="bu">enumerate</span>([<span class="fl">0.01</span>, <span class="fl">0.1</span>, <span class="dv">1</span>, <span class="dv">10</span>]):</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>            params_i <span class="op">=</span>  out[lr][eps][<span class="st">'Param-array'</span>][i]</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>            ax[row, column].cla()</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>            w_i, b_i <span class="op">=</span> params_i</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>            ax[row, column].plot(X, Y, <span class="st">'k.'</span>, ms<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>            ax[row, column].plot(X, w_i<span class="op">*</span>X<span class="op">+</span>b_i, <span class="st">'r'</span>)</span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>            ax[row, column].tick_params( <span class="co">#https://stackoverflow.com/questions/12998430/remove-xticks-in-a-matplotlib-plot</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>                axis<span class="op">=</span><span class="st">'both'</span>,         </span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>                which<span class="op">=</span><span class="st">'both'</span>,      </span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>                bottom<span class="op">=</span><span class="st">'off'</span>, </span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>                left<span class="op">=</span><span class="st">'off'</span>,</span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>                top<span class="op">=</span><span class="st">'off'</span>,         </span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>                labelbottom<span class="op">=</span><span class="st">'off'</span>,</span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a>                labelleft<span class="op">=</span><span class="st">'off'</span>) </span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a>            ax[<span class="dv">0</span>, column].set_title(<span class="st">"Eta=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(lr))</span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>        ax[row, <span class="dv">0</span>].set_ylabel(<span class="st">"Eps=</span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(eps))</span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a>    fig.suptitle(<span class="st">"Iteration number: </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(i))</span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a>anim <span class="op">=</span> FuncAnimation(fig, update, frames<span class="op">=</span>np.arange(<span class="dv">0</span>, <span class="dv">5000</span>, <span class="dv">200</span>), interval<span class="op">=</span><span class="dv">500</span>)</span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>anim.save(<span class="st">'adagrad.gif'</span>, dpi<span class="op">=</span><span class="dv">80</span>, writer<span class="op">=</span><span class="st">'imagemagick'</span>)</span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a>plt.close()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p><img src="https://nipunbatra.github.io/blog/images/adagrad.gif" class="img-fluid"></p>
+<p>So, there you go. Implementing Adagrad and running this experiment was a lot of fun and learning. Feel free to comment!</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

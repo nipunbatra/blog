@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2021-05-31">
+
+<title>blog - A programming introduction to GANs</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">blog</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html">About</a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/"><i class="bi bi-github" role="img">
+</i> 
+ </a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com"><i class="bi bi-twitter" role="img">
+</i> 
+ </a>
+  </li>  
+</ul>
+              <div id="quarto-search" class="" title="Search"></div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">A programming introduction to GANs</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">ML</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">May 31, 2021</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#goal" id="toc-goal" class="nav-link" data-scroll-target="#goal">Goal</a></li>
+  <li><a href="#overall-block-diagram" id="toc-overall-block-diagram" class="nav-link" data-scroll-target="#overall-block-diagram">Overall Block Diagram</a></li>
+  <li><a href="#creating-true-distribution" id="toc-creating-true-distribution" class="nav-link" data-scroll-target="#creating-true-distribution">Creating “true” distribution</a></li>
+  <li><a href="#creating-the-discriminator" id="toc-creating-the-discriminator" class="nav-link" data-scroll-target="#creating-the-discriminator">Creating the discriminator</a></li>
+  <li><a href="#creating-the-generator" id="toc-creating-the-generator" class="nav-link" data-scroll-target="#creating-the-generator">Creating the generator</a></li>
+  <li><a href="#generating-samples-from-generator" id="toc-generating-samples-from-generator" class="nav-link" data-scroll-target="#generating-samples-from-generator">Generating samples from Generator</a></li>
+  <li><a href="#sampling-from-the-real-train-dataset" id="toc-sampling-from-the-real-train-dataset" class="nav-link" data-scroll-target="#sampling-from-the-real-train-dataset">Sampling from the Real (Train) Dataset</a></li>
+  <li><a href="#training-the-gan" id="toc-training-the-gan" class="nav-link" data-scroll-target="#training-the-gan">Training the GAN</a></li>
+  <li><a href="#convergence" id="toc-convergence" class="nav-link" data-scroll-target="#convergence">Convergence</a></li>
+  <li><a href="#generating-some-fake-images-from-the-trained-generator" id="toc-generating-some-fake-images-from-the-trained-generator" class="nav-link" data-scroll-target="#generating-some-fake-images-from-the-trained-generator">Generating some “fake” images from the trained generator</a></li>
+  <li><a href="#visualising-evolution-of-generator" id="toc-visualising-evolution-of-generator" class="nav-link" data-scroll-target="#visualising-evolution-of-generator">Visualising evolution of generator</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>This is a post about Generative Adversarial Networks (GANs). This post is very heavily influenced and borrows code from:</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=8L11aMN5KY8">Video from Luis Serrano</a></li>
+<li>Heavily borrowed code from this <a href="https://machinelearningmastery.com/how-to-develop-a-generative-adversarial-network-for-an-mnist-handwritten-digits-from-scratch-in-keras/">article</a> on machine learning mastery</li>
+</ul>
+<p>These folks deserve all the credit! I am writing this post mostly for my learning.</p>
+<p>I’d highly recommend reading the above two mentioned resources.</p>
+</section>
+<section id="goal" class="level2">
+<h2 class="anchored" data-anchor-id="goal">Goal</h2>
+<p>The goal of GANs is to generate <a href="https://en.wikipedia.org/wiki/Generative_adversarial_network">realistic data</a>, i.e.&nbsp;data with similar statistics as the training data.</p>
+<p>See below a “generated” face on https://thispersondoesnotexist.com</p>
+<p>Refresh this page to get a new face each time!</p>
+<p>These are people that do not exist but their faces have been generated using GANs.</p>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> HTML, IFrame</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>IFrame(<span class="st">"https://thispersondoesnotexist.com"</span>, <span class="dv">400</span>, <span class="dv">400</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+
+        <iframe width="400" height="400" src="https://thispersondoesnotexist.com" frameborder="0" allowfullscreen=""></iframe>
+        
+</div>
+</div>
+</section>
+<section id="overall-block-diagram" class="level2">
+<h2 class="anchored" data-anchor-id="overall-block-diagram">Overall Block Diagram</h2>
+<p>Conceptually, GANs are simple.They have two main components:</p>
+<ul>
+<li>A discriminator: that tries to accurately tell generated and real data (from training data) apart</li>
+<li>A generator: that generates data given some random numbers</li>
+</ul>
+<p>The goal of GANs is to use the generator to create realistic data such that the discriminator thinks it is real (coming from the training dataset)</p>
+<p><img src="GAN-1.jpg" class="img-fluid"></p>
+<p>The two components discriminator and generator are “fighting” where:</p>
+<ul>
+<li>the goal of the discriminator is to tell apart fake (generated) data from true data (from training set) even when the generator is fairly good</li>
+<li>the goal of the generator is to generate realistics data such that the discriminator thinks it is real data</li>
+</ul>
+<p><img src="GAN-2.jpg" class="img-fluid"></p>
+</section>
+<section id="creating-true-distribution" class="level2">
+<h2 class="anchored" data-anchor-id="creating-true-distribution">Creating “true” distribution</h2>
+<p>Let us now create some data from the true/known distribution. We will be essentially creating a 2x2 matrix (image) as explained in Luis Serrano’s tutorial. The (0, 0) and (1, 1) position will be a high number between 0.8 and 1 whereas the other two positions (0, 1) and (1, 0) have values between 0 and 0.1</p>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mediapy <span class="im">as</span> media</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">40</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>warnings.filterwarnings(<span class="st">'ignore'</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">'TF_CPP_MIN_LOG_LEVEL'</span>] <span class="op">=</span> <span class="st">'3'</span>  <span class="co"># FATAL</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>logging.getLogger(<span class="st">'tensorflow'</span>).setLevel(logging.FATAL)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tensorflow <span class="im">as</span> tf   </span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>tf.get_logger().setLevel(<span class="st">'ERROR'</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>tf.random.set_seed(<span class="dv">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>SIZE <span class="op">=</span> <span class="dv">5000</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>faces <span class="op">=</span> np.vstack((np.random.uniform(<span class="fl">0.8</span>, <span class="dv">1</span>, SIZE), </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                   np.random.uniform(<span class="fl">0.</span>, <span class="fl">0.1</span>, SIZE),</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                  np.random.uniform(<span class="fl">0.</span>, <span class="fl">0.1</span>, SIZE),</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                  np.random.uniform(<span class="fl">0.8</span>, <span class="dv">1</span>, SIZE))).T</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>faces.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="3">
+<pre><code>(5000, 4)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> plot_face(f):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    f_reshape <span class="op">=</span> f.reshape(<span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    plt.imshow(f_reshape, cmap<span class="op">=</span><span class="st">"Greys"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> plot_faces(faces, subset<span class="op">=</span><span class="dv">1</span>):</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    images <span class="op">=</span> {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f'Image=</span><span class="sc">{</span>im<span class="sc">}</span><span class="ss">'</span>: faces[im].reshape(<span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> im <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(faces))[::subset]</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    media.show_images(images, border<span class="op">=</span><span class="va">True</span>, columns<span class="op">=</span><span class="dv">8</span>, height<span class="op">=</span><span class="dv">80</span>, cmap<span class="op">=</span><span class="st">'Greys'</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>plot_faces(faces, subset<span class="op">=</span><span class="dv">700</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD49esXw////3l4eAAppQYQDAt6PgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=700</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPQ09P78+cPw////xkYGAAwCwZ8YqkpwgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=1400</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgZGT8//8/w////xkYGAAqCAX+rdWO7AAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=2100</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w8+fP5WUlAAqVgZPkzdpVQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=2800</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w9+/f9XV1QEqsAZqeOCZRQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=3500</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYmL68+cPw////xkYGAAp2wX4NHILpgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=4200</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w58/fwQFBQEqHQYlDCRycQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=4900</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4+/cvw////0VFRQEqLAY0rkUlGwAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table>
+</div>
+</div>
+<p>The above shows some samples drawn from the true distibution. Let us also now create some random/noisy samples. These samples do not have any relationship between the 4 positions.</p>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Examples of noisy images</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>noise <span class="op">=</span> np.random.randn(<span class="dv">40</span>, <span class="dv">4</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>noise <span class="op">=</span> np.<span class="bu">abs</span>(noise)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>noise <span class="op">=</span> noise<span class="op">/</span>noise.<span class="bu">max</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>plot_faces(noise)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP48eMHAwMD4////3/+/AkAN7wI0pywQt8AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=1</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMoLy9/+fIlAwMDw////wEvVwceThTtKAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGM4evTo////mVatWsXIyAgAQLEHUCGWXXkAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=3</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4+fMnAwMDw////yMiIgA0EwbxaKiMEgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GJ48ecLAwAAAS3wIk3r0+GAAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=5</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYunTp9+/fGf7//8/AwAAAQEAH0pWnKE0AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGN8+fLlhg0bGBgYGP7//w8AOWoHyk/l43sAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=7</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGM4efLk////GRgYGPLy8gA5ywajt+fgowAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=8</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////t2/fmBgZGc+dOwcAQtsIUB/zmOcAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=9</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4//8/AwMDo4ODw8uXLwEtJwZ6SX1otwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=10</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGM0NTUVFBRk+P//PwMDAwAYTAPRhJBepAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=11</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOor69nYGBgunLlyv///wEkXgb5Ml0r/wAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=12</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNsbW3V1NRk+P//PwMDAwAmFAUJZD8gQQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=13</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGA4deoUw8WLF////w8AJ5UHz3PIC2IAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=14</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOoqKj4//8/AwMDQ01NDQAuuwXaLS8r3gAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=15</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP49euXjo4OAwMDw////wEt1AZw0/mIBwAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=16</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMoLy////8/AwMDAy8vLwAr/QSKtDRseAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=17</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP49+/f////mQ4fPszIyAgASiwIRri0li4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=18</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/k6mp6YYNGwAiPAWveYzRZgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=19</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMoLi7W19dnYGBg+P//PwAbKQTkOlzmtwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=20</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4//8/AwMD47x589TV1QEuHQVOGAWpaQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=21</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPcv3+/rKwsw////xkYGAAs+AWT7tvmzQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=22</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGDYsGEDw58/f/7//w8AJ1wIAjERcdMAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=23</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP49u1bTk4OAwMDw////wE0BAck2Nkw9wAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=24</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4//8/Pz8/EyMjY2xsLAAnygRHzXzc8gAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=25</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGO4ePEiAwMD4//////9+wcAMl4IbLp2fIwAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=26</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/k7Cw8MePHwEhxAYM5jALOQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=27</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMwNjb+//8/AwMDQ3h4OAAkKQSc/x+mGgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=28</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNcsGDB2bNnGf7//8/AwAAAOywHRqZbGf4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=29</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGA4cOAAw5cvX/7//w8AKJQIGjLyBq4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=30</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNwd3f///8/AwMDw9KlSwEozQXCxa/2sgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=31</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4//8/AwMD44oVK9TU1AAurQVpjMGVMwAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=32</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMQFxf///8/AwMDQ1xcHAAgYwRdqB3tkwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=33</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8////7NmzGRgYGExNTQE1jwVvh0rvNAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=34</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMMCAjQ1NRkYGBg+P//PwAVqQRqp7CUGgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=35</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/46tXr968eQMALjgIgTdEaLkAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=36</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////58+fmRgZGbdu3QoAQfQH/BLqH3oAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=37</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP4//8/AwMD07Vr116/fg0ANgQIQw1AYE8AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=38</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////hg0bGN69e8fAwAAARHoH2RqyP9sAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=39</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGAICAhg+Pbt2////wEc4gbQoslpZgAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table>
+</div>
+</div>
+</section>
+<section id="creating-the-discriminator" class="level2">
+<h2 class="anchored" data-anchor-id="creating-the-discriminator">Creating the discriminator</h2>
+<p>Our discriminator is simple.</p>
+<ul>
+<li>It accepts as input a 4 dimensional input (the 2x2 image)</li>
+<li>It outputs a single number with sigmoid activation denoting the probability of:</li>
+<li>image being fake or generated by generator or belonging to class 0</li>
+<li>image being real or sampled from training dataset or belonging to class 1</li>
+<li>We use the binary cross entropy loss</li>
+</ul>
+<p>To make the above crystal clear, I’ll use the following <a href="https://gist.github.com/craffel/2d727968c3aaebd10359">gist</a> to draw this NN</p>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> draw_nn <span class="im">import</span> draw_neural_net</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure(figsize<span class="op">=</span>(<span class="dv">4</span>, <span class="dv">4</span>))</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>ax <span class="op">=</span> fig.gca()</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>ax.axis(<span class="st">'off'</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>draw_neural_net(ax, <span class="fl">.1</span>, <span class="fl">0.9</span>, <span class="fl">.1</span>, <span class="fl">.6</span>, [<span class="dv">4</span>, <span class="dv">1</span>])</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Discriminator NN"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2021-05-31-GAN_files/figure-html/cell-10-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tensorflow.keras.layers <span class="im">import</span> Dense</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tensorflow.keras.models <span class="im">import</span> Sequential, load_model</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tensorflow.keras.optimizers <span class="im">import</span> Adam</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>discriminator <span class="op">=</span> Sequential([</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  Dense(<span class="dv">1</span>,activation<span class="op">=</span><span class="st">'sigmoid'</span>, input_shape<span class="op">=</span>(<span class="dv">4</span>, )),</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>discriminator._name <span class="op">=</span> <span class="st">"Discriminator"</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>discriminator.<span class="bu">compile</span>(</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    optimizer<span class="op">=</span>Adam(<span class="fl">0.001</span>),</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    loss<span class="op">=</span><span class="st">'binary_crossentropy'</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>discriminator.summary()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Model: "Discriminator"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+dense (Dense)                (None, 1)                 5         
+=================================================================
+Total params: 5
+Trainable params: 5
+Non-trainable params: 0
+_________________________________________________________________</code></pre>
+</div>
+</div>
+<p>As expected, the discriminator has 5 parameters (4 weights coming from the 4 inputs to the output node and 1 bias term added). Now, let us create the generator.</p>
+</section>
+<section id="creating-the-generator" class="level2">
+<h2 class="anchored" data-anchor-id="creating-the-generator">Creating the generator</h2>
+<p>Let us now create the generator model. We create a very simple one</p>
+<ul>
+<li>It accepts as input a single random number</li>
+<li>It creates a vector of size 4</li>
+</ul>
+<p>The illustration below shows this network. It should be noted that the single random input is an arbitrary choice. We could use any number really!</p>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure(figsize<span class="op">=</span>(<span class="dv">4</span>, <span class="dv">4</span>))</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>ax <span class="op">=</span> fig.gca()</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>ax.axis(<span class="st">'off'</span>)</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>draw_neural_net(ax, <span class="fl">.1</span>, <span class="fl">0.9</span>, <span class="fl">.1</span>, <span class="fl">.6</span>, [<span class="dv">1</span>, <span class="dv">4</span>])</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Generator NN"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2021-05-31-GAN_files/figure-html/cell-13-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> keras.layers <span class="im">import</span> ReLU</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>generator <span class="op">=</span> Sequential([</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  Dense(<span class="dv">4</span>, input_shape<span class="op">=</span>(<span class="dv">1</span>, )),</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>   ReLU(max_value<span class="op">=</span><span class="fl">1.0</span>) </span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>generator._name <span class="op">=</span> <span class="st">"Generator"</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>generator.<span class="bu">compile</span>(</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    optimizer<span class="op">=</span>Adam(<span class="fl">0.001</span>),</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    loss<span class="op">=</span><span class="st">'binary_crossentropy'</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>generator.summary()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Model: "Generator"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+dense_1 (Dense)              (None, 4)                 8         
+_________________________________________________________________
+module_wrapper (ModuleWrappe (None, 4)                 0         
+=================================================================
+Total params: 8
+Trainable params: 8
+Non-trainable params: 0
+_________________________________________________________________</code></pre>
+</div>
+</div>
+<p>We can verify that the network has 8 parameters (4 weights and one bias value per output node)</p>
+</section>
+<section id="generating-samples-from-generator" class="level2">
+<h2 class="anchored" data-anchor-id="generating-samples-from-generator">Generating samples from Generator</h2>
+<p>We can now use our generator to generate some samples and plot them.</p>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_fake(n_samples):</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    x_input <span class="op">=</span> np.random.randn(n_samples, <span class="dv">1</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> generator.predict(x_input)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    y <span class="op">=</span> np.zeros((n_samples, <span class="dv">1</span>))</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> X, y</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>As expected, the samples look random, without any specific pattern and do not resemble the training data as our generator is untrained. Further, it is important to reiterate that the class associated with the fake samples generated from the generator is 0. Thus, we have the line <code>np.zeros((n_samples, 1))</code> in the code above.</p>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>plot_faces(gen_fake(<span class="dv">20</span>)[<span class="dv">0</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=1</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=3</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////t2/fGP7//8/AwAAATNsI3rLNbrIAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=5</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGOYP3/+////GRgYGP7//w8AN0kH2PCazaMAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=7</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=8</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=9</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=10</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=11</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=12</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=13</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=14</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=15</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=16</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOQkpL6//8/AwMDw////wEklQZJw0UPUgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=17</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////169fGf7//8/AwAAATMAI2zEM5ooAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=18</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=19</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGP8////jx8/GP7//8/AwAAATREI5Nu8ozgAAAAASUVORK5CYII="></div></div></div></td></tr></tbody></table>
+</div>
+</div>
+</section>
+<section id="sampling-from-the-real-train-dataset" class="level2">
+<h2 class="anchored" data-anchor-id="sampling-from-the-real-train-dataset">Sampling from the Real (Train) Dataset</h2>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_real(n_samples):</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> np.random.randint(<span class="dv">0</span>, faces.shape[<span class="dv">0</span>], n_samples)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> faces[ix]</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    y <span class="op">=</span> np.ones((n_samples, <span class="dv">1</span>))</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> X, y</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>plot_faces(gen_real(<span class="dv">20</span>)[<span class="dv">0</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w79//5iYmAAp4QX+jLgd4wAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=1</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w69fv5SUlAAqZQZSVIjGDQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4/fs3w////zU1NQEqbgZq/Jl8VAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=3</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgZmb+//8/w////xkYGAAqUAYE73dnAgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOQlpb+//8/w+/fvxkYGAAtdAZAWIj+JgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=5</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w69fv8zMzAAq3QaOZoQyYwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w/////n4+AAqOAYliTcXWQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=7</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPg4eH5//8/w+/fvxkYGAArWAYTV4FrZwAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=8</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMQFBT8//8/w9+/fxkYGAAsKgYoXIsUqQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=9</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD49esXw////6WlpQEp/wY9IJmqugAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=10</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////3l5eQEqMgYijxKNfQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=11</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPg4OD4//8/w79//xgYGAAq9QYQotar1AAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=12</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOQkpL6//8/w79//xgYGAAtfQZG0XUIvgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=13</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgY2P7//8/w58/fxgYGAAqjwYEgTvdOgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=14</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD48+cPw////3l5eQEp4QYZtAQmTwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=15</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4/fs3w////6WkpAAqFAY93ZVwqgAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=16</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD49+8fw////42MjAAq9QaO64/3sQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=17</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPg5OT89u0bw////xkYGAAqNQX7/ZM3VAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=18</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOQkZH5+vUrw////xkYGAAsxgYxl54QjQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=19</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgZGT8//8/w/fv3xkYGAApkAXmQJCyEgAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table>
+</div>
+</div>
+<p>We can clearly see the pattern in the images coming from the training dataset.</p>
+</section>
+<section id="training-the-gan" class="level2">
+<h2 class="anchored" data-anchor-id="training-the-gan">Training the GAN</h2>
+<p>The block diagram below shows the main idea behind training GANs. The procedure is similar to alternative least squares.</p>
+<p><img src="GAN-3.jpg" class="img-fluid"></p>
+<div class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> define_gan(g_model, d_model):</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    d_model.trainable <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    model <span class="op">=</span> Sequential()</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    model.add(g_model)</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    model.add(d_model)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    opt <span class="op">=</span> Adam(lr<span class="op">=</span><span class="fl">0.001</span>)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>    model.<span class="bu">compile</span>(loss<span class="op">=</span><span class="st">'binary_crossentropy'</span>, optimizer<span class="op">=</span>opt)</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> model</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>gan_model <span class="op">=</span> define_gan(generator, discriminator)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>It is important to note that we will train two networks:</p>
+<ul>
+<li>Discriminator on</li>
+<li>Fake data (class 0)</li>
+<li>Real data (class 1)</li>
+<li>Combined model consisting og Generator + Discriminator (where the Discriminator is is fixed) on</li>
+<li>Fake data (class 0) posing as real data (class 1) to the model</li>
+</ul>
+<p>Thus, we do not train on the generator separately.</p>
+<div class="cell" data-execution_count="21">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>samples_saved <span class="op">=</span> {}</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>losses <span class="op">=</span> {}</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>N_ITER <span class="op">=</span> <span class="dv">1000</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>STEP <span class="op">=</span> N_ITER<span class="op">//</span><span class="dv">10</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(N_ITER):</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Generate some fake data</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>    X_fake, y_fake <span class="op">=</span> gen_fake(<span class="dv">2</span>)</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>    X_real, y_real <span class="op">=</span> gen_real(<span class="dv">2</span>)</span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>    X, y <span class="op">=</span> np.vstack((X_fake, X_real)), np.vstack((y_fake, y_real))</span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Discriminator </span></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    d_loss <span class="op">=</span> discriminator.train_on_batch(X, y)</span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Generator</span></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>    n_samples <span class="op">=</span> <span class="dv">4</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>    g_loss<span class="op">=</span> gan_model.train_on_batch(np.random.randn(n_samples, <span class="dv">1</span>), np.ones(n_samples))</span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>    losses[i] <span class="op">=</span> {<span class="st">'Gen. loss'</span>:g_loss, <span class="st">'Disc. loss'</span>:d_loss}</span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Save 5 samples</span></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>    samples_saved[i]<span class="op">=</span> gen_fake(<span class="dv">5</span>)[<span class="dv">0</span>]</span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span>STEP<span class="op">==</span><span class="dv">0</span>:</span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Save model</span></span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>        generator.save(<span class="ss">f"models/gen-</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">""</span>)</span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Iteration: </span><span class="sc">{}</span><span class="st">"</span>.<span class="bu">format</span>(i))</span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Discriminator loss: </span><span class="sc">{:0.2f}</span><span class="st">"</span>.<span class="bu">format</span>(d_loss))</span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Generator loss: </span><span class="sc">{:0.2f}</span><span class="st">"</span>.<span class="bu">format</span>(g_loss))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 0
+Discriminator loss: 0.61
+Generator loss: 0.72</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 100
+Discriminator loss: 0.61
+Generator loss: 0.75</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 200
+Discriminator loss: 0.59
+Generator loss: 0.76</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 300
+Discriminator loss: 0.57
+Generator loss: 0.72</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 400
+Discriminator loss: 0.60
+Generator loss: 0.77</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 500
+Discriminator loss: 0.61
+Generator loss: 0.68</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 600
+Discriminator loss: 0.64
+Generator loss: 0.66</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 700
+Discriminator loss: 0.60
+Generator loss: 0.71</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 800
+Discriminator loss: 0.65
+Generator loss: 0.66</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>WARNING:absl:Found untraced functions such as re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_fn, re_lu_layer_call_fn, re_lu_layer_call_and_return_conditional_losses, re_lu_layer_call_and_return_conditional_losses while saving (showing 5 of 5). These functions will not be directly callable after loading.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Iteration: 900
+Discriminator loss: 0.70
+Generator loss: 0.63</code></pre>
+</div>
+</div>
+</section>
+<section id="convergence" class="level2">
+<h2 class="anchored" data-anchor-id="convergence">Convergence</h2>
+<div class="cell" data-execution_count="22">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>losses_df <span class="op">=</span> pd.DataFrame(losses)</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>losses_df.T.plot()<span class="op">;</span></span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Iteration Number"</span>)<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2021-05-31-GAN_files/figure-html/cell-23-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>You might epxect that over time the generator loss reduces as it becomes better and correspodingly the discriminator has a harder time!</p>
+</section>
+<section id="generating-some-fake-images-from-the-trained-generator" class="level2">
+<h2 class="anchored" data-anchor-id="generating-some-fake-images-from-the-trained-generator">Generating some “fake” images from the trained generator</h2>
+<div class="cell" data-execution_count="23">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a>plot_faces(gen_fake(<span class="dv">20</span>)[<span class="dv">0</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFUlEQVR4nAXBAQEAAACAEP9PF1CpMCnkBftM2nerAAAAAElFTkSuQmCC"></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=1</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFUlEQVR4nAXBAQEAAACAEP9PF1CpMCnkBftM2nerAAAAAElFTkSuQmCC"></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////7W1tQEq5gZ8yd8VKgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=3</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////zU0NAAq1AZz61mzFAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////83MzAArKAadKldxjwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=5</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////xUVFQEqqgZekcUFZgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////6WkpAAqgAZJm844RAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=7</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPg4OD4//8/w////xkYGAArBAYTy4KUnAAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=8</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMIDg7+//8/w////xkYGAA1kAb0zF294gAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=9</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w/////n5+QEqPgYoo0Dm9wAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=10</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFUlEQVR4nAXBAQEAAACAEP9PF1CpMCnkBftM2nerAAAAAElFTkSuQmCC"></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=11</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNwcXH5//8/w////xkYGAAzdAbH6bpyFAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=12</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFUlEQVR4nAXBAQEAAACAEP9PF1CpMCnkBftM2nerAAAAAElFTkSuQmCC"></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=13</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFUlEQVR4nAXBAQEAAACAEP9PF1CpMCnkBftM2nerAAAAAElFTkSuQmCC"></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=14</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFUlEQVR4nAXBAQEAAACAEP9PF1CpMCnkBftM2nerAAAAAElFTkSuQmCC"></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=15</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFUlEQVR4nAXBAQEAAACAEP9PF1CpMCnkBftM2nerAAAAAElFTkSuQmCC"></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=16</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNwc3P7//8/w////xkYGAAzvAbNwJuC1QAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=17</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////5WUlAAqsAZho8SErAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=18</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////0NCQgAr3Ab3j99RKgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>Image=19</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOwtbX9//8/w////xkYGAAyeAay8NfZbQAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table>
+</div>
+</div>
+<p>You could not tell, right! The generator has been trained well!</p>
+</section>
+<section id="visualising-evolution-of-generator" class="level2">
+<h2 class="anchored" data-anchor-id="visualising-evolution-of-generator">Visualising evolution of generator</h2>
+<p>Let us now visualise the evolution of the generator. To do so, we use the already saved generator models at different iterations and feed them the same “random” input.</p>
+<div class="cell" data-execution_count="24">
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>o <span class="op">=</span> {}</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">0</span>, N_ITER, STEP):</span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> inp <span class="kw">in</span> [<span class="fl">0.</span>, <span class="fl">0.2</span>, <span class="fl">0.4</span>, <span class="fl">0.6</span>, <span class="fl">1.</span>]:</span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>        o[<span class="ss">f'It:</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">-Inp:</span><span class="sc">{</span>inp<span class="sc">}</span><span class="ss">'</span>] <span class="op">=</span> load_model(<span class="ss">f"models/gen-</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>).predict(np.array([inp])).reshape(<span class="dv">2</span>, <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="26">
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>media.show_images(o,  border<span class="op">=</span><span class="va">True</span>, columns<span class="op">=</span><span class="dv">5</span>, height<span class="op">=</span><span class="dv">80</span>, cmap<span class="op">=</span><span class="st">'Greys'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+
+<table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:0-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8//8/AwMDEwMDAwMDAwAkBgMB/DXemwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:0-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:0-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:0-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:0-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNYtWrV////GRgYGP7//w8AONUH+fjktD4AAAAASUVORK5CYII="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:100-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/0////xkYGAAp8gX9PrPXDAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:100-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/07p16xgYGAAlMwUKrG/M+gAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:100-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/k6qqKgMDAwAdLANvVyJtTQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:100-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOQkpL6//8/AwMDw////wEklQZJw0UPUgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:100-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGMICAj4//8/AwMDw////wEsLQbr/4pjtwAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:200-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////69evQoALvAIfJgqbyMAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:200-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/0////xkYGAAp8gX9PrPXDAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:200-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/05kzZxgYGAAm9QVkjUmo0wAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:200-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/U09PDwMDAwAjNQSkCL0h8wAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:200-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/k5ubGwMDAwAfGwPSPkAwqQAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:300-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////xMTEwEsKgceSbruSwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:300-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////1+9egUAL24Iu7FeOGcAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:300-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/0////xkYGAAp8gX9PrPXDAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:300-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/05MnTxgYGAAoXQWs2oHAFwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:300-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/07p16xgYGAAlMwUKrG/M+gAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:400-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////9XV1QEqzgZwpZ6tXQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:400-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0/////ft2wcALmYIN0Wxa1IAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:400-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////79//w4AL7wI4p+4xF4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:400-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/0////xkYGAAp8gX9PrPXDAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:400-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/09OnTxkYGAAobAWvmsYOegAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:500-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////3l5eQEqMgYijxKNfQAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:500-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////ydNmgQALV4Hs8qTgbQAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:500-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////+/duwcALyYIl0Ii3e4AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:500-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0//////9+wcAL+YI94+Cf6gAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:500-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/08+fPxkYGAApmAXrzm1gjwAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:600-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////xkZGQEp6gX+6dxoIwAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:600-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////4uKigAskAdR5iw7HAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:600-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////w8cOAAALnIIPY/pcIQAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:600-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////1++fAkAL2gIuLZH580AAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:600-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/0////xkYGAAp8gX9PrPXDAAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:700-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgZWX9//8/w////xkYGAAqmAYKB6e/6QAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:700-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////8PDwwEr7gcAByS8ewAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:700-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////6dNmwYALXYHv3iRcDcAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:700-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////w8fPgwALoQIRmPqJfAAAAAASUVORK5CYII="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:700-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////79//w4AL7wI4p+4xF4AAAAASUVORK5CYII="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:800-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgZ2f///8/w////xkYGAAq4AYQ9m+hXAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:800-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////y0sLAArNAajaD6uxAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:800-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////9PT0wEsTgcwfeFGcAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:800-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/0////9va2gAtFgePrCY74gAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:800-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGNgYGD4//8/0////48ePQoALpAITNVePhMAAAAASUVORK5CYII="></div></div></div></td></tr></tbody></table><table class="show_images" style="border-spacing:0;"><tbody><tr><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:900-Inp:0.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGPg4OD4//8/w////xkYGAArBAYTy4KUnAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:900-Inp:0.2</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////4WFhQEqVgY0XVLTGgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:900-Inp:0.4</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////zU1NQEq2gZ2weabMAAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:900-Inp:0.6</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////52dnQErdgbEdPR4QgAAAABJRU5ErkJggg=="></div></div></div></td><td><div style="display:flex; align-items:left;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+      <div>It:900-Inp:1.0</div><div><img width="80" height="80" style="border:1px solid black; image-rendering:pixelated; object-fit:cover;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4//8/w////3NzcwEscgdCGmFvmAAAAABJRU5ErkJggg=="></div></div></div></td></tr></tbody></table>
+</div>
+</div>
+<p>We can see above the improvement of the generation over the different iterations and different inputs! That is it for this article. Happing GANning.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

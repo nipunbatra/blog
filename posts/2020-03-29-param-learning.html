@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2020-03-29">
+<meta name="description" content="How to learn the parameters of a GP">
+
+<title>blog - Learning Gaussian Process regression parameters using gradient descent</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">blog</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html">About</a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/"><i class="bi bi-github" role="img">
+</i> 
+ </a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com"><i class="bi bi-twitter" role="img">
+</i> 
+ </a>
+  </li>  
+</ul>
+              <div id="quarto-search" class="" title="Search"></div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Learning Gaussian Process regression parameters using gradient descent</h1>
+                  <div>
+        <div class="description">
+          How to learn the parameters of a GP
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">ML</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">March 29, 2020</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#key-idea" id="toc-key-idea" class="nav-link active" data-scroll-target="#key-idea">Key Idea</a></li>
+  <li><a href="#defining-log-likelihood" id="toc-defining-log-likelihood" class="nav-link" data-scroll-target="#defining-log-likelihood">Defining log-likelihood</a></li>
+  <li><a href="#imports" id="toc-imports" class="nav-link" data-scroll-target="#imports">Imports</a></li>
+  <li><a href="#defining-our-rbf-kernel" id="toc-defining-our-rbf-kernel" class="nav-link" data-scroll-target="#defining-our-rbf-kernel">Defining our RBF kernel</a></li>
+  <li><a href="#defining-gpys-rbf-kernel" id="toc-defining-gpys-rbf-kernel" class="nav-link" data-scroll-target="#defining-gpys-rbf-kernel">Defining GPy’s RBF kernel</a></li>
+  <li><a href="#matching-our-rbf-kernel-with-gpys-kernel" id="toc-matching-our-rbf-kernel-with-gpys-kernel" class="nav-link" data-scroll-target="#matching-our-rbf-kernel-with-gpys-kernel">Matching our RBF kernel with GPy’s kernel</a></li>
+  <li><a href="#gp-regresion" id="toc-gp-regresion" class="nav-link" data-scroll-target="#gp-regresion">GP Regresion</a></li>
+  <li><a href="#function-to-compute-negative-log-likelihood" id="toc-function-to-compute-negative-log-likelihood" class="nav-link" data-scroll-target="#function-to-compute-negative-log-likelihood">Function to compute negative log likelihood</a></li>
+  <li><a href="#comparing-the-nll-from-our-method-with-the-nll-from-gpy" id="toc-comparing-the-nll-from-our-method-with-the-nll-from-gpy" class="nav-link" data-scroll-target="#comparing-the-nll-from-our-method-with-the-nll-from-gpy">Comparing the NLL from our method with the NLL from GPy</a></li>
+  <li><a href="#optimizing-the-gp-using-gpy" id="toc-optimizing-the-gp-using-gpy" class="nav-link" data-scroll-target="#optimizing-the-gp-using-gpy">Optimizing the GP using GPy</a></li>
+  <li><a href="#plotting-the-nll-as-a-function-of-variance-and-lenghtscale" id="toc-plotting-the-nll-as-a-function-of-variance-and-lenghtscale" class="nav-link" data-scroll-target="#plotting-the-nll-as-a-function-of-variance-and-lenghtscale">Plotting the NLL as a function of variance and lenghtscale</a></li>
+  <li><a href="#gradient-descent-using-autograd" id="toc-gradient-descent-using-autograd" class="nav-link" data-scroll-target="#gradient-descent-using-autograd">Gradient descent using autograd</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="http://www.youtube.com/watch?v=zBG1BHtipIY"><img src="http://img.youtube.com/vi/zBG1BHtipIY/0.jpg" class="img-fluid figure-img"></a></p>
+</figure>
+</div>
+<p>In previous posts, I have talked about GP regression:</p>
+<ul>
+<li><a href="https://nipunbatra.github.io/blog/ml/2019/08/20/Gaussian-Processes.html">Post 1 on programatically understanding GPs</a></li>
+<li><a href="https://nipunbatra.github.io/blog/ml/2020/03/26/gp.html">Post 2 on making use of a popular GP library called GPy</a></li>
+</ul>
+<p>In this post, I will be talking about how to learn the parameters of a GP. I’ll keep this post simple and specific to a trivial example using RBF kernel (though the methods discussed are general.)</p>
+<p>To keep things simple, we will assume a mean prior of zero and we will only be learning the parameters of the kernel function.</p>
+<section id="key-idea" class="level3">
+<h3 class="anchored" data-anchor-id="key-idea">Key Idea</h3>
+<ol type="1">
+<li>Write the expression of log likelihood of data in terms of kernel parameters</li>
+<li>Use gradient descent to optimize the objective (negative log likelihood) and update the kernel parameters</li>
+</ol>
+</section>
+<section id="defining-log-likelihood" class="level3">
+<h3 class="anchored" data-anchor-id="defining-log-likelihood">Defining log-likelihood</h3>
+<p>In our previous post we had mentioned (for the <strong>noiseless case</strong>):</p>
+<p>Given train data <span class="math display">\[
+D=\left(x_{i}, y_{i}\right), i=1: N
+\]</span> Given a test set <span class="math inline">\(X_{*}\)</span> of size <span class="math inline">\(N_{*} \times d\)</span> containing <span class="math inline">\(N_{*}\)</span> points in <span class="math inline">\(\mathbb{R}^{d},\)</span> we want to predict function outputs <span class="math inline">\(y_{*}\)</span> We can write: <span class="math display">\[
+\left(\begin{array}{l}
+y \\
+y_{*}
+\end{array}\right) \sim \mathcal{N}\left(\left(\begin{array}{l}
+\mu \\
+\mu_{*}
+\end{array}\right),\left(\begin{array}{cc}
+K &amp; K_{*} \\
+K_{*}^{T} &amp; K_{* *}
+\end{array}\right)\right)
+\]</span> where <span class="math display">\[
+\begin{aligned}
+K &amp;=\operatorname{Ker}(X, X) \in \mathbb{R}^{N \times N} \\
+K_{*} &amp;=\operatorname{Ker}\left(X, X_{*}\right) \in \mathbb{R}^{N \times N} \\
+K_{* *} &amp;=\operatorname{Ker}\left(X_{*}, X_{*}\right) \in \mathbb{R}^{N_{*} \times N_{*}}
+\end{aligned}
+\]</span></p>
+<p>Thus, from the property of conditioning of multivariate Gaussian, we know that:</p>
+<p><span class="math display">\[y \sim \mathcal{N}_N(\mu, K)\]</span></p>
+<p>We will assume <span class="math inline">\(\mu\)</span> to be zero. Thus, we have for the train data, the following expression:</p>
+<p><span class="math display">\[y \sim \mathcal{N}_N(0, K)\]</span></p>
+<p>For the <strong>noisy case</strong>, we have:</p>
+<p><span class="math display">\[y \sim \mathcal{N}_N(0, K + \sigma_{noise}^2\mathcal{I}_N)\]</span></p>
+<p>From this expression, we can write the log-likelihood of data computed over the kernel parameters <span class="math inline">\(\theta\)</span> as:</p>
+<p><span class="math display">\[\mathcal{LL}(\theta) = \log(\frac{\exp((-1/2)(y-0)^T (K+\sigma_{noise}^2\mathcal{I}_N)^{-1}(y-0))}{(2\pi)^{N/2}|(K+\sigma_{noise}^2\mathcal{I}_N)|^{1/2}})\]</span></p>
+<p>Thus, we can write:</p>
+<p><span class="math display">\[\mathcal{LL}(\theta) =\log P(\mathbf{y} | X, \theta)=-\frac{1}{2} \mathbf{y}^{\top} M^{-1} \mathbf{y}-\frac{1}{2} \log |M|-\frac{N}{2} \log 2 \pi\]</span></p>
+<p>where <span class="math display">\[M = K + \sigma_{noise}^2\mathcal{I}_N\]</span></p>
+</section>
+<section id="imports" class="level3">
+<h3 class="anchored" data-anchor-id="imports">Imports</h3>
+<p>As before, we will be using the excellent Autograd library for automatically computing the gradient of an objective function with respect to the parameters. We will also be using GPy for verifying our calculations.</p>
+<p>Let us start with some basic imports.</p>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> autograd.numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib <span class="im">import</span> pyplot <span class="im">as</span> plt</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>warnings.filterwarnings(<span class="st">'ignore'</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> GPy</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="defining-our-rbf-kernel" class="level3">
+<h3 class="anchored" data-anchor-id="defining-our-rbf-kernel">Defining our RBF kernel</h3>
+<p>The definition of the (1-dimensional) RBF kernel has a Gaussian-form, defined as:</p>
+<p><span class="math display">\[
+    \kappa_\mathrm{rbf}(x_1,x_2) = \sigma^2\exp\left(-\frac{(x_1-x_2)^2}{2\mathscr{l}^2}\right)
+\]</span></p>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> rbf(x1, x2, sigma, l):</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (sigma<span class="op">**</span><span class="dv">2</span>)<span class="op">*</span>(np.exp(<span class="op">-</span>(x1<span class="op">-</span>x2)<span class="op">**</span><span class="dv">2</span><span class="op">/</span>(<span class="dv">2</span><span class="op">*</span>(l<span class="op">**</span><span class="dv">2</span>))))    </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="defining-gpys-rbf-kernel" class="level3">
+<h3 class="anchored" data-anchor-id="defining-gpys-rbf-kernel">Defining GPy’s RBF kernel</h3>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a 1-D RBF kernel with default parameters</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> GPy.kern.RBF(<span class="dv">1</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Preview the kernel's parameters</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>k</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="3">
+
+<style type="text/css">
+.tg  {font-family:"Courier New", Courier, monospace !important;padding:2px 3px;word-break:normal;border-collapse:collapse;border-spacing:0;border-color:#DCDCDC;margin:0px auto;width:100%;}
+.tg td{font-family:"Courier New", Courier, monospace !important;font-weight:bold;color:#444;background-color:#F7FDFA;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#DCDCDC;}
+.tg th{font-family:"Courier New", Courier, monospace !important;font-weight:normal;color:#fff;background-color:#26ADE4;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#DCDCDC;}
+.tg .tg-left{font-family:"Courier New", Courier, monospace !important;font-weight:normal;text-align:left;}
+.tg .tg-center{font-family:"Courier New", Courier, monospace !important;font-weight:normal;text-align:center;}
+.tg .tg-right{font-family:"Courier New", Courier, monospace !important;font-weight:normal;text-align:right;}
+</style>
+<table class="tg"><tbody><tr><th><b>  rbf.       </b></th><th><b>value</b></th><th><b>constraints</b></th><th><b>priors</b></th></tr>
+<tr><td class="tg-left">  variance   </td><td class="tg-right">  1.0</td><td class="tg-center">    +ve    </td><td class="tg-center">      </td></tr>
+<tr><td class="tg-left">  lengthscale</td><td class="tg-right">  1.0</td><td class="tg-center">    +ve    </td><td class="tg-center">      </td></tr>
+</tbody></table>
+</div>
+</div>
+</section>
+<section id="matching-our-rbf-kernel-with-gpys-kernel" class="level3">
+<h3 class="anchored" data-anchor-id="matching-our-rbf-kernel-with-gpys-kernel">Matching our RBF kernel with GPy’s kernel</h3>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>rbf(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">1</span>)<span class="op">==</span>k.K(np.array([[<span class="dv">1</span>]]), np.array([[<span class="dv">0</span>]])).flatten()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="4">
+<pre><code>array([ True])</code></pre>
+</div>
+</div>
+<p>Looks good. Our function is matching GPy’s kernel.</p>
+</section>
+<section id="gp-regresion" class="level3">
+<h3 class="anchored" data-anchor-id="gp-regresion">GP Regresion</h3>
+<section id="creating-a-data-set" class="level4">
+<h4 class="anchored" data-anchor-id="creating-a-data-set">Creating a data set</h4>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># lambda function, call f(x) to generate data</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> <span class="kw">lambda</span> x: <span class="fl">0.4</span><span class="op">*</span>x<span class="op">**</span><span class="dv">2</span> <span class="op">-</span> <span class="fl">0.15</span><span class="op">*</span>x<span class="op">**</span><span class="dv">3</span> <span class="op">+</span> <span class="fl">0.5</span><span class="op">*</span>x<span class="op">**</span><span class="dv">2</span> <span class="op">-</span> <span class="fl">0.002</span><span class="op">*</span>x<span class="op">**</span><span class="dv">5</span> <span class="op">+</span> <span class="fl">0.0002</span><span class="op">*</span>x<span class="op">**</span><span class="dv">6</span> <span class="op">+</span><span class="fl">0.5</span><span class="op">*</span>(x<span class="op">-</span><span class="dv">2</span>)<span class="op">**</span><span class="dv">2</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">20</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">0</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> np.linspace(<span class="fl">0.05</span>, <span class="fl">4.95</span>, n)[:,<span class="va">None</span>]</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>Y <span class="op">=</span> f(X) <span class="op">+</span> np.random.normal(<span class="fl">0.</span>, <span class="fl">0.1</span>, (n,<span class="dv">1</span>)) <span class="co"># note that np.random.normal takes mean and s.d. (not variance), 0.1^2 = 0.01</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>plt.plot(X, Y, <span class="st">"kx"</span>, mew<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="st">'Train points'</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"x"</span>), plt.ylabel(<span class="st">"f"</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>plt.legend()<span class="op">;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="2020-03-29-param-learning_files/figure-html/cell-6-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+</section>
+<section id="function-to-compute-negative-log-likelihood" class="level3">
+<h3 class="anchored" data-anchor-id="function-to-compute-negative-log-likelihood">Function to compute negative log likelihood</h3>
+<p>Based on our above mentioned theory, we can now write the NLL function as follows</p>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> nll(sigma<span class="op">=</span><span class="dv">1</span>, l<span class="op">=</span><span class="dv">1</span>, noise_std<span class="op">=</span><span class="dv">1</span>):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    n <span class="op">=</span> X.shape[<span class="dv">0</span>]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    cov <span class="op">=</span> rbf(X, X.T, sigma, l) <span class="op">+</span> (noise_std<span class="op">**</span><span class="dv">2</span>)<span class="op">*</span>np.eye(X.shape[<span class="dv">0</span>])</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    nll_ar <span class="op">=</span>  <span class="fl">0.5</span><span class="op">*</span>(Y.T<span class="op">@</span>np.linalg.inv(cov)<span class="op">@</span>Y) <span class="op">+</span> <span class="fl">0.5</span><span class="op">*</span>n<span class="op">*</span>np.log(<span class="dv">2</span><span class="op">*</span>np.pi) <span class="op">+</span> <span class="fl">0.5</span><span class="op">*</span>np.log(np.linalg.det(cov)) </span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> nll_ar[<span class="dv">0</span>,<span class="dv">0</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="comparing-the-nll-from-our-method-with-the-nll-from-gpy" class="level3">
+<h3 class="anchored" data-anchor-id="comparing-the-nll-from-our-method-with-the-nll-from-gpy">Comparing the NLL from our method with the NLL from GPy</h3>
+<p>We will now compare the NLL from our method with GPy for a fixed set of parameters</p>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>nll(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="7">
+<pre><code>40.103960984801276</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>k.lengthscale <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>k.variance <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> GPy.models.GPRegression(X, Y, k, normalizer<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>m.Gaussian_noise <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(m)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Name : GP regression
+Objective : 40.103961039553916
+Number of Parameters : 3
+Number of Optimization Parameters : 3
+Updates : True
+Parameters:
+  GP_regression.           |  value  |  constraints  |  priors
+  rbf.variance             |    1.0  |      +ve      |        
+  rbf.lengthscale          |    1.0  |      +ve      |        
+  Gaussian_noise.variance  |    1.0  |      +ve      |        </code></pre>
+</div>
+</div>
+<p>Excellent, we can see that our method gives the same NLL. Looks like we are on the right track! One caveat here is that I have set the normalizer to be False, which means that GPy will not be mean centering the data.</p>
+</section>
+<section id="optimizing-the-gp-using-gpy" class="level3">
+<h3 class="anchored" data-anchor-id="optimizing-the-gp-using-gpy">Optimizing the GP using GPy</h3>
+<p>We will now use GPy to optimize the GP parameters</p>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> GPy.models.GPRegression(X, Y, k, normalizer<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>m.optimize()</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(m)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Name : GP regression
+Objective : -2.9419881541130053
+Number of Parameters : 3
+Number of Optimization Parameters : 3
+Updates : True
+Parameters:
+  GP_regression.           |                 value  |  constraints  |  priors
+  rbf.variance             |    27.837243180547883  |      +ve      |        
+  rbf.lengthscale          |     2.732180018958835  |      +ve      |        
+  Gaussian_noise.variance  |  0.007573211752763481  |      +ve      |        </code></pre>
+</div>
+</div>
+<p>It seems that variance close to 28 and length scale close to 2.7 give the optimum objective for the GP</p>
+</section>
+<section id="plotting-the-nll-as-a-function-of-variance-and-lenghtscale" class="level3">
+<h3 class="anchored" data-anchor-id="plotting-the-nll-as-a-function-of-variance-and-lenghtscale">Plotting the NLL as a function of variance and lenghtscale</h3>
+<p>We will now plot the NLL obtained from our calculations as a function of variance and lengthscale. For comparing our solution with GPy solution, I will be setting noise variance to be 0.0075</p>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> numpy</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>x_grid_2, y_grid_2 <span class="op">=</span> numpy.mgrid[<span class="fl">0.1</span>:<span class="dv">6</span>:<span class="fl">0.04</span>, <span class="fl">0.1</span>:<span class="dv">4</span>:<span class="fl">0.03</span>]</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>li <span class="op">=</span> np.zeros_like(x_grid_2)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(x_grid_2.shape[<span class="dv">0</span>]):</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(x_grid_2.shape[<span class="dv">1</span>]):</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        li[i, j] <span class="op">=</span> nll(x_grid_2[i, j], y_grid_2[i, j], np.sqrt(<span class="fl">.007573211752763481</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>plt.contourf(x_grid_2, y_grid_2, li)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>plt.gca().set_aspect(<span class="st">'equal'</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="vs">r"$\sigma$"</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="vs">r"$l$"</span>)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>plt.colorbar()</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="vs">r"NLL ($\sigma, l$)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<pre><code>Text(0.5, 1.0, 'NLL ($\\sigma, l$)')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="2020-03-29-param-learning_files/figure-html/cell-12-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<p>We will now try to find the “optimum” <span class="math inline">\(\sigma\)</span> and lengthscale from this NLL space.</p>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(li.<span class="bu">min</span>())</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>aa, bb <span class="op">=</span> np.unravel_index(li.argmin(), li.shape)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(x_grid_2[aa, <span class="dv">0</span>]<span class="op">**</span><span class="dv">2</span>, y_grid_2[bb, <span class="dv">0</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>-2.9418973674348727
+28.09 0.1</code></pre>
+</div>
+</div>
+<p>Excellent, it looks like we are pretty close to the optimum NLL as reported by GPy and our parameters learnt are also pretty similar. But, we have not even done a thorough search. We will now be using gradient descent to help us find the optimum set of parameters.</p>
+</section>
+<section id="gradient-descent-using-autograd" class="level3">
+<h3 class="anchored" data-anchor-id="gradient-descent-using-autograd">Gradient descent using autograd</h3>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> autograd <span class="im">import</span> elementwise_grad <span class="im">as</span> egrad</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> autograd <span class="im">import</span> grad</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>grad_objective <span class="op">=</span> grad(nll, argnum<span class="op">=</span>[<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="visualising-the-objective-as-a-function-of-iteration" class="level4">
+<h4 class="anchored" data-anchor-id="visualising-the-objective-as-a-function-of-iteration">Visualising the objective as a function of iteration</h4>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>sigma <span class="op">=</span> <span class="fl">2.</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>l <span class="op">=</span> <span class="fl">2.</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>noise <span class="op">=</span> <span class="fl">1.</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>lr <span class="op">=</span> <span class="fl">1e-3</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>num_iter <span class="op">=</span> <span class="dv">100</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>nll_arr <span class="op">=</span> np.zeros(num_iter)</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> iteration <span class="kw">in</span> <span class="bu">range</span>(num_iter):</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>    nll_arr[iteration] <span class="op">=</span> nll(sigma, l, noise)</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>    del_sigma, del_l, del_noise <span class="op">=</span> grad_objective(sigma, l, noise)</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>    sigma <span class="op">=</span> sigma <span class="op">-</span> lr<span class="op">*</span>del_sigma</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>    l <span class="op">=</span> l <span class="op">-</span> lr<span class="op">*</span>del_l</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>    noise <span class="op">=</span> noise <span class="op">-</span> lr<span class="op">*</span>del_noise</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(sigma<span class="op">**</span><span class="dv">2</span>, l, noise)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>5.108812267877177 1.9770216805277476 0.11095385387537618</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>plt.plot(nll_arr)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Iteration"</span>)</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"NLL"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="17">
+<pre><code>Text(0, 0.5, 'NLL')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="2020-03-29-param-learning_files/figure-html/cell-18-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="applying-gradient-descent-and-visualising-the-learnt-function" class="level4">
+<h4 class="anchored" data-anchor-id="applying-gradient-descent-and-visualising-the-learnt-function">Applying gradient descent and visualising the learnt function</h4>
+<div class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>sigma <span class="op">=</span> <span class="fl">2.</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>l <span class="op">=</span> <span class="fl">2.</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>noise <span class="op">=</span> <span class="fl">1.</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>lr <span class="op">=</span> <span class="fl">1e-3</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>num_iter <span class="op">=</span> <span class="dv">100</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>nll_arr <span class="op">=</span> np.zeros(num_iter)</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots()</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> iteration <span class="kw">in</span> <span class="bu">range</span>(num_iter):</span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>    nll_arr[iteration] <span class="op">=</span> nll(sigma, l, noise)</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>    del_sigma, del_l, del_noise <span class="op">=</span> grad_objective(sigma, l, noise)</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>    sigma <span class="op">=</span> sigma <span class="op">-</span> lr<span class="op">*</span>del_sigma</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>    l <span class="op">=</span> l <span class="op">-</span> lr<span class="op">*</span>del_l</span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>    noise <span class="op">=</span> noise <span class="op">-</span> lr<span class="op">*</span>del_noise</span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a>    k.lengthscale <span class="op">=</span> l</span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>    k.variance <span class="op">=</span> sigma<span class="op">**</span><span class="dv">2</span></span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> GPy.models.GPRegression(X, Y, k, normalizer<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>    m.Gaussian_noise <span class="op">=</span> noise<span class="op">**</span><span class="dv">2</span></span>
+<span id="cb26-18"><a href="#cb26-18" aria-hidden="true" tabindex="-1"></a>    m.plot(ax<span class="op">=</span>ax)[<span class="st">'dataplot'</span>]<span class="op">;</span></span>
+<span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a>    plt.ylim((<span class="dv">0</span>, <span class="dv">6</span>))</span>
+<span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a>    plt.title(<span class="ss">f"Iteration: </span><span class="sc">{</span>iteration<span class="sc">:04}</span><span class="ss">, Objective :</span><span class="sc">{</span>nll_arr[iteration]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb26-21"><a href="#cb26-21" aria-hidden="true" tabindex="-1"></a>    plt.savefig(<span class="ss">f"/home/nipunbatra-pc/Desktop/gp_learning/</span><span class="sc">{</span>iteration<span class="sc">:04}</span><span class="ss">.png"</span>)</span>
+<span id="cb26-22"><a href="#cb26-22" aria-hidden="true" tabindex="-1"></a>    plt.cla()<span class="op">;</span></span>
+<span id="cb26-23"><a href="#cb26-23" aria-hidden="true" tabindex="-1"></a>plt.clf()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<pre><code>&lt;Figure size 432x288 with 0 Axes&gt;</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="op">!</span>convert <span class="op">-</span>delay <span class="dv">20</span> <span class="op">-</span>loop <span class="dv">0</span> <span class="op">/</span>home<span class="op">/</span>nipunbatra<span class="op">-</span>pc<span class="op">/</span>Desktop<span class="op">/</span>gp_learning<span class="op">/*</span>.png gp<span class="op">-</span>learning.gif</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p><img src="gp-learning.gif" class="img-fluid"></p>
+<p>Excellent, we can see the “learning” process over time. Our final objective is comparable to GPy’s objective.</p>
+<p>There are a few things I have mentioned, yet have not gone into their details and I would encourage you to try those out.</p>
+<ol type="1">
+<li>First, you should try the gradient descent procedure with restarts. Run with different random initialisations and finally report the parameters which give the optimum likelihood.</li>
+<li>We assume mean zero prior here. However, we are not processing the data and thus the zero mean assumption is not very well suited to our data. If you reduce the number of data points, you would quickly see the GP prediction to fall close to zero.</li>
+</ol>
+<p>There you go. Till next time!</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

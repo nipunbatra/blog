@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2017-12-29">
+<meta name="description" content="Neural networks to learn the embeddings! and how to combine them">
+
+<title>blog - Neural Networks for Collaborative Filtering</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">blog</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html">About</a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/"><i class="bi bi-github" role="img">
+</i> 
+ </a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com"><i class="bi bi-twitter" role="img">
+</i> 
+ </a>
+  </li>  
+</ul>
+              <div id="quarto-search" class="" title="Search"></div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Neural Networks for Collaborative Filtering</h1>
+                  <div>
+        <div class="description">
+          Neural networks to learn the embeddings! and how to combine them
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">ML</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">December 29, 2017</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#peak-into-the-dataset" id="toc-peak-into-the-dataset" class="nav-link active" data-scroll-target="#peak-into-the-dataset">Peak into the dataset</a></li>
+  <li><a href="#train-test-split" id="toc-train-test-split" class="nav-link" data-scroll-target="#train-test-split">Train test split</a></li>
+  <li><a href="#creating-the-model" id="toc-creating-the-model" class="nav-link" data-scroll-target="#creating-the-model">Creating the model</a></li>
+  <li><a href="#prediction-performance-of-neural-network-based-recommender-system" id="toc-prediction-performance-of-neural-network-based-recommender-system" class="nav-link" data-scroll-target="#prediction-performance-of-neural-network-based-recommender-system">Prediction performance of Neural Network based recommender system</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<p>Recently, I had a chance to read an interesting WWW 2017 paper entitled: <a href="https://www.comp.nus.edu.sg/~xiangnan/papers/ncf.pdf">Neural Collaborative Filtering</a>. The first paragraph of the abstract reads as follows:</p>
+<blockquote class="blockquote">
+<p>In recent years, deep neural networks have yielded immense success on speech recognition, computer vision and natural language processing. However, the exploration of deep neural networks on recommender systems has received relatively less scrutiny. In this work, we strive to develop techniques based on neural networks to tackle the key problem in recommendation — collaborative filtering — on the basis of implicit feedback.</p>
+</blockquote>
+<p>I’d recently written a <a href="../recommend-keras.html">blog post</a> on using Keras (deep learning library) for implementing traditional matrix factorization based collaborative filtering. So, I thought to get my hands dirty with building a prototype for the paper mentioned above. The authors have already provided their <a href="https://github.com/hexiangnan/neural_collaborative_filtering">code on Github</a>, which should serve as a reference for the paper and not my post, whose purpose is merely educational!</p>
+<p>Here’s how the proposed network architecture looks in the paper:</p>
+<p><img src="https://nipunbatra.github.io/blog/images/neumf.png" class="img-fluid"></p>
+<p>There are a few terms that we need to understand:</p>
+<ol type="1">
+<li>User (u) and Item (i) are used to create embeddings (low-dimensional) for user and item</li>
+<li>Generalized Matrix Factorisation (GMF) combines the two embeddings using the dot product. This is our regular matrix factorisation.</li>
+<li>Multi-layer perceptron can also create embeddings for user and items. However, instead of taking a dot product of these to obtain the rating, we can concatenate them to create a feature vector which can be passed on to the further layers.</li>
+<li>Neural MF can then combine the predictions from MLP and GMF to obtain the following prediction.</li>
+</ol>
+<p>As done in my previous post, I’ll use the MovieLens-100k dataset for illustration. Please refer to my <a href="../recommend-keras.html">previous post</a> for more details.</p>
+<section id="peak-into-the-dataset" class="level3">
+<h3 class="anchored" data-anchor-id="peak-into-the-dataset">Peak into the dataset</h3>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>warnings.filterwarnings(<span class="st">'ignore'</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> pd.read_csv(<span class="st">"/Users/nipun/Downloads/ml-100k/u.data"</span>,sep<span class="op">=</span><span class="st">'</span><span class="ch">\t</span><span class="st">'</span>,names<span class="op">=</span><span class="st">"user_id,item_id,rating,timestamp"</span>.split(<span class="st">","</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>dataset.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="3">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>user_id</th>
+      <th>item_id</th>
+      <th>rating</th>
+      <th>timestamp</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>196</td>
+      <td>242</td>
+      <td>3</td>
+      <td>881250949</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>186</td>
+      <td>302</td>
+      <td>3</td>
+      <td>891717742</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>22</td>
+      <td>377</td>
+      <td>1</td>
+      <td>878887116</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>244</td>
+      <td>51</td>
+      <td>2</td>
+      <td>880606923</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>166</td>
+      <td>346</td>
+      <td>1</td>
+      <td>886397596</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+<p>So, each record (row) shows the rating for a user, item (movie) pair. It should be noted that I use item and movie interchangeably in this post.</p>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">len</span>(dataset.user_id.unique()), <span class="bu">len</span>(dataset.item_id.unique())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="4">
+<pre><code>(943, 1682)</code></pre>
+</div>
+</div>
+<p>We assign a unique number between (0, #users) to each user and do the same for movies.</p>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>dataset.user_id <span class="op">=</span> dataset.user_id.astype(<span class="st">'category'</span>).cat.codes.values</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>dataset.item_id <span class="op">=</span> dataset.item_id.astype(<span class="st">'category'</span>).cat.codes.values</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>dataset.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="6">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>user_id</th>
+      <th>item_id</th>
+      <th>rating</th>
+      <th>timestamp</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>195</td>
+      <td>241</td>
+      <td>3</td>
+      <td>881250949</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>185</td>
+      <td>301</td>
+      <td>3</td>
+      <td>891717742</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>21</td>
+      <td>376</td>
+      <td>1</td>
+      <td>878887116</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>243</td>
+      <td>50</td>
+      <td>2</td>
+      <td>880606923</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>165</td>
+      <td>345</td>
+      <td>1</td>
+      <td>886397596</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="train-test-split" class="level3">
+<h3 class="anchored" data-anchor-id="train-test-split">Train test split</h3>
+<p>We’ll now split our dataset of 100k ratings into train (containing 80k ratings) and test (containing 20k ratings). Given the train set, we’d like to accurately estimate the ratings in the test set.</p>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.model_selection <span class="im">import</span> train_test_split</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>train, test <span class="op">=</span> train_test_split(dataset, test_size<span class="op">=</span><span class="fl">0.2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>train.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>user_id</th>
+      <th>item_id</th>
+      <th>rating</th>
+      <th>timestamp</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>13185</th>
+      <td>71</td>
+      <td>95</td>
+      <td>5</td>
+      <td>880037203</td>
+    </tr>
+    <tr>
+      <th>23391</th>
+      <td>144</td>
+      <td>509</td>
+      <td>4</td>
+      <td>882181859</td>
+    </tr>
+    <tr>
+      <th>90744</th>
+      <td>895</td>
+      <td>50</td>
+      <td>2</td>
+      <td>887159951</td>
+    </tr>
+    <tr>
+      <th>3043</th>
+      <td>255</td>
+      <td>279</td>
+      <td>5</td>
+      <td>882151167</td>
+    </tr>
+    <tr>
+      <th>8932</th>
+      <td>55</td>
+      <td>94</td>
+      <td>4</td>
+      <td>892683274</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>test.head()</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>y_true <span class="op">=</span> test.rating</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="creating-the-model" class="level3">
+<h3 class="anchored" data-anchor-id="creating-the-model">Creating the model</h3>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> keras</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>n_latent_factors_user <span class="op">=</span> <span class="dv">8</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>n_latent_factors_movie <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>n_latent_factors_mf <span class="op">=</span> <span class="dv">3</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>n_users, n_movies <span class="op">=</span> <span class="bu">len</span>(dataset.user_id.unique()), <span class="bu">len</span>(dataset.item_id.unique())</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>movie_input <span class="op">=</span> keras.layers.Input(shape<span class="op">=</span>[<span class="dv">1</span>],name<span class="op">=</span><span class="st">'Item'</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>movie_embedding_mlp <span class="op">=</span> keras.layers.Embedding(n_movies <span class="op">+</span> <span class="dv">1</span>, n_latent_factors_movie, name<span class="op">=</span><span class="st">'Movie-Embedding-MLP'</span>)(movie_input)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>movie_vec_mlp <span class="op">=</span> keras.layers.Flatten(name<span class="op">=</span><span class="st">'FlattenMovies-MLP'</span>)(movie_embedding_mlp)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>movie_vec_mlp <span class="op">=</span> keras.layers.Dropout(<span class="fl">0.2</span>)(movie_vec_mlp)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>movie_embedding_mf <span class="op">=</span> keras.layers.Embedding(n_movies <span class="op">+</span> <span class="dv">1</span>, n_latent_factors_mf, name<span class="op">=</span><span class="st">'Movie-Embedding-MF'</span>)(movie_input)</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>movie_vec_mf <span class="op">=</span> keras.layers.Flatten(name<span class="op">=</span><span class="st">'FlattenMovies-MF'</span>)(movie_embedding_mf)</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>movie_vec_mf <span class="op">=</span> keras.layers.Dropout(<span class="fl">0.2</span>)(movie_vec_mf)</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>user_input <span class="op">=</span> keras.layers.Input(shape<span class="op">=</span>[<span class="dv">1</span>],name<span class="op">=</span><span class="st">'User'</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>user_vec_mlp <span class="op">=</span> keras.layers.Flatten(name<span class="op">=</span><span class="st">'FlattenUsers-MLP'</span>)(keras.layers.Embedding(n_users <span class="op">+</span> <span class="dv">1</span>, n_latent_factors_user,name<span class="op">=</span><span class="st">'User-Embedding-MLP'</span>)(user_input))</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>user_vec_mlp <span class="op">=</span> keras.layers.Dropout(<span class="fl">0.2</span>)(user_vec_mlp)</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>user_vec_mf <span class="op">=</span> keras.layers.Flatten(name<span class="op">=</span><span class="st">'FlattenUsers-MF'</span>)(keras.layers.Embedding(n_users <span class="op">+</span> <span class="dv">1</span>, n_latent_factors_mf,name<span class="op">=</span><span class="st">'User-Embedding-MF'</span>)(user_input))</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>user_vec_mf <span class="op">=</span> keras.layers.Dropout(<span class="fl">0.2</span>)(user_vec_mf)</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>concat <span class="op">=</span> keras.layers.merge([movie_vec_mlp, user_vec_mlp], mode<span class="op">=</span><span class="st">'concat'</span>,name<span class="op">=</span><span class="st">'Concat'</span>)</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>concat_dropout <span class="op">=</span> keras.layers.Dropout(<span class="fl">0.2</span>)(concat)</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>dense <span class="op">=</span> keras.layers.Dense(<span class="dv">200</span>,name<span class="op">=</span><span class="st">'FullyConnected'</span>)(concat_dropout)</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>dense_batch <span class="op">=</span> keras.layers.BatchNormalization(name<span class="op">=</span><span class="st">'Batch'</span>)(dense)</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>dropout_1 <span class="op">=</span> keras.layers.Dropout(<span class="fl">0.2</span>,name<span class="op">=</span><span class="st">'Dropout-1'</span>)(dense_batch)</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>dense_2 <span class="op">=</span> keras.layers.Dense(<span class="dv">100</span>,name<span class="op">=</span><span class="st">'FullyConnected-1'</span>)(dropout_1)</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>dense_batch_2 <span class="op">=</span> keras.layers.BatchNormalization(name<span class="op">=</span><span class="st">'Batch-2'</span>)(dense_2)</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>dropout_2 <span class="op">=</span> keras.layers.Dropout(<span class="fl">0.2</span>,name<span class="op">=</span><span class="st">'Dropout-2'</span>)(dense_batch_2)</span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>dense_3 <span class="op">=</span> keras.layers.Dense(<span class="dv">50</span>,name<span class="op">=</span><span class="st">'FullyConnected-2'</span>)(dropout_2)</span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>dense_4 <span class="op">=</span> keras.layers.Dense(<span class="dv">20</span>,name<span class="op">=</span><span class="st">'FullyConnected-3'</span>, activation<span class="op">=</span><span class="st">'relu'</span>)(dense_3)</span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>pred_mf <span class="op">=</span> keras.layers.merge([movie_vec_mf, user_vec_mf], mode<span class="op">=</span><span class="st">'dot'</span>,name<span class="op">=</span><span class="st">'Dot'</span>)</span>
+<span id="cb11-39"><a href="#cb11-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-40"><a href="#cb11-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-41"><a href="#cb11-41" aria-hidden="true" tabindex="-1"></a>pred_mlp <span class="op">=</span> keras.layers.Dense(<span class="dv">1</span>, activation<span class="op">=</span><span class="st">'relu'</span>,name<span class="op">=</span><span class="st">'Activation'</span>)(dense_4)</span>
+<span id="cb11-42"><a href="#cb11-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-43"><a href="#cb11-43" aria-hidden="true" tabindex="-1"></a>combine_mlp_mf <span class="op">=</span> keras.layers.merge([pred_mf, pred_mlp], mode<span class="op">=</span><span class="st">'concat'</span>,name<span class="op">=</span><span class="st">'Concat-MF-MLP'</span>)</span>
+<span id="cb11-44"><a href="#cb11-44" aria-hidden="true" tabindex="-1"></a>result_combine <span class="op">=</span> keras.layers.Dense(<span class="dv">100</span>,name<span class="op">=</span><span class="st">'Combine-MF-MLP'</span>)(combine_mlp_mf)</span>
+<span id="cb11-45"><a href="#cb11-45" aria-hidden="true" tabindex="-1"></a>deep_combine <span class="op">=</span> keras.layers.Dense(<span class="dv">100</span>,name<span class="op">=</span><span class="st">'FullyConnected-4'</span>)(result_combine)</span>
+<span id="cb11-46"><a href="#cb11-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-47"><a href="#cb11-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-48"><a href="#cb11-48" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> keras.layers.Dense(<span class="dv">1</span>,name<span class="op">=</span><span class="st">'Prediction'</span>)(deep_combine)</span>
+<span id="cb11-49"><a href="#cb11-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-50"><a href="#cb11-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-51"><a href="#cb11-51" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> keras.Model([user_input, movie_input], result)</span>
+<span id="cb11-52"><a href="#cb11-52" aria-hidden="true" tabindex="-1"></a>opt <span class="op">=</span> keras.optimizers.Adam(lr <span class="op">=</span><span class="fl">0.01</span>)</span>
+<span id="cb11-53"><a href="#cb11-53" aria-hidden="true" tabindex="-1"></a>model.<span class="bu">compile</span>(optimizer<span class="op">=</span><span class="st">'adam'</span>,loss<span class="op">=</span> <span class="st">'mean_absolute_error'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Using TensorFlow backend.</code></pre>
+</div>
+</div>
+<p>Let’s now see how our model looks like:</p>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> SVG</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> keras.utils.vis_utils <span class="im">import</span> model_to_dot</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>SVG(model_to_dot(model,  show_shapes<span class="op">=</span><span class="va">False</span>, show_layer_names<span class="op">=</span><span class="va">True</span>, rankdir<span class="op">=</span><span class="st">'HB'</span>).create(prog<span class="op">=</span><span class="st">'dot'</span>, <span class="bu">format</span><span class="op">=</span><span class="st">'svg'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<p><img src="2017-12-29-neural-collaborative-filtering_files/figure-html/cell-12-output-1.svg" class="img-fluid"></p>
+</div>
+</div>
+<p>So, it wasn’t very complicated to set up. Courtesy Keras, we can do even more complex stuff!</p>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>model.summary()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>__________________________________________________________________________________________________
+Layer (type)                    Output Shape         Param #     Connected to                     
+==================================================================================================
+Item (InputLayer)               (None, 1)            0                                            
+__________________________________________________________________________________________________
+User (InputLayer)               (None, 1)            0                                            
+__________________________________________________________________________________________________
+Movie-Embedding-MLP (Embedding) (None, 1, 10)        16830       Item[0][0]                       
+__________________________________________________________________________________________________
+User-Embedding-MLP (Embedding)  (None, 1, 8)         7552        User[0][0]                       
+__________________________________________________________________________________________________
+FlattenMovies-MLP (Flatten)     (None, 10)           0           Movie-Embedding-MLP[0][0]        
+__________________________________________________________________________________________________
+FlattenUsers-MLP (Flatten)      (None, 8)            0           User-Embedding-MLP[0][0]         
+__________________________________________________________________________________________________
+dropout_1 (Dropout)             (None, 10)           0           FlattenMovies-MLP[0][0]          
+__________________________________________________________________________________________________
+dropout_3 (Dropout)             (None, 8)            0           FlattenUsers-MLP[0][0]           
+__________________________________________________________________________________________________
+Concat (Merge)                  (None, 18)           0           dropout_1[0][0]                  
+                                                                 dropout_3[0][0]                  
+__________________________________________________________________________________________________
+dropout_5 (Dropout)             (None, 18)           0           Concat[0][0]                     
+__________________________________________________________________________________________________
+FullyConnected (Dense)          (None, 200)          3800        dropout_5[0][0]                  
+__________________________________________________________________________________________________
+Batch (BatchNormalization)      (None, 200)          800         FullyConnected[0][0]             
+__________________________________________________________________________________________________
+Dropout-1 (Dropout)             (None, 200)          0           Batch[0][0]                      
+__________________________________________________________________________________________________
+FullyConnected-1 (Dense)        (None, 100)          20100       Dropout-1[0][0]                  
+__________________________________________________________________________________________________
+Batch-2 (BatchNormalization)    (None, 100)          400         FullyConnected-1[0][0]           
+__________________________________________________________________________________________________
+Movie-Embedding-MF (Embedding)  (None, 1, 3)         5049        Item[0][0]                       
+__________________________________________________________________________________________________
+User-Embedding-MF (Embedding)   (None, 1, 3)         2832        User[0][0]                       
+__________________________________________________________________________________________________
+Dropout-2 (Dropout)             (None, 100)          0           Batch-2[0][0]                    
+__________________________________________________________________________________________________
+FlattenMovies-MF (Flatten)      (None, 3)            0           Movie-Embedding-MF[0][0]         
+__________________________________________________________________________________________________
+FlattenUsers-MF (Flatten)       (None, 3)            0           User-Embedding-MF[0][0]          
+__________________________________________________________________________________________________
+FullyConnected-2 (Dense)        (None, 50)           5050        Dropout-2[0][0]                  
+__________________________________________________________________________________________________
+dropout_2 (Dropout)             (None, 3)            0           FlattenMovies-MF[0][0]           
+__________________________________________________________________________________________________
+dropout_4 (Dropout)             (None, 3)            0           FlattenUsers-MF[0][0]            
+__________________________________________________________________________________________________
+FullyConnected-3 (Dense)        (None, 20)           1020        FullyConnected-2[0][0]           
+__________________________________________________________________________________________________
+Dot (Merge)                     (None, 1)            0           dropout_2[0][0]                  
+                                                                 dropout_4[0][0]                  
+__________________________________________________________________________________________________
+Activation (Dense)              (None, 1)            21          FullyConnected-3[0][0]           
+__________________________________________________________________________________________________
+Concat-MF-MLP (Merge)           (None, 2)            0           Dot[0][0]                        
+                                                                 Activation[0][0]                 
+__________________________________________________________________________________________________
+Combine-MF-MLP (Dense)          (None, 100)          300         Concat-MF-MLP[0][0]              
+__________________________________________________________________________________________________
+FullyConnected-4 (Dense)        (None, 100)          10100       Combine-MF-MLP[0][0]             
+__________________________________________________________________________________________________
+Prediction (Dense)              (None, 1)            101         FullyConnected-4[0][0]           
+==================================================================================================
+Total params: 73,955
+Trainable params: 73,355
+Non-trainable params: 600
+__________________________________________________________________________________________________</code></pre>
+</div>
+</div>
+<p>We can see that the number of parameters is more than what we had in the Matrix Factorisation case. Let’s see how this model works. I’ll run it for more epochs given that we have more parameters.</p>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>history <span class="op">=</span> model.fit([train.user_id, train.item_id], train.rating, epochs<span class="op">=</span><span class="dv">25</span>, verbose<span class="op">=</span><span class="dv">0</span>, validation_split<span class="op">=</span><span class="fl">0.1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="prediction-performance-of-neural-network-based-recommender-system" class="level3">
+<h3 class="anchored" data-anchor-id="prediction-performance-of-neural-network-based-recommender-system">Prediction performance of Neural Network based recommender system</h3>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.metrics <span class="im">import</span> mean_absolute_error</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>y_hat_2 <span class="op">=</span> np.<span class="bu">round</span>(model.predict([test.user_id, test.item_id]),<span class="dv">0</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mean_absolute_error(y_true, y_hat_2))</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mean_absolute_error(y_true, model.predict([test.user_id, test.item_id])))</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>0.716
+0.737380115688</code></pre>
+</div>
+</div>
+<p>Pretty similar to the result we got using matrix factorisation. This isn’t very optimised, and I am sure doing so, we can make this approach perform much better than GMF!</p>
+<p>Thanks for reading. This post has been a good learning experience for me. Hope you enjoyed too!</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2017-04-19">
+<meta name="description" content="What if we to predict for entries not within the matrix?!">
+
+<title>blog - Out of matrix non-negative matrix factorisation</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">blog</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html">About</a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/"><i class="bi bi-github" role="img">
+</i> 
+ </a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com"><i class="bi bi-twitter" role="img">
+</i> 
+ </a>
+  </li>  
+</ul>
+              <div id="quarto-search" class="" title="Search"></div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Out of matrix non-negative matrix factorisation</h1>
+                  <div>
+        <div class="description">
+          What if we to predict for entries not within the matrix?!
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">ML</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">April 19, 2017</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#standard-problem" id="toc-standard-problem" class="nav-link active" data-scroll-target="#standard-problem">Standard Problem</a></li>
+  <li><a href="#our-problem--out-of-matrix-factorisation" id="toc-our-problem--out-of-matrix-factorisation" class="nav-link" data-scroll-target="#our-problem--out-of-matrix-factorisation">Our Problem- Out of matrix factorisation</a></li>
+  <li><a href="#code-example" id="toc-code-example" class="nav-link" data-scroll-target="#code-example">Code example</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<p>I have written a bunch of posts on this blog about non-negative matrix factorisation (NNMF). However, all of them involved the test user to be a part of the matrix that we factorise to learn the latent factors. Is that always the case? Read on to find more!</p>
+<section id="standard-problem" class="level3">
+<h3 class="anchored" data-anchor-id="standard-problem">Standard Problem</h3>
+<p>Our goal is given a matrix A, decompose it into two non-negative factors, as follows:</p>
+<p>$ A_{M N} W_{M K} H_{K N} $, such that $ W_{M K} $ and $ H_{K N} $</p>
+<p><img src="https://nipunbatra.github.io/blog/images/o_matrix.png" class="img-fluid"></p>
+</section>
+<section id="our-problem--out-of-matrix-factorisation" class="level3">
+<h3 class="anchored" data-anchor-id="our-problem--out-of-matrix-factorisation">Our Problem- Out of matrix factorisation</h3>
+<p>Imagine that we have trained the model for M-1 users on N movies. Now, the <span class="math inline">\(M^{th}\)</span> user has rated some movies. Do we retrain the model from scratch to consider <span class="math inline">\(M^{th}\)</span> user? This can be a very expensive operation!</p>
+<p><img src="https://nipunbatra.github.io/blog/images/o_matrix_estimation.png" class="img-fluid"></p>
+<p>Instead, as shown in above figure, we will learn the user factor for the <span class="math inline">\(M^{th}\)</span> user. We can do this the shared movie factor (H) has already been learnt.</p>
+<p>We can formulate as follows:</p>
+<p><span class="math display">\[
+A[M,:] = W[M,:]H
+\]</span></p>
+<p>Taking transpose both sides</p>
+<p><span class="math display">\[
+A[M,:]^T = H^T W[M,:]^T
+\]</span></p>
+<p>However, <span class="math inline">\(A[M,:]^T\)</span> will have missing entries. Thus, we can mask those entries from the calculation as shown below.</p>
+<p><img src="https://nipunbatra.github.io/blog/images/o_matrix_estimation_ls.png" class="img-fluid"></p>
+<p>Thus, we can write</p>
+<p><span class="math display">\[
+W[M,:]^T = \mathrm{Least Squares} (H^T[Mask], A[M,:]^T[Mask])
+\]</span></p>
+<p>If instead we want the factors to be non-negative, we can use non-negative least squares instead of usual least squares for this estimation.</p>
+</section>
+<section id="code-example" class="level3">
+<h3 class="anchored" data-anchor-id="code-example">Code example</h3>
+<p>I’ll now present a simple code example to illustrate the procedure.</p>
+<section id="defining-matrix-a" class="level4">
+<h4 class="anchored" data-anchor-id="defining-matrix-a">Defining matrix A</h4>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>M, N <span class="op">=</span> <span class="dv">20</span>, <span class="dv">10</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">0</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>A_orig <span class="op">=</span> np.<span class="bu">abs</span>(np.random.uniform(low<span class="op">=</span><span class="fl">0.0</span>, high<span class="op">=</span><span class="fl">1.0</span>, size<span class="op">=</span>(M,N)))</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(A_orig).head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+
+<div>
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>0</th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+      <th>4</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>8</th>
+      <th>9</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.548814</td>
+      <td>0.715189</td>
+      <td>0.602763</td>
+      <td>0.544883</td>
+      <td>0.423655</td>
+      <td>0.645894</td>
+      <td>0.437587</td>
+      <td>0.891773</td>
+      <td>0.963663</td>
+      <td>0.383442</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.791725</td>
+      <td>0.528895</td>
+      <td>0.568045</td>
+      <td>0.925597</td>
+      <td>0.071036</td>
+      <td>0.087129</td>
+      <td>0.020218</td>
+      <td>0.832620</td>
+      <td>0.778157</td>
+      <td>0.870012</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.978618</td>
+      <td>0.799159</td>
+      <td>0.461479</td>
+      <td>0.780529</td>
+      <td>0.118274</td>
+      <td>0.639921</td>
+      <td>0.143353</td>
+      <td>0.944669</td>
+      <td>0.521848</td>
+      <td>0.414662</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.264556</td>
+      <td>0.774234</td>
+      <td>0.456150</td>
+      <td>0.568434</td>
+      <td>0.018790</td>
+      <td>0.617635</td>
+      <td>0.612096</td>
+      <td>0.616934</td>
+      <td>0.943748</td>
+      <td>0.681820</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.359508</td>
+      <td>0.437032</td>
+      <td>0.697631</td>
+      <td>0.060225</td>
+      <td>0.666767</td>
+      <td>0.670638</td>
+      <td>0.210383</td>
+      <td>0.128926</td>
+      <td>0.315428</td>
+      <td>0.363711</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="masking-a-few-entries" class="level4">
+<h4 class="anchored" data-anchor-id="masking-a-few-entries">Masking a few entries</h4>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>A <span class="op">=</span> A_orig.copy()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>A[<span class="dv">0</span>, <span class="dv">0</span>] <span class="op">=</span> np.NAN</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>A[<span class="dv">3</span>, <span class="dv">1</span>] <span class="op">=</span> np.NAN</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>A[<span class="dv">6</span>, <span class="dv">3</span>] <span class="op">=</span> np.NAN</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Masking for last user. </span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>A[<span class="dv">19</span>, <span class="dv">2</span>] <span class="op">=</span> np.NAN</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>A[<span class="dv">19</span>, <span class="dv">7</span>] <span class="op">=</span> np.NAN</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>We will be using A2 (first 19 users) matrix for learning the movie factors and the user factors for the 19 users</p>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>A2 <span class="op">=</span> A[:<span class="op">-</span><span class="dv">1</span>,:]</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>A2.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="3">
+<pre><code>(19, 10)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>A_df <span class="op">=</span> pd.DataFrame(A)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>A_df.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="4">
+
+<div>
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>0</th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+      <th>4</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>8</th>
+      <th>9</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>NaN</td>
+      <td>0.715189</td>
+      <td>0.602763</td>
+      <td>0.544883</td>
+      <td>0.423655</td>
+      <td>0.645894</td>
+      <td>0.437587</td>
+      <td>0.891773</td>
+      <td>0.963663</td>
+      <td>0.383442</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.791725</td>
+      <td>0.528895</td>
+      <td>0.568045</td>
+      <td>0.925597</td>
+      <td>0.071036</td>
+      <td>0.087129</td>
+      <td>0.020218</td>
+      <td>0.832620</td>
+      <td>0.778157</td>
+      <td>0.870012</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.978618</td>
+      <td>0.799159</td>
+      <td>0.461479</td>
+      <td>0.780529</td>
+      <td>0.118274</td>
+      <td>0.639921</td>
+      <td>0.143353</td>
+      <td>0.944669</td>
+      <td>0.521848</td>
+      <td>0.414662</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.264556</td>
+      <td>NaN</td>
+      <td>0.456150</td>
+      <td>0.568434</td>
+      <td>0.018790</td>
+      <td>0.617635</td>
+      <td>0.612096</td>
+      <td>0.616934</td>
+      <td>0.943748</td>
+      <td>0.681820</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.359508</td>
+      <td>0.437032</td>
+      <td>0.697631</td>
+      <td>0.060225</td>
+      <td>0.666767</td>
+      <td>0.670638</td>
+      <td>0.210383</td>
+      <td>0.128926</td>
+      <td>0.315428</td>
+      <td>0.363711</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="defining-matrices-w-and-h-learning-on-m-1-users-and-n-movies" class="level4">
+<h4 class="anchored" data-anchor-id="defining-matrices-w-and-h-learning-on-m-1-users-and-n-movies">Defining matrices W and H (learning on M-1 users and N movies)</h4>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>K <span class="op">=</span> <span class="dv">4</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>W <span class="op">=</span> np.<span class="bu">abs</span>(np.random.uniform(low<span class="op">=</span><span class="dv">0</span>, high<span class="op">=</span><span class="dv">1</span>, size<span class="op">=</span>(M<span class="op">-</span><span class="dv">1</span>, K)))</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>H <span class="op">=</span> np.<span class="bu">abs</span>(np.random.uniform(low<span class="op">=</span><span class="dv">0</span>, high<span class="op">=</span><span class="dv">1</span>, size<span class="op">=</span>(K, N)))</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>W <span class="op">=</span> np.divide(W, K<span class="op">*</span>W.<span class="bu">max</span>())</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>H <span class="op">=</span> np.divide(H, K<span class="op">*</span>H.<span class="bu">max</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(W).head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="6">
+
+<div>
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>0</th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.078709</td>
+      <td>0.175784</td>
+      <td>0.095359</td>
+      <td>0.045339</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.006230</td>
+      <td>0.016976</td>
+      <td>0.171505</td>
+      <td>0.114531</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.135453</td>
+      <td>0.226355</td>
+      <td>0.250000</td>
+      <td>0.054753</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.167387</td>
+      <td>0.066473</td>
+      <td>0.005213</td>
+      <td>0.191444</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.080785</td>
+      <td>0.096801</td>
+      <td>0.148514</td>
+      <td>0.209789</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(H).head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="7">
+
+<div>
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>0</th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+      <th>4</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>8</th>
+      <th>9</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.239700</td>
+      <td>0.203498</td>
+      <td>0.160529</td>
+      <td>0.222617</td>
+      <td>0.074611</td>
+      <td>0.216164</td>
+      <td>0.157328</td>
+      <td>0.003370</td>
+      <td>0.088415</td>
+      <td>0.037721</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.250000</td>
+      <td>0.121806</td>
+      <td>0.126649</td>
+      <td>0.162827</td>
+      <td>0.093851</td>
+      <td>0.034858</td>
+      <td>0.209333</td>
+      <td>0.048340</td>
+      <td>0.130195</td>
+      <td>0.057117</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.024914</td>
+      <td>0.219537</td>
+      <td>0.247731</td>
+      <td>0.244654</td>
+      <td>0.230833</td>
+      <td>0.197093</td>
+      <td>0.084828</td>
+      <td>0.020651</td>
+      <td>0.103694</td>
+      <td>0.059133</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.033735</td>
+      <td>0.013604</td>
+      <td>0.184756</td>
+      <td>0.002910</td>
+      <td>0.196210</td>
+      <td>0.037417</td>
+      <td>0.020248</td>
+      <td>0.022815</td>
+      <td>0.171121</td>
+      <td>0.062477</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="defining-the-cost-that-we-want-to-minimise" class="level4">
+<h4 class="anchored" data-anchor-id="defining-the-cost-that-we-want-to-minimise">Defining the cost that we want to minimise</h4>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cost(A, W, H):</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> numpy <span class="im">import</span> linalg</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    WH <span class="op">=</span> np.dot(W, H)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    A_WH <span class="op">=</span> A<span class="op">-</span>WH</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> linalg.norm(A_WH, <span class="st">'fro'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>However, since A has missing entries, we have to define the cost in terms of the entries present in A</p>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cost(A, W, H):</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="im">from</span> numpy <span class="im">import</span> linalg</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> pd.DataFrame(A).notnull().values</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    WH <span class="op">=</span> np.dot(W, H)</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    WH_mask <span class="op">=</span> WH[mask]</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    A_mask <span class="op">=</span> A[mask]</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    A_WH_mask <span class="op">=</span> A_mask<span class="op">-</span>WH_mask</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Since now A_WH_mask is a vector, we use L2 instead of Frobenius norm for matrix</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> linalg.norm(A_WH_mask, <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let us just try to see the cost of the initial set of values of W and H we randomly assigned. Notice, we pass A2!</p>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>cost(A2, W, H)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre><code>7.2333001567031294</code></pre>
+</div>
+</div>
+</section>
+<section id="alternating-nnls-procedure" class="level4">
+<h4 class="anchored" data-anchor-id="alternating-nnls-procedure">Alternating NNLS procedure</h4>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>num_iter <span class="op">=</span> <span class="dv">1000</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>num_display_cost <span class="op">=</span> <span class="bu">max</span>(<span class="bu">int</span>(num_iter<span class="op">/</span><span class="dv">10</span>), <span class="dv">1</span>)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.optimize <span class="im">import</span> nnls</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(num_iter):</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span><span class="dv">2</span> <span class="op">==</span><span class="dv">0</span>:</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Learn H, given A and W</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(N):</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>            mask_rows <span class="op">=</span> pd.Series(A2[:,j]).notnull()</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>            H[:,j] <span class="op">=</span> nnls(W[mask_rows], A2[:,j][mask_rows])[<span class="dv">0</span>]</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(M<span class="op">-</span><span class="dv">1</span>):</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>            mask_rows <span class="op">=</span> pd.Series(A2[j,:]).notnull()</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>            W[j,:] <span class="op">=</span> nnls(H.transpose()[mask_rows], A2[j,:][mask_rows])[<span class="dv">0</span>]</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>    WH <span class="op">=</span> np.dot(W, H)</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>    c <span class="op">=</span> cost(A2, W, H)</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span>num_display_cost<span class="op">==</span><span class="dv">0</span>:</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span> i, c</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>0 3.74162948918
+100 2.25416363991
+200 2.25258698617
+300 2.25229707846
+400 2.25131714233
+500 2.24968386447
+600 2.24967129897
+700 2.24965023589
+800 2.24961410381
+900 2.24955008837</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>A_pred <span class="op">=</span> pd.DataFrame(np.dot(W, H))</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>A_pred.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+
+<div>
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th></th>
+      <th>0</th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+      <th>4</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>8</th>
+      <th>9</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.590301</td>
+      <td>0.653038</td>
+      <td>0.531940</td>
+      <td>0.623272</td>
+      <td>0.584763</td>
+      <td>0.630835</td>
+      <td>0.574041</td>
+      <td>0.700139</td>
+      <td>0.841706</td>
+      <td>0.565808</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.802724</td>
+      <td>0.532299</td>
+      <td>0.482430</td>
+      <td>1.017968</td>
+      <td>0.149923</td>
+      <td>0.449312</td>
+      <td>0.097775</td>
+      <td>0.708727</td>
+      <td>0.506595</td>
+      <td>0.846219</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.764296</td>
+      <td>0.563711</td>
+      <td>0.527292</td>
+      <td>0.905236</td>
+      <td>0.306275</td>
+      <td>0.505674</td>
+      <td>0.223192</td>
+      <td>0.705882</td>
+      <td>0.604356</td>
+      <td>0.757878</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.373539</td>
+      <td>0.745239</td>
+      <td>0.334948</td>
+      <td>0.663219</td>
+      <td>0.132686</td>
+      <td>0.551844</td>
+      <td>0.760420</td>
+      <td>0.598546</td>
+      <td>0.808108</td>
+      <td>0.627732</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.467623</td>
+      <td>0.331457</td>
+      <td>0.617263</td>
+      <td>0.239449</td>
+      <td>0.634455</td>
+      <td>0.370041</td>
+      <td>0.294412</td>
+      <td>0.288539</td>
+      <td>0.484822</td>
+      <td>0.126945</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="learning-home-factors-for-mth-home" class="level4">
+<h4 class="anchored" data-anchor-id="learning-home-factors-for-mth-home">Learning home factors for <span class="math inline">\(M^{th}\)</span> home</h4>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>A_m <span class="op">=</span> A[<span class="op">-</span><span class="dv">1</span>,:]</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>A_m_transpose <span class="op">=</span> A_m.T</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>mask <span class="op">=</span> <span class="op">~</span>np.isnan(A_m_transpose)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>W_m <span class="op">=</span> nnls(H.T[mask], A_m_transpose[mask])[<span class="dv">0</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>W_m</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="14">
+<pre><code>array([ 0.12248095,  0.20778687,  0.15185613,  0.        ])</code></pre>
+</div>
+</div>
+</section>
+<section id="predicting-for-mth-home" class="level4">
+<h4 class="anchored" data-anchor-id="predicting-for-mth-home">Predicting for <span class="math inline">\(M^{th}\)</span> home</h4>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>ratings_m_home <span class="op">=</span> np.dot(H.T, W_m)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>ratings_m_home[<span class="op">~</span>mask]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="16">
+<pre><code>array([ 0.4245947 ,  0.57447552])</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>A_orig[<span class="op">-</span><span class="dv">1</span>,:][<span class="op">~</span>mask]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="17">
+<pre><code>array([ 0.18619301,  0.25435648])</code></pre>
+</div>
+</div>
+<p>There you go, we are able to get ratings for the <span class="math inline">\(M^{th}\)</span> user for the movies that they have not seen. We only trained the model on the other users! Ofcourse, these numbers might not look so impressive. However, this was just a toy example based on random data. In reality, we could expect better results!</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
