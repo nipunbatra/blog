@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2022-11-04">
+<meta name="description" content="A programming introduction to Autoencoders in JAX">
+
+<title>Nipun Batra Blog - Autoencoders in JAX</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark.min.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io" rel="" target="">
+ <span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Autoencoders in JAX</h1>
+                  <div>
+        <div class="description">
+          A programming introduction to Autoencoders in JAX
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">ML</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">November 4, 2022</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#imports" id="toc-imports" class="nav-link active" data-scroll-target="#imports">Imports</a></li>
+  <li><a href="#create-a-simple-2d-dataset" id="toc-create-a-simple-2d-dataset" class="nav-link" data-scroll-target="#create-a-simple-2d-dataset">Create a simple 2d dataset</a></li>
+  <li><a href="#define-the-loss-function" id="toc-define-the-loss-function" class="nav-link" data-scroll-target="#define-the-loss-function">Define the Loss function</a></li>
+  <li><a href="#defining-the-train-function" id="toc-defining-the-train-function" class="nav-link" data-scroll-target="#defining-the-train-function">Defining the train function</a></li>
+  <li><a href="#untrained-encodings" id="toc-untrained-encodings" class="nav-link" data-scroll-target="#untrained-encodings">Untrained encodings</a></li>
+  <li><a href="#trained-encodings" id="toc-trained-encodings" class="nav-link" data-scroll-target="#trained-encodings">Trained encodings</a></li>
+  <li><a href="#reconstruction" id="toc-reconstruction" class="nav-link" data-scroll-target="#reconstruction">Reconstruction</a></li>
+  <li><a href="#convoluational-ae" id="toc-convoluational-ae" class="nav-link" data-scroll-target="#convoluational-ae">Convoluational AE</a></li>
+  <li><a href="#bayesopt-for-optimizing-the-latent-dimension" id="toc-bayesopt-for-optimizing-the-latent-dimension" class="nav-link" data-scroll-target="#bayesopt-for-optimizing-the-latent-dimension">BayesOpt for optimizing the latent dimension</a></li>
+  <li><a href="#vae" id="toc-vae" class="nav-link" data-scroll-target="#vae">VAE</a></li>
+  <li><a href="#loss" id="toc-loss" class="nav-link" data-scroll-target="#loss">Loss</a></li>
+  <li><a href="#todo" id="toc-todo" class="nav-link" data-scroll-target="#todo">TODO</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<section id="imports" class="level3">
+<h3 class="anchored" data-anchor-id="imports">Imports</h3>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> jax</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> jax.numpy <span class="im">as</span> jnp</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> optax</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>config InlineBackend.figure_format<span class="op">=</span><span class="st">'retina'</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> jax.random <span class="im">as</span> random</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tensorflow_probability.substrates.jax <span class="im">as</span> tfp</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> flax <span class="im">import</span> linen <span class="im">as</span> nn</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Any, Callable, Sequence</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> seaborn <span class="im">as</span> sns</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> bayes_opt <span class="im">import</span> BayesianOptimization</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="create-a-simple-2d-dataset" class="level3">
+<h3 class="anchored" data-anchor-id="create-a-simple-2d-dataset">Create a simple 2d dataset</h3>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> random.multivariate_normal(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    key<span class="op">=</span>random.PRNGKey(<span class="dv">0</span>),</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    shape<span class="op">=</span>(<span class="dv">100</span>,),</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    mean<span class="op">=</span>jnp.array([<span class="dv">1</span>, <span class="dv">3</span>]),</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    cov<span class="op">=</span>jnp.array([[<span class="fl">1.0</span>, <span class="op">-</span><span class="fl">0.5</span>], [<span class="op">-</span><span class="fl">0.5</span>, <span class="fl">2.0</span>]]),</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>X.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="3">
+<pre><code>(100, 2)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>plt.scatter(X[:, <span class="dv">0</span>], X[:, <span class="dv">1</span>])</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.gca().set_aspect("equal")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="4">
+<pre><code>&lt;matplotlib.collections.PathCollection at 0x15a9e6490&gt;</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-5-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Encoder(nn.Module):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    bottleneck: <span class="bu">int</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@nn.compact</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Dense(<span class="dv">5</span>)(x)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.selu(x)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Dense(features<span class="op">=</span><span class="va">self</span>.bottleneck)(x)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Decoder(nn.Module):</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    out: <span class="bu">int</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@nn.compact</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Dense(<span class="dv">5</span>)(x)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.selu(x)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Dense(features<span class="op">=</span><span class="va">self</span>.out)(x)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>enc <span class="op">=</span> Encoder(bottleneck<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>dec <span class="op">=</span> Decoder(out<span class="op">=</span><span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>params_enc <span class="op">=</span> enc.init(random.PRNGKey(<span class="dv">0</span>), X)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>X_bottlenecked <span class="op">=</span> enc.<span class="bu">apply</span>(params_enc, X)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>X_bottlenecked.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<pre><code>(100, 1)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(enc.tabulate(random.PRNGKey(<span class="dv">0</span>), X))</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(dec.tabulate(random.PRNGKey(<span class="dv">0</span>), X_bottlenecked))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+                               Encoder Summary                                
+┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ path    ┃ module  ┃ inputs         ┃ outputs        ┃ params               ┃
+┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│         │ Encoder │ float32[100,2] │ float32[100,1] │                      │
+├─────────┼─────────┼────────────────┼────────────────┼──────────────────────┤
+│ Dense_0 │ Dense   │ float32[100,2] │ float32[100,5] │ bias: float32[5]     │
+│         │         │                │                │ kernel: float32[2,5] │
+│         │         │                │                │                      │
+│         │         │                │                │ 15 (60 B)            │
+├─────────┼─────────┼────────────────┼────────────────┼──────────────────────┤
+│ Dense_1 │ Dense   │ float32[100,5] │ float32[100,1] │ bias: float32[1]     │
+│         │         │                │                │ kernel: float32[5,1] │
+│         │         │                │                │                      │
+│         │         │                │                │ 6 (24 B)             │
+├─────────┼─────────┼────────────────┼────────────────┼──────────────────────┤
+│         │         │                │          Total │ 21 (84 B)            │
+└─────────┴─────────┴────────────────┴────────────────┴──────────────────────┘
+                                                                              
+                         Total Parameters: 21 (84 B)                          
+
+
+
+                               Decoder Summary                                
+┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ path    ┃ module  ┃ inputs         ┃ outputs        ┃ params               ┃
+┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│         │ Decoder │ float32[100,1] │ float32[100,2] │                      │
+├─────────┼─────────┼────────────────┼────────────────┼──────────────────────┤
+│ Dense_0 │ Dense   │ float32[100,1] │ float32[100,5] │ bias: float32[5]     │
+│         │         │                │                │ kernel: float32[1,5] │
+│         │         │                │                │                      │
+│         │         │                │                │ 10 (40 B)            │
+├─────────┼─────────┼────────────────┼────────────────┼──────────────────────┤
+│ Dense_1 │ Dense   │ float32[100,5] │ float32[100,2] │ bias: float32[2]     │
+│         │         │                │                │ kernel: float32[5,2] │
+│         │         │                │                │                      │
+│         │         │                │                │ 12 (48 B)            │
+├─────────┼─────────┼────────────────┼────────────────┼──────────────────────┤
+│         │         │                │          Total │ 22 (88 B)            │
+└─────────┴─────────┴────────────────┴────────────────┴──────────────────────┘
+                                                                              
+                         Total Parameters: 22 (88 B)                          
+
+</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AE(nn.Module):</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    bottleneck: <span class="bu">int</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    out: <span class="bu">int</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> setup(<span class="va">self</span>):</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Alternative to @nn.compact -&gt; explicitly define modules</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Better for later when we want to access the encoder and decoder explicitly</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.encoder <span class="op">=</span> Encoder(bottleneck<span class="op">=</span><span class="va">self</span>.bottleneck)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.decoder <span class="op">=</span> Decoder(out<span class="op">=</span><span class="va">self</span>.out)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>        z <span class="op">=</span> <span class="va">self</span>.encoder(x)</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        x_hat <span class="op">=</span> <span class="va">self</span>.decoder(z)</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x_hat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>bottleneck_size <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>out_size <span class="op">=</span> X.shape[<span class="dv">1</span>]</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>ae <span class="op">=</span> AE(bottleneck_size, out_size)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>ae</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<pre><code>AE(
+    # attributes
+    bottleneck = 1
+    out = 2
+)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(ae.tabulate(random.PRNGKey(<span class="dv">0</span>), X))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+                                   AE Summary                                   
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ path            ┃ module  ┃ inputs         ┃ outputs        ┃ params         ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│                 │ AE      │ float32[100,2] │ float32[100,2] │                │
+├─────────────────┼─────────┼────────────────┼────────────────┼────────────────┤
+│ encoder         │ Encoder │ float32[100,2] │ float32[100,1] │                │
+├─────────────────┼─────────┼────────────────┼────────────────┼────────────────┤
+│ encoder/Dense_0 │ Dense   │ float32[100,2] │ float32[100,5] │ bias:          │
+│                 │         │                │                │ float32[5]     │
+│                 │         │                │                │ kernel:        │
+│                 │         │                │                │ float32[2,5]   │
+│                 │         │                │                │                │
+│                 │         │                │                │ 15 (60 B)      │
+├─────────────────┼─────────┼────────────────┼────────────────┼────────────────┤
+│ encoder/Dense_1 │ Dense   │ float32[100,5] │ float32[100,1] │ bias:          │
+│                 │         │                │                │ float32[1]     │
+│                 │         │                │                │ kernel:        │
+│                 │         │                │                │ float32[5,1]   │
+│                 │         │                │                │                │
+│                 │         │                │                │ 6 (24 B)       │
+├─────────────────┼─────────┼────────────────┼────────────────┼────────────────┤
+│ decoder         │ Decoder │ float32[100,1] │ float32[100,2] │                │
+├─────────────────┼─────────┼────────────────┼────────────────┼────────────────┤
+│ decoder/Dense_0 │ Dense   │ float32[100,1] │ float32[100,5] │ bias:          │
+│                 │         │                │                │ float32[5]     │
+│                 │         │                │                │ kernel:        │
+│                 │         │                │                │ float32[1,5]   │
+│                 │         │                │                │                │
+│                 │         │                │                │ 10 (40 B)      │
+├─────────────────┼─────────┼────────────────┼────────────────┼────────────────┤
+│ decoder/Dense_1 │ Dense   │ float32[100,5] │ float32[100,2] │ bias:          │
+│                 │         │                │                │ float32[2]     │
+│                 │         │                │                │ kernel:        │
+│                 │         │                │                │ float32[5,2]   │
+│                 │         │                │                │                │
+│                 │         │                │                │ 12 (48 B)      │
+├─────────────────┼─────────┼────────────────┼────────────────┼────────────────┤
+│                 │         │                │          Total │ 43 (172 B)     │
+└─────────────────┴─────────┴────────────────┴────────────────┴────────────────┘
+                                                                                
+                          Total Parameters: 43 (172 B)                          
+
+</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>params <span class="op">=</span> ae.init(random.PRNGKey(<span class="dv">0</span>), X)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>params</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="14">
+<pre><code>FrozenDict({
+    params: {
+        encoder: {
+            Dense_0: {
+                kernel: DeviceArray([[ 0.17535934, -1.0953957 ,  0.69273657, -0.26352578,
+                               0.63077825],
+                             [ 0.36360174, -0.73782593, -0.5395247 , -0.41536337,
+                              -0.30090812]], dtype=float32),
+                bias: DeviceArray([0., 0., 0., 0., 0.], dtype=float32),
+            },
+            Dense_1: {
+                kernel: DeviceArray([[-0.64744544],
+                             [ 0.4855265 ],
+                             [-0.82133824],
+                             [ 0.62454295],
+                             [ 0.6013553 ]], dtype=float32),
+                bias: DeviceArray([0.], dtype=float32),
+            },
+        },
+        decoder: {
+            Dense_0: {
+                kernel: DeviceArray([[-0.5305567 ,  1.1100855 , -0.31129056,  0.43152457,
+                              -0.09589562]], dtype=float32),
+                bias: DeviceArray([0., 0., 0., 0., 0.], dtype=float32),
+            },
+            Dense_1: {
+                kernel: DeviceArray([[-0.76956064,  0.13031492],
+                             [ 0.11736098,  0.47368795],
+                             [-0.12549445, -0.31066778],
+                             [-0.4392067 , -0.9067152 ],
+                             [-0.86761785,  0.42325035]], dtype=float32),
+                bias: DeviceArray([0., 0.], dtype=float32),
+            },
+        },
+    },
+})</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>X_hat <span class="op">=</span> ae.<span class="bu">apply</span>(params, X)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>X_hat.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="15">
+<pre><code>(100, 2)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>    ae.encoder</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span>:</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">pass</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Trying to figure this out</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># https://github.com/google/flax/discussions/2602</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Encoded values/latent representation</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>encoded_1d <span class="op">=</span> Encoder(<span class="dv">1</span>).<span class="bu">apply</span>({<span class="st">"params"</span>: params[<span class="st">"params"</span>][<span class="st">"encoder"</span>]}, X).flatten()</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>encoded_1d</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="17">
+<pre><code>DeviceArray([-2.4718695, -2.1964364, -2.6823573, -2.4936147, -1.7122931,
+             -1.8346143, -2.0767107, -1.8570523, -1.7632042, -2.067935 ,
+             -2.2317708, -2.14561  , -1.0023856, -2.1458383, -2.3645976,
+             -1.9418356, -2.7020268, -1.6407721, -1.8281609, -2.2202983,
+             -2.517499 , -2.5888596, -2.0095935, -2.4470625, -2.18571  ,
+             -1.9742887, -1.8921608, -2.245328 , -0.8897901, -2.5329056,
+             -2.2861118, -1.5862433, -2.2295656, -2.496296 , -2.404385 ,
+             -2.0180435, -1.8416756, -1.858724 , -2.0980945, -1.777173 ,
+             -2.0027544, -2.1870096, -2.44952  , -1.7563678, -1.5761943,
+             -2.3097022, -2.0295165, -2.9528203, -2.2042174, -1.9090188,
+             -1.8868417, -2.4206855, -2.143362 , -1.880422 , -2.5127397,
+             -2.1454868, -2.0043788, -2.570388 , -2.5082102, -2.3339696,
+             -1.8621875, -2.4201612, -2.561397 , -2.0498512, -1.6772006,
+             -1.6392376, -2.3855271, -1.8138398, -3.3776197, -2.3745804,
+             -2.6683671, -1.8609927, -1.4205931, -1.8123009, -2.236284 ,
+             -2.2161927, -2.5204146, -2.0504622, -2.1548996, -1.6896895,
+             -1.3192847, -2.2909331, -2.1295016, -2.0703764, -1.9394028,
+             -2.041992 , -1.8279521, -1.690125 , -2.7230937, -2.3157165,
+             -1.7527001, -2.2544892, -2.6310122, -2.0703619, -2.2476096,
+             -1.8941168, -1.5398859, -1.5742403, -2.375471 , -1.9361446],            dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> plot_2d_reconstruction(X, params, model, trained <span class="op">=</span> <span class="va">False</span>):</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    X_hat <span class="op">=</span> model.<span class="bu">apply</span>(params, X)</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>    plt.scatter(X[:, <span class="dv">0</span>], X[:, <span class="dv">1</span>], label<span class="op">=</span><span class="st">"Original Data"</span>)</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>    plt.scatter(X_hat[:, <span class="dv">0</span>], X_hat[:, <span class="dv">1</span>], label<span class="op">=</span><span class="st">"Reconstructed Data"</span>)</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> trained:</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>        plt.title(<span class="st">"Trained"</span>)</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>        plt.title(<span class="st">"Untrained"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>plot_2d_reconstruction(X, params, ae, <span class="va">False</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-20-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="define-the-loss-function" class="level3">
+<h3 class="anchored" data-anchor-id="define-the-loss-function">Define the Loss function</h3>
+<p><span class="math inline">\(\ell_2\)</span> penalty</p>
+<div class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> X <span class="op">-</span> X_hat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="21">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>diff.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="21">
+<pre><code>(100, 2)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="22">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>diff[:<span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="22">
+<pre><code>DeviceArray([[-0.46981597,  5.271835  ],
+             [ 1.6502905 ,  3.6781619 ],
+             [ 1.8507848 ,  5.0589485 ],
+             [ 2.8690844 ,  4.5646677 ],
+             [ 0.4905889 ,  2.8893166 ]], dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="23">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>(diff<span class="op">**</span><span class="dv">2</span>).<span class="bu">sum</span>(axis<span class="op">=</span><span class="dv">1</span>).mean() <span class="op">/</span> <span class="dv">2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="23">
+<pre><code>DeviceArray(7.9555416, dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="24">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>(diff<span class="op">**</span><span class="dv">2</span>).<span class="bu">sum</span>(axis<span class="op">=</span><span class="dv">1</span>)[:<span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="24">
+<pre><code>DeviceArray([28.01297 , 16.252333, 29.018364, 29.067837,  8.588828], dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="25">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>(jnp.linalg.norm(diff, <span class="bu">ord</span><span class="op">=</span><span class="dv">2</span>, axis<span class="op">=</span><span class="dv">1</span>) <span class="op">**</span> <span class="dv">2</span>).mean() <span class="op">/</span> <span class="dv">2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="25">
+<pre><code>DeviceArray(7.955541, dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="26">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.metrics <span class="im">import</span> mean_squared_error</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="27">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>mean_squared_error(X, X_hat)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="27">
+<pre><code>7.9555407</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="28">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="dv">2</span> <span class="op">*</span> optax.l2_loss(X_hat, X).mean())</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a><span class="co">"""</span></span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a><span class="co">Multplying by two</span></span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a><span class="co">Docstring says:</span></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a><span class="co">Calculates the L2 loss for a set of predictions.</span></span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a><span class="co">Note: the 0.5 term is standard in "Pattern Recognition and Machine Learning"</span></span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a><span class="co">by Bishop, but not "The Elements of Statistical Learning" by Tibshirani.</span></span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a><span class="co">"""</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>7.9555416</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="28">
+<pre><code>'\n\nMultplying by two\nDocstring says:\nCalculates the L2 loss for a set of predictions.\n\nNote: the 0.5 term is standard in "Pattern Recognition and Machine Learning"\nby Bishop, but not "The Elements of Statistical Learning" by Tibshirani.\n'</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="29">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="at">@jax.jit</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> loss(params, X):</span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>    X_hat <span class="op">=</span> ae.<span class="bu">apply</span>(params, X)</span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">2</span> <span class="op">*</span> optax.l2_loss(X_hat, X).mean()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="30">
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>loss(params, X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="30">
+<pre><code>DeviceArray(7.9555416, dtype=float32)</code></pre>
+</div>
+</div>
+</section>
+<section id="defining-the-train-function" class="level3">
+<h3 class="anchored" data-anchor-id="defining-the-train-function">Defining the train function</h3>
+<div class="cell" data-execution_count="31">
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> train(</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>    X: jnp.array,</span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>    optimizer: optax._src.base.GradientTransformation,</span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>    model: nn.Module,</span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>    key_param: jax.random.PRNGKey,</span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>    n_iter: <span class="bu">int</span><span class="op">=</span><span class="dv">500</span>,</span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>    print_every: <span class="bu">int</span><span class="op">=</span><span class="dv">10</span></span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>    loss_array  <span class="op">=</span> np.zeros(n_iter)</span>
+<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> loss(params, X):</span>
+<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>        X_hat <span class="op">=</span> model.<span class="bu">apply</span>(params, X)</span>
+<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">2</span> <span class="op">*</span> optax.l2_loss(X_hat, X).mean()</span>
+<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>    params <span class="op">=</span> model.init(key_param, X)</span>
+<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>    opt_state <span class="op">=</span> optimizer.init(params)</span>
+<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>    loss_grad_fn <span class="op">=</span> jax.value_and_grad(loss)</span>
+<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n_iter):</span>
+<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>        loss_val, grads <span class="op">=</span> loss_grad_fn(params, X)</span>
+<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a>        loss_array[i] <span class="op">=</span> loss_val.item()</span>
+<span id="cb49-21"><a href="#cb49-21" aria-hidden="true" tabindex="-1"></a>        updates, opt_state <span class="op">=</span> optimizer.update(grads, opt_state)</span>
+<span id="cb49-22"><a href="#cb49-22" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> optax.apply_updates(params, updates)</span>
+<span id="cb49-23"><a href="#cb49-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> i <span class="op">%</span> print_every <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb49-24"><a href="#cb49-24" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"Loss step </span><span class="sc">{}</span><span class="st">: "</span>.<span class="bu">format</span>(i), loss_val)</span>
+<span id="cb49-25"><a href="#cb49-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> params, loss_array</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="32">
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>optimized_params, loss_array <span class="op">=</span> train(</span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>    X, optax.adam(learning_rate<span class="op">=</span><span class="fl">0.1</span>), ae, jax.random.PRNGKey(<span class="dv">0</span>), n_iter<span class="op">=</span><span class="dv">30</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss step 0:  7.9555416
+Loss step 10:  1.3104575
+Loss step 20:  0.544944</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="33">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>plt.plot(loss_array)</span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Iterations"</span>)</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>_ <span class="op">=</span> plt.ylabel(<span class="st">"Reconstruction loss"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-34-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="34">
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>plot_2d_reconstruction(X, optimized_params, ae, <span class="va">True</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-35-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="35">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn <span class="im">import</span> datasets</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="36">
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>digits <span class="op">=</span> datasets.load_digits()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="37">
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> jnp.array(digits[<span class="st">"data"</span>])</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> digits[<span class="st">"target"</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="38">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>X.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="38">
+<pre><code>(1797, 64)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="39">
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>plt.imshow(X[<span class="dv">1</span>].reshape(<span class="dv">8</span>, <span class="dv">8</span>), cmap<span class="op">=</span><span class="st">"Greys"</span>)</span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>y[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="39">
+<pre><code>1</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-40-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="40">
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>bn <span class="op">=</span> <span class="dv">2</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>ae_digits <span class="op">=</span> AE(bn, X.shape[<span class="dv">1</span>])</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a>ae_digits</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="40">
+<pre><code>AE(
+    # attributes
+    bottleneck = 2
+    out = 64
+)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="41">
+<div class="sourceCode cell-code" id="cb63"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(ae_digits.tabulate(random.PRNGKey(<span class="dv">0</span>), X))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+                                   AE Summary                                   
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ path           ┃ module  ┃ inputs         ┃ outputs         ┃ params         ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│                │ AE      │ float32[1797,… │ float32[1797,6… │                │
+├────────────────┼─────────┼────────────────┼─────────────────┼────────────────┤
+│ encoder        │ Encoder │ float32[1797,… │ float32[1797,2] │                │
+├────────────────┼─────────┼────────────────┼─────────────────┼────────────────┤
+│ encoder/Dense… │ Dense   │ float32[1797,… │ float32[1797,5] │ bias:          │
+│                │         │                │                 │ float32[5]     │
+│                │         │                │                 │ kernel:        │
+│                │         │                │                 │ float32[64,5]  │
+│                │         │                │                 │                │
+│                │         │                │                 │ 325 (1.3 KB)   │
+├────────────────┼─────────┼────────────────┼─────────────────┼────────────────┤
+│ encoder/Dense… │ Dense   │ float32[1797,… │ float32[1797,2] │ bias:          │
+│                │         │                │                 │ float32[2]     │
+│                │         │                │                 │ kernel:        │
+│                │         │                │                 │ float32[5,2]   │
+│                │         │                │                 │                │
+│                │         │                │                 │ 12 (48 B)      │
+├────────────────┼─────────┼────────────────┼─────────────────┼────────────────┤
+│ decoder        │ Decoder │ float32[1797,… │ float32[1797,6… │                │
+├────────────────┼─────────┼────────────────┼─────────────────┼────────────────┤
+│ decoder/Dense… │ Dense   │ float32[1797,… │ float32[1797,5] │ bias:          │
+│                │         │                │                 │ float32[5]     │
+│                │         │                │                 │ kernel:        │
+│                │         │                │                 │ float32[2,5]   │
+│                │         │                │                 │                │
+│                │         │                │                 │ 15 (60 B)      │
+├────────────────┼─────────┼────────────────┼─────────────────┼────────────────┤
+│ decoder/Dense… │ Dense   │ float32[1797,… │ float32[1797,6… │ bias:          │
+│                │         │                │                 │ float32[64]    │
+│                │         │                │                 │ kernel:        │
+│                │         │                │                 │ float32[5,64]  │
+│                │         │                │                 │                │
+│                │         │                │                 │ 384 (1.5 KB)   │
+├────────────────┼─────────┼────────────────┼─────────────────┼────────────────┤
+│                │         │                │           Total │ 736 (2.9 KB)   │
+└────────────────┴─────────┴────────────────┴─────────────────┴────────────────┘
+                                                                                
+                         Total Parameters: 736 (2.9 KB)                         
+
+</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="42">
+<div class="sourceCode cell-code" id="cb65"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a>params_digits <span class="op">=</span> ae_digits.init(random.PRNGKey(<span class="dv">0</span>), X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="43">
+<div class="sourceCode cell-code" id="cb66"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a>jax.tree_util.tree_map(<span class="kw">lambda</span> x: x.shape, params_digits)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="43">
+<pre><code>FrozenDict({
+    params: {
+        decoder: {
+            Dense_0: {
+                bias: (5,),
+                kernel: (2, 5),
+            },
+            Dense_1: {
+                bias: (64,),
+                kernel: (5, 64),
+            },
+        },
+        encoder: {
+            Dense_0: {
+                bias: (5,),
+                kernel: (64, 5),
+            },
+            Dense_1: {
+                bias: (2,),
+                kernel: (5, 2),
+            },
+        },
+    },
+})</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="44">
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> plot_encoding_2dim(encoder, params):</span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> encoder.bottleneck <span class="op">&gt;=</span> <span class="dv">2</span></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>    X_low <span class="op">=</span> encoder.<span class="bu">apply</span>({<span class="st">"params"</span>: params[<span class="st">"params"</span>][<span class="st">"encoder"</span>]}, X)</span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>    df <span class="op">=</span> pd.DataFrame(X_low)</span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">"label"</span>] <span class="op">=</span> y</span>
+<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a>    sns.pairplot(df, hue<span class="op">=</span><span class="st">"label"</span>, palette<span class="op">=</span><span class="st">"bright"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="untrained-encodings" class="level3">
+<h3 class="anchored" data-anchor-id="untrained-encodings">Untrained encodings</h3>
+<div class="cell" data-execution_count="45">
+<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>plot_encoding_2dim(Encoder(bottleneck<span class="op">=</span>bn), params_digits)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-46-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="46">
+<div class="sourceCode cell-code" id="cb70"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a>X_recon <span class="op">=</span> ae_digits.<span class="bu">apply</span>(params_digits, X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="47">
+<div class="sourceCode cell-code" id="cb71"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> plot_orig_recon(index<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a>    fig, ax <span class="op">=</span> plt.subplots(sharex<span class="op">=</span><span class="va">True</span>, ncols<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb71-3"><a href="#cb71-3" aria-hidden="true" tabindex="-1"></a>    ax[<span class="dv">0</span>].imshow(X[index].reshape(<span class="dv">8</span>, <span class="dv">8</span>), cmap<span class="op">=</span><span class="st">"Greys"</span>)</span>
+<span id="cb71-4"><a href="#cb71-4" aria-hidden="true" tabindex="-1"></a>    ax[<span class="dv">1</span>].imshow(X_recon[index].reshape(<span class="dv">8</span>, <span class="dv">8</span>), cmap<span class="op">=</span><span class="st">"Greys"</span>)</span>
+<span id="cb71-5"><a href="#cb71-5" aria-hidden="true" tabindex="-1"></a>    ax[<span class="dv">0</span>].set_title(<span class="st">"Original"</span>)</span>
+<span id="cb71-6"><a href="#cb71-6" aria-hidden="true" tabindex="-1"></a>    ax[<span class="dv">1</span>].set_title(<span class="st">"Reconstructed"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="48">
+<div class="sourceCode cell-code" id="cb72"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a>plot_orig_recon(<span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-49-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="53">
+<div class="sourceCode cell-code" id="cb73"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a>optimized_params_digits, loss_array_digits <span class="op">=</span> train(</span>
+<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a>    X, optax.adam(learning_rate<span class="op">=</span><span class="fl">0.01</span>), ae_digits, jax.random.PRNGKey(<span class="dv">0</span>), n_iter<span class="op">=</span><span class="dv">1000</span></span>
+<span id="cb73-3"><a href="#cb73-3" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss step 0:  90.91908
+Loss step 10:  62.609577
+Loss step 20:  58.390884
+Loss step 30:  53.54514
+Loss step 40:  45.062607
+Loss step 50:  33.541103
+Loss step 60:  25.167671
+Loss step 70:  21.107908
+Loss step 80:  19.424128
+Loss step 90:  18.734087
+Loss step 100:  18.47802
+Loss step 110:  18.390646
+Loss step 120:  18.352455
+Loss step 130:  18.333141
+Loss step 140:  18.321236
+Loss step 150:  18.311743
+Loss step 160:  18.3032
+Loss step 170:  18.295115
+Loss step 180:  18.287226
+Loss step 190:  18.279234
+Loss step 200:  18.270723
+Loss step 210:  18.26098
+Loss step 220:  18.2499
+Loss step 230:  18.237106
+Loss step 240:  18.221647
+Loss step 250:  18.20243
+Loss step 260:  18.177717
+Loss step 270:  18.14539
+Loss step 280:  18.105865
+Loss step 290:  18.058249
+Loss step 300:  18.000141
+Loss step 310:  17.931208
+Loss step 320:  17.84967
+Loss step 330:  17.755304
+Loss step 340:  17.65073
+Loss step 350:  17.537819
+Loss step 360:  17.418528
+Loss step 370:  17.293976
+Loss step 380:  17.164043
+Loss step 390:  17.029558
+Loss step 400:  16.89464
+Loss step 410:  16.760334
+Loss step 420:  16.626553
+Loss step 430:  16.493797
+Loss step 440:  16.362513
+Loss step 450:  16.234201
+Loss step 460:  16.11052
+Loss step 470:  15.992949
+Loss step 480:  15.883502
+Loss step 490:  15.783846
+Loss step 500:  15.694724
+Loss step 510:  15.615571
+Loss step 520:  15.54589
+Loss step 530:  15.483993
+Loss step 540:  15.427973
+Loss step 550:  15.376085
+Loss step 560:  15.326871
+Loss step 570:  15.280196
+Loss step 580:  15.23521
+Loss step 590:  15.191253
+Loss step 600:  15.149132
+Loss step 610:  15.109302
+Loss step 620:  15.071858
+Loss step 630:  15.037474
+Loss step 640:  15.005837
+Loss step 650:  14.977009
+Loss step 660:  14.950782
+Loss step 670:  14.927103
+Loss step 680:  14.905551
+Loss step 690:  14.885867
+Loss step 700:  14.867877
+Loss step 710:  14.851396
+Loss step 720:  14.836317
+Loss step 730:  14.8224125
+Loss step 740:  14.809575
+Loss step 750:  14.797547
+Loss step 760:  14.786259
+Loss step 770:  14.775562
+Loss step 780:  14.76545
+Loss step 790:  14.755904
+Loss step 800:  14.746771
+Loss step 810:  14.738021
+Loss step 820:  14.729595
+Loss step 830:  14.721415
+Loss step 840:  14.713423
+Loss step 850:  14.705618
+Loss step 860:  14.697898
+Loss step 870:  14.690201
+Loss step 880:  14.682494
+Loss step 890:  14.674812
+Loss step 900:  14.667133
+Loss step 910:  14.6593275
+Loss step 920:  14.651322
+Loss step 930:  14.643042
+Loss step 940:  14.634569
+Loss step 950:  14.625735
+Loss step 960:  14.616413
+Loss step 970:  14.6066065
+Loss step 980:  14.596094
+Loss step 990:  14.58464</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="54">
+<div class="sourceCode cell-code" id="cb75"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a>plt.plot(loss_array_digits)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-51-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="trained-encodings" class="level3">
+<h3 class="anchored" data-anchor-id="trained-encodings">Trained encodings</h3>
+<div class="cell" data-execution_count="55">
+<div class="sourceCode cell-code" id="cb76"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a>plot_encoding_2dim(Encoder(bottleneck<span class="op">=</span>bn), optimized_params_digits)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-52-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="reconstruction" class="level3">
+<h3 class="anchored" data-anchor-id="reconstruction">Reconstruction</h3>
+<div class="cell" data-execution_count="56">
+<div class="sourceCode cell-code" id="cb77"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a>X_recon <span class="op">=</span> ae_digits.<span class="bu">apply</span>(optimized_params_digits, X)</span>
+<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a>plot_orig_recon(<span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-53-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="54">
+<div class="sourceCode cell-code" id="cb78"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a>X_reconstructed <span class="op">=</span> ae.<span class="bu">apply</span>(params, X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="55">
+<div class="sourceCode cell-code" id="cb79"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a>errs <span class="op">=</span> jnp.square(X <span class="op">-</span> X_reconstructed).<span class="bu">sum</span>(axis<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a>err_df <span class="op">=</span> pd.DataFrame({<span class="st">"error"</span>: errs, <span class="st">"label"</span>: y})</span>
+<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a>err_df.groupby(<span class="st">"label"</span>).mean()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="55">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">error</th>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">label</th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">0</td>
+<td>1067.159668</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1</td>
+<td>1253.397217</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2</td>
+<td>1187.446655</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3</td>
+<td>730.839417</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4</td>
+<td>919.732239</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">5</td>
+<td>1103.442505</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">6</td>
+<td>913.172607</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">7</td>
+<td>1309.424438</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">8</td>
+<td>892.981750</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9</td>
+<td>891.891907</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="56">
+<div class="sourceCode cell-code" id="cb80"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a>err_df <span class="op">=</span> pd.DataFrame({<span class="st">"error"</span>: errs, <span class="st">"label"</span>: y})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="57">
+<div class="sourceCode cell-code" id="cb81"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a>err_df.groupby(<span class="st">"label"</span>).mean()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="57">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">error</th>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">label</th>
+<th data-quarto-table-cell-role="th"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">0</td>
+<td>1067.159668</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1</td>
+<td>1253.397217</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2</td>
+<td>1187.446655</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3</td>
+<td>730.839417</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4</td>
+<td>919.732239</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">5</td>
+<td>1103.442505</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">6</td>
+<td>913.172607</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">7</td>
+<td>1309.424438</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">8</td>
+<td>892.981750</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9</td>
+<td>891.891907</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="convoluational-ae" class="level3">
+<h3 class="anchored" data-anchor-id="convoluational-ae">Convoluational AE</h3>
+<div class="cell" data-execution_count="57">
+<div class="sourceCode cell-code" id="cb82"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ConvEncoder(nn.Module):</span>
+<span id="cb82-2"><a href="#cb82-2" aria-hidden="true" tabindex="-1"></a>    bottleneck: <span class="bu">int</span></span>
+<span id="cb82-3"><a href="#cb82-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb82-4"><a href="#cb82-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@nn.compact</span></span>
+<span id="cb82-5"><a href="#cb82-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb82-6"><a href="#cb82-6" aria-hidden="true" tabindex="-1"></a>        n <span class="op">=</span> x.shape[<span class="dv">0</span>]  <span class="co"># x is nx64</span></span>
+<span id="cb82-7"><a href="#cb82-7" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.reshape(n, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">1</span>)</span>
+<span id="cb82-8"><a href="#cb82-8" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Conv(features<span class="op">=</span><span class="dv">4</span>, kernel_size<span class="op">=</span>(<span class="dv">2</span>, <span class="dv">2</span>), strides<span class="op">=</span><span class="dv">1</span>, padding<span class="op">=</span><span class="dv">0</span>)(</span>
+<span id="cb82-9"><a href="#cb82-9" aria-hidden="true" tabindex="-1"></a>            x</span>
+<span id="cb82-10"><a href="#cb82-10" aria-hidden="true" tabindex="-1"></a>        )  <span class="co"># 8X8X1 -&gt; 6x6X4</span></span>
+<span id="cb82-11"><a href="#cb82-11" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.selu(x)</span>
+<span id="cb82-12"><a href="#cb82-12" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.max_pool(x, window_shape<span class="op">=</span>(<span class="dv">2</span>, <span class="dv">2</span>), strides<span class="op">=</span>(<span class="dv">2</span>, <span class="dv">2</span>))  <span class="co"># 6x6x4 --&gt; 3x3x4</span></span>
+<span id="cb82-13"><a href="#cb82-13" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.selu(x)</span>
+<span id="cb82-14"><a href="#cb82-14" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.reshape(n, <span class="op">-</span><span class="dv">1</span>)  <span class="co"># N X 3x3x4 -&gt; N X 36</span></span>
+<span id="cb82-15"><a href="#cb82-15" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Dense(<span class="va">self</span>.bottleneck)(x)</span>
+<span id="cb82-16"><a href="#cb82-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="59">
+<div class="sourceCode cell-code" id="cb83"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb83-1"><a href="#cb83-1" aria-hidden="true" tabindex="-1"></a>ce <span class="op">=</span> ConvEncoder(<span class="dv">2</span>)</span>
+<span id="cb83-2"><a href="#cb83-2" aria-hidden="true" tabindex="-1"></a><span class="co">#print(ce.tabulate(random.PRNGKey(0), X))</span></span>
+<span id="cb83-3"><a href="#cb83-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(ce.tabulate(random.PRNGKey(<span class="dv">0</span>), X, console_kwargs<span class="op">=</span>{<span class="st">"width"</span>: <span class="dv">120</span>}))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+                                      ConvEncoder Summary                                       
+┏━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ path    ┃ module      ┃ inputs              ┃ outputs             ┃ params                   ┃
+┡━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│         │ ConvEncoder │ float32[1797,64]    │ float32[1797,2]     │                          │
+├─────────┼─────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ Conv_0  │ Conv        │ float32[1797,8,8,1] │ float32[1797,7,7,4] │ bias: float32[4]         │
+│         │             │                     │                     │ kernel: float32[2,2,1,4] │
+│         │             │                     │                     │                          │
+│         │             │                     │                     │ 20 (80 B)                │
+├─────────┼─────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ Dense_0 │ Dense       │ float32[1797,36]    │ float32[1797,2]     │ bias: float32[2]         │
+│         │             │                     │                     │ kernel: float32[36,2]    │
+│         │             │                     │                     │                          │
+│         │             │                     │                     │ 74 (296 B)               │
+├─────────┼─────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│         │             │                     │               Total │ 94 (376 B)               │
+└─────────┴─────────────┴─────────────────────┴─────────────────────┴──────────────────────────┘
+                                                                                                
+                                  Total Parameters: 94 (376 B)                                  
+
+</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="60">
+<div class="sourceCode cell-code" id="cb85"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ConvDecoder(nn.Module):</span>
+<span id="cb85-2"><a href="#cb85-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">@nn.compact</span></span>
+<span id="cb85-3"><a href="#cb85-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb85-4"><a href="#cb85-4" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Dense(<span class="dv">36</span>)(x)  <span class="co"># Nx2 --&gt; Nx36</span></span>
+<span id="cb85-5"><a href="#cb85-5" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.selu(x)</span>
+<span id="cb85-6"><a href="#cb85-6" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.reshape(<span class="op">-</span><span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">4</span>)  <span class="co"># NX3X3X4</span></span>
+<span id="cb85-7"><a href="#cb85-7" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.ConvTranspose(features<span class="op">=</span><span class="dv">4</span>, kernel_size<span class="op">=</span>(<span class="dv">2</span>, <span class="dv">2</span>), strides<span class="op">=</span>(<span class="dv">2</span>, <span class="dv">2</span>))(</span>
+<span id="cb85-8"><a href="#cb85-8" aria-hidden="true" tabindex="-1"></a>            x</span>
+<span id="cb85-9"><a href="#cb85-9" aria-hidden="true" tabindex="-1"></a>        )  <span class="co"># 3x3x4 -&gt; 6x6X4</span></span>
+<span id="cb85-10"><a href="#cb85-10" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.selu(x)</span>
+<span id="cb85-11"><a href="#cb85-11" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Conv(features<span class="op">=</span><span class="dv">1</span>, kernel_size<span class="op">=</span>(<span class="dv">1</span>, <span class="dv">1</span>), strides<span class="op">=</span><span class="dv">1</span>, padding<span class="op">=</span><span class="dv">1</span>)(</span>
+<span id="cb85-12"><a href="#cb85-12" aria-hidden="true" tabindex="-1"></a>            x</span>
+<span id="cb85-13"><a href="#cb85-13" aria-hidden="true" tabindex="-1"></a>        )  <span class="co"># 6x6x4 -&gt; 8x8x1</span></span>
+<span id="cb85-14"><a href="#cb85-14" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.reshape(<span class="op">-</span><span class="dv">1</span>, <span class="dv">64</span>)</span>
+<span id="cb85-15"><a href="#cb85-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="62">
+<div class="sourceCode cell-code" id="cb86"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a>cd <span class="op">=</span> ConvDecoder()</span>
+<span id="cb86-2"><a href="#cb86-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(</span>
+<span id="cb86-3"><a href="#cb86-3" aria-hidden="true" tabindex="-1"></a>    cd.tabulate(</span>
+<span id="cb86-4"><a href="#cb86-4" aria-hidden="true" tabindex="-1"></a>        random.PRNGKey(<span class="dv">0</span>),</span>
+<span id="cb86-5"><a href="#cb86-5" aria-hidden="true" tabindex="-1"></a>        jax.random.normal(key<span class="op">=</span>jax.random.PRNGKey(<span class="dv">0</span>), shape<span class="op">=</span>(<span class="dv">1797</span>, <span class="dv">2</span>)),</span>
+<span id="cb86-6"><a href="#cb86-6" aria-hidden="true" tabindex="-1"></a>        console_kwargs<span class="op">=</span>{<span class="st">"width"</span>: <span class="dv">120</span>},</span>
+<span id="cb86-7"><a href="#cb86-7" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb86-8"><a href="#cb86-8" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+                                           ConvDecoder Summary                                            
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ path            ┃ module        ┃ inputs              ┃ outputs             ┃ params                   ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│                 │ ConvDecoder   │ float32[1797,2]     │ float32[1797,64]    │                          │
+├─────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ Dense_0         │ Dense         │ float32[1797,2]     │ float32[1797,36]    │ bias: float32[36]        │
+│                 │               │                     │                     │ kernel: float32[2,36]    │
+│                 │               │                     │                     │                          │
+│                 │               │                     │                     │ 108 (432 B)              │
+├─────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ ConvTranspose_0 │ ConvTranspose │ float32[1797,3,3,4] │ float32[1797,6,6,4] │ bias: float32[4]         │
+│                 │               │                     │                     │ kernel: float32[2,2,4,4] │
+│                 │               │                     │                     │                          │
+│                 │               │                     │                     │ 68 (272 B)               │
+├─────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ Conv_0          │ Conv          │ float32[1797,6,6,4] │ float32[1797,8,8,1] │ bias: float32[1]         │
+│                 │               │                     │                     │ kernel: float32[1,1,4,1] │
+│                 │               │                     │                     │                          │
+│                 │               │                     │                     │ 5 (20 B)                 │
+├─────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│                 │               │                     │               Total │ 181 (724 B)              │
+└─────────────────┴───────────────┴─────────────────────┴─────────────────────┴──────────────────────────┘
+                                                                                                          
+                                      Total Parameters: 181 (724 B)                                       
+
+</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="63">
+<div class="sourceCode cell-code" id="cb88"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ConvAE(nn.Module):</span>
+<span id="cb88-2"><a href="#cb88-2" aria-hidden="true" tabindex="-1"></a>    bottleneck: <span class="bu">int</span></span>
+<span id="cb88-3"><a href="#cb88-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb88-4"><a href="#cb88-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> setup(<span class="va">self</span>):</span>
+<span id="cb88-5"><a href="#cb88-5" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Alternative to @nn.compact -&gt; explicitly define modules</span></span>
+<span id="cb88-6"><a href="#cb88-6" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Better for later when we want to access the encoder and decoder explicitly</span></span>
+<span id="cb88-7"><a href="#cb88-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.encoder <span class="op">=</span> ConvEncoder(bottleneck<span class="op">=</span><span class="va">self</span>.bottleneck)</span>
+<span id="cb88-8"><a href="#cb88-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.decoder <span class="op">=</span> ConvDecoder()</span>
+<span id="cb88-9"><a href="#cb88-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb88-10"><a href="#cb88-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb88-11"><a href="#cb88-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb88-12"><a href="#cb88-12" aria-hidden="true" tabindex="-1"></a>        z <span class="op">=</span> <span class="va">self</span>.encoder(x)</span>
+<span id="cb88-13"><a href="#cb88-13" aria-hidden="true" tabindex="-1"></a>        x_hat <span class="op">=</span> <span class="va">self</span>.decoder(z)</span>
+<span id="cb88-14"><a href="#cb88-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x_hat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="64">
+<div class="sourceCode cell-code" id="cb89"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb89-1"><a href="#cb89-1" aria-hidden="true" tabindex="-1"></a>cae <span class="op">=</span> ConvAE(<span class="dv">2</span>)</span>
+<span id="cb89-2"><a href="#cb89-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(</span>
+<span id="cb89-3"><a href="#cb89-3" aria-hidden="true" tabindex="-1"></a>    cae.tabulate(</span>
+<span id="cb89-4"><a href="#cb89-4" aria-hidden="true" tabindex="-1"></a>        random.PRNGKey(<span class="dv">0</span>),</span>
+<span id="cb89-5"><a href="#cb89-5" aria-hidden="true" tabindex="-1"></a>        X,</span>
+<span id="cb89-6"><a href="#cb89-6" aria-hidden="true" tabindex="-1"></a>        console_kwargs<span class="op">=</span>{<span class="st">"width"</span>: <span class="dv">120</span>},</span>
+<span id="cb89-7"><a href="#cb89-7" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb89-8"><a href="#cb89-8" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+                                                  ConvAE Summary                                                  
+┏━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ path                    ┃ module        ┃ inputs              ┃ outputs             ┃ params                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│                         │ ConvAE        │ float32[1797,64]    │ float32[1797,64]    │                          │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ encoder                 │ ConvEncoder   │ float32[1797,64]    │ float32[1797,2]     │                          │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ encoder/Conv_0          │ Conv          │ float32[1797,8,8,1] │ float32[1797,7,7,4] │ bias: float32[4]         │
+│                         │               │                     │                     │ kernel: float32[2,2,1,4] │
+│                         │               │                     │                     │                          │
+│                         │               │                     │                     │ 20 (80 B)                │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ encoder/Dense_0         │ Dense         │ float32[1797,36]    │ float32[1797,2]     │ bias: float32[2]         │
+│                         │               │                     │                     │ kernel: float32[36,2]    │
+│                         │               │                     │                     │                          │
+│                         │               │                     │                     │ 74 (296 B)               │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ decoder                 │ ConvDecoder   │ float32[1797,2]     │ float32[1797,64]    │                          │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ decoder/Dense_0         │ Dense         │ float32[1797,2]     │ float32[1797,36]    │ bias: float32[36]        │
+│                         │               │                     │                     │ kernel: float32[2,36]    │
+│                         │               │                     │                     │                          │
+│                         │               │                     │                     │ 108 (432 B)              │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ decoder/ConvTranspose_0 │ ConvTranspose │ float32[1797,3,3,4] │ float32[1797,6,6,4] │ bias: float32[4]         │
+│                         │               │                     │                     │ kernel: float32[2,2,4,4] │
+│                         │               │                     │                     │                          │
+│                         │               │                     │                     │ 68 (272 B)               │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│ decoder/Conv_0          │ Conv          │ float32[1797,6,6,4] │ float32[1797,8,8,1] │ bias: float32[1]         │
+│                         │               │                     │                     │ kernel: float32[1,1,4,1] │
+│                         │               │                     │                     │                          │
+│                         │               │                     │                     │ 5 (20 B)                 │
+├─────────────────────────┼───────────────┼─────────────────────┼─────────────────────┼──────────────────────────┤
+│                         │               │                     │               Total │ 275 (1.1 KB)             │
+└─────────────────────────┴───────────────┴─────────────────────┴─────────────────────┴──────────────────────────┘
+                                                                                                                  
+                                          Total Parameters: 275 (1.1 KB)                                          
+
+</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="65">
+<div class="sourceCode cell-code" id="cb91"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb91-1"><a href="#cb91-1" aria-hidden="true" tabindex="-1"></a>params <span class="op">=</span> cae.init(random.PRNGKey(<span class="dv">0</span>), X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="66">
+<div class="sourceCode cell-code" id="cb92"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb92-1"><a href="#cb92-1" aria-hidden="true" tabindex="-1"></a>plot_encoding_2dim(ConvEncoder(bottleneck<span class="op">=</span><span class="dv">2</span>), params)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-65-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="67">
+<div class="sourceCode cell-code" id="cb93"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a>optimized_params_digits_cae, loss_array_digits_cae <span class="op">=</span> train(</span>
+<span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a>    X, optax.adam(learning_rate<span class="op">=</span><span class="fl">0.01</span>), cae, jax.random.PRNGKey(<span class="dv">0</span>), n_iter<span class="op">=</span><span class="dv">1000</span>, print_every<span class="op">=</span><span class="dv">50</span></span>
+<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss step 0:  61.916904
+Loss step 50:  30.379993
+Loss step 100:  27.855324
+Loss step 150:  26.851124
+Loss step 200:  25.77603
+Loss step 250:  25.184359
+Loss step 300:  24.772747
+Loss step 350:  24.351847
+Loss step 400:  24.091908
+Loss step 450:  23.887573
+Loss step 500:  23.72832
+Loss step 550:  23.607725
+Loss step 600:  23.514961
+Loss step 650:  23.419945
+Loss step 700:  23.363184
+Loss step 750:  23.30127
+Loss step 800:  23.258532
+Loss step 850:  23.206999
+Loss step 900:  23.162285
+Loss step 950:  23.13027</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="68">
+<div class="sourceCode cell-code" id="cb95"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb95-1"><a href="#cb95-1" aria-hidden="true" tabindex="-1"></a>plot_encoding_2dim(ConvEncoder(bottleneck<span class="op">=</span><span class="dv">2</span>), optimized_params_digits_cae)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-67-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+</section>
+<section id="bayesopt-for-optimizing-the-latent-dimension" class="level3">
+<h3 class="anchored" data-anchor-id="bayesopt-for-optimizing-the-latent-dimension">BayesOpt for optimizing the latent dimension</h3>
+<div class="cell" data-execution_count="75">
+<div class="sourceCode cell-code" id="cb96"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> black_box_function(x, y):</span>
+<span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Function with unknown internals we wish to maximize.</span></span>
+<span id="cb96-3"><a href="#cb96-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb96-4"><a href="#cb96-4" aria-hidden="true" tabindex="-1"></a><span class="co">    This is just serving as an example, for all intents and</span></span>
+<span id="cb96-5"><a href="#cb96-5" aria-hidden="true" tabindex="-1"></a><span class="co">    purposes think of the internals of this function, i.e.: the process</span></span>
+<span id="cb96-6"><a href="#cb96-6" aria-hidden="true" tabindex="-1"></a><span class="co">    which generates its output values, as unknown.</span></span>
+<span id="cb96-7"><a href="#cb96-7" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb96-8"><a href="#cb96-8" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> <span class="bu">int</span>(x)</span>
+<span id="cb96-9"><a href="#cb96-9" aria-hidden="true" tabindex="-1"></a>    y <span class="op">=</span> <span class="bu">int</span>(y)</span>
+<span id="cb96-10"><a href="#cb96-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> function_discrete(x, y)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="76">
+<div class="sourceCode cell-code" id="cb97"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb97-1"><a href="#cb97-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> function_discrete(x, y):</span>
+<span id="cb97-2"><a href="#cb97-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">type</span>(x) <span class="op">==</span><span class="bu">int</span></span>
+<span id="cb97-3"><a href="#cb97-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">-</span>(x<span class="op">**</span><span class="dv">2</span>) <span class="op">-</span> (y <span class="op">-</span> <span class="dv">1</span>) <span class="op">**</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="77">
+<div class="sourceCode cell-code" id="cb98"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb98-1"><a href="#cb98-1" aria-hidden="true" tabindex="-1"></a>pbounds <span class="op">=</span> {<span class="st">"x"</span>: (<span class="dv">2</span>, <span class="dv">4</span>), <span class="st">"y"</span>: (<span class="op">-</span><span class="dv">3</span>, <span class="dv">3</span>)}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="78">
+<div class="sourceCode cell-code" id="cb99"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb99-1"><a href="#cb99-1" aria-hidden="true" tabindex="-1"></a>optimizer <span class="op">=</span> BayesianOptimization(</span>
+<span id="cb99-2"><a href="#cb99-2" aria-hidden="true" tabindex="-1"></a>    f<span class="op">=</span>black_box_function,</span>
+<span id="cb99-3"><a href="#cb99-3" aria-hidden="true" tabindex="-1"></a>    pbounds<span class="op">=</span>pbounds,</span>
+<span id="cb99-4"><a href="#cb99-4" aria-hidden="true" tabindex="-1"></a>    verbose<span class="op">=</span><span class="dv">2</span>,  <span class="co"># verbose = 1 prints only when a maximum is observed, verbose = 0 is silent</span></span>
+<span id="cb99-5"><a href="#cb99-5" aria-hidden="true" tabindex="-1"></a>    random_state<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb99-6"><a href="#cb99-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="79">
+<div class="sourceCode cell-code" id="cb100"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb100-1"><a href="#cb100-1" aria-hidden="true" tabindex="-1"></a>optimizer.maximize()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>|   iter    |  target   |     x     |     y     |
+-------------------------------------------------
+| 1         | -3.0      | 2.834     | 1.322     |
+| 2         | -7.0      | 2.0       | -1.186    |
+| 3         | -12.0     | 2.294     | -2.446    |
+| 4         | -4.0      | 2.373     | -0.9266   |
+| 5         | -4.0      | 2.794     | 0.2329    |
+| 6         | -15.0     | 4.0       | 1.331     |
+| 7         | -4.0      | 2.348     | 0.8879    |
+| 8         | -3.0      | 2.797     | 1.257     |
+| 9         | -4.0      | 2.064     | 2.229     |
+| 10        | -9.0      | 3.657     | -0.9428   |
+| 11        | -7.0      | 2.901     | 3.0       |
+| 12        | -4.0      | 2.0       | -0.1486   |
+| 13        | -31.0     | 4.0       | -3.0      |
+| 14        | -7.0      | 2.0       | 3.0       |
+| 15        | -3.0      | 2.0       | 1.539     |
+| 16        | -3.0      | 2.512     | 1.792     |
+| 17        | -19.0     | 4.0       | 3.0       |
+| 18        | -4.0      | 2.831     | -0.4655   |
+| 19        | -4.0      | 2.402     | -0.3286   |
+| 20        | -9.0      | 3.539     | 0.08748   |
+| 21        | -7.0      | 2.841     | -1.217    |
+| 22        | -4.0      | 2.764     | 2.245     |
+| 23        | -4.0      | 2.0       | 0.4436    |
+| 24        | -3.0      | 2.469     | 1.423     |
+| 25        | -3.0      | 2.0       | 1.16      |
+| 26        | -3.0      | 2.787     | 1.714     |
+| 27        | -4.0      | 2.932     | 0.7853    |
+| 28        | -3.0      | 2.647     | 1.526     |
+| 29        | -3.0      | 2.148     | 1.373     |
+| 30        | -3.0      | 2.212     | 1.795     |
+=================================================</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="80">
+<div class="sourceCode cell-code" id="cb102"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb102-1"><a href="#cb102-1" aria-hidden="true" tabindex="-1"></a>optimizer.<span class="bu">max</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="80">
+<pre><code>{'target': -3.0, 'params': {'x': 2.8340440094051482, 'y': 1.3219469606529488}}</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="81">
+<div class="sourceCode cell-code" id="cb104"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb104-1"><a href="#cb104-1" aria-hidden="true" tabindex="-1"></a>{k: <span class="bu">int</span>(v) <span class="cf">for</span> k, v <span class="kw">in</span> optimizer.<span class="bu">max</span>[<span class="st">"params"</span>].items()}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="81">
+<pre><code>{'x': 2, 'y': 1}</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="82">
+<div class="sourceCode cell-code" id="cb106"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb106-1"><a href="#cb106-1" aria-hidden="true" tabindex="-1"></a>function_discrete(<span class="dv">2</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="82">
+<pre><code>-3</code></pre>
+</div>
+</div>
+<p>Let us keep a separate validation set</p>
+<div class="cell" data-execution_count="83">
+<div class="sourceCode cell-code" id="cb108"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb108-1"><a href="#cb108-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> loss_model(params, X, model):</span>
+<span id="cb108-2"><a href="#cb108-2" aria-hidden="true" tabindex="-1"></a>    X_hat <span class="op">=</span> model.<span class="bu">apply</span>(params, X)</span>
+<span id="cb108-3"><a href="#cb108-3" aria-hidden="true" tabindex="-1"></a>    diff <span class="op">=</span> X <span class="op">-</span> X_hat</span>
+<span id="cb108-4"><a href="#cb108-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (diff<span class="op">**</span><span class="dv">2</span>).<span class="bu">sum</span>(axis<span class="op">=</span><span class="dv">1</span>).mean() <span class="op">/</span> X.shape[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="85">
+<div class="sourceCode cell-code" id="cb109"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb109-1"><a href="#cb109-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> functools <span class="im">import</span> partial</span>
+<span id="cb109-2"><a href="#cb109-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb109-3"><a href="#cb109-3" aria-hidden="true" tabindex="-1"></a>e <span class="op">=</span> partial(loss_model, model<span class="op">=</span>cae)</span>
+<span id="cb109-4"><a href="#cb109-4" aria-hidden="true" tabindex="-1"></a>e(params, X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="85">
+<pre><code>DeviceArray(61.916904, dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="86">
+<div class="sourceCode cell-code" id="cb111"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb111-1"><a href="#cb111-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> validation_loss_discrete(bn):</span>
+<span id="cb111-2"><a href="#cb111-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">type</span>(bn) <span class="op">==</span> <span class="bu">int</span></span>
+<span id="cb111-3"><a href="#cb111-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb111-4"><a href="#cb111-4" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Train the model on bn sized bottleneck</span></span>
+<span id="cb111-5"><a href="#cb111-5" aria-hidden="true" tabindex="-1"></a>    cae <span class="op">=</span> ConvAE(bn)</span>
+<span id="cb111-6"><a href="#cb111-6" aria-hidden="true" tabindex="-1"></a>    loss_fn_concrete <span class="op">=</span> jax.jit(partial(loss_model, model<span class="op">=</span>cae))</span>
+<span id="cb111-7"><a href="#cb111-7" aria-hidden="true" tabindex="-1"></a>    loss_grad_fn <span class="op">=</span> jax.value_and_grad(loss_fn_concrete)</span>
+<span id="cb111-8"><a href="#cb111-8" aria-hidden="true" tabindex="-1"></a>    tx <span class="op">=</span> optax.adam(learning_rate<span class="op">=</span><span class="fl">1e-2</span>)</span>
+<span id="cb111-9"><a href="#cb111-9" aria-hidden="true" tabindex="-1"></a>    params <span class="op">=</span> cae.init(random.PRNGKey(<span class="dv">0</span>), X_train)</span>
+<span id="cb111-10"><a href="#cb111-10" aria-hidden="true" tabindex="-1"></a>    opt_state <span class="op">=</span> tx.init(params)</span>
+<span id="cb111-11"><a href="#cb111-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"--------Bottleneck of Size: </span><span class="sc">{</span>bn<span class="sc">}</span><span class="ss">-------------"</span>)</span>
+<span id="cb111-12"><a href="#cb111-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">30</span>):</span>
+<span id="cb111-13"><a href="#cb111-13" aria-hidden="true" tabindex="-1"></a>        loss_val, grads <span class="op">=</span> loss_grad_fn(params, X_train)</span>
+<span id="cb111-14"><a href="#cb111-14" aria-hidden="true" tabindex="-1"></a>        updates, opt_state <span class="op">=</span> tx.update(grads, opt_state)</span>
+<span id="cb111-15"><a href="#cb111-15" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> optax.apply_updates(params, updates)</span>
+<span id="cb111-16"><a href="#cb111-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb111-17"><a href="#cb111-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> i <span class="op">%</span> <span class="dv">5</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb111-18"><a href="#cb111-18" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"Loss step </span><span class="sc">{}</span><span class="st">: "</span>.<span class="bu">format</span>(i), loss_val)</span>
+<span id="cb111-19"><a href="#cb111-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"--------End-------------"</span>)</span>
+<span id="cb111-20"><a href="#cb111-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb111-21"><a href="#cb111-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Evaluate on validation dataset</span></span>
+<span id="cb111-22"><a href="#cb111-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loss_fn_concrete(params, X_validation)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="87">
+<div class="sourceCode cell-code" id="cb112"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb112-1"><a href="#cb112-1" aria-hidden="true" tabindex="-1"></a>X_train, X_validation <span class="op">=</span> X[:<span class="dv">1000</span>], X[<span class="dv">1000</span>:]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="88">
+<div class="sourceCode cell-code" id="cb113"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb113-1"><a href="#cb113-1" aria-hidden="true" tabindex="-1"></a>validation_loss_discrete(<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--------Bottleneck of Size: 2-------------
+Loss step 0:  62.27715
+Loss step 5:  58.5037
+Loss step 10:  53.984245
+Loss step 15:  49.513382
+Loss step 20:  43.078316
+Loss step 25:  38.30596
+--------End-------------</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="88">
+<pre><code>DeviceArray(36.75615, dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="89">
+<div class="sourceCode cell-code" id="cb116"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb116-1"><a href="#cb116-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> validation_loss_bb(bn):</span>
+<span id="cb116-2"><a href="#cb116-2" aria-hidden="true" tabindex="-1"></a>    bn_int <span class="op">=</span> <span class="bu">int</span>(bn)</span>
+<span id="cb116-3"><a href="#cb116-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">-</span>validation_loss_discrete(bn_int)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="90">
+<div class="sourceCode cell-code" id="cb117"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb117-1"><a href="#cb117-1" aria-hidden="true" tabindex="-1"></a>validation_loss_bb(<span class="fl">2.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--------Bottleneck of Size: 2-------------
+Loss step 0:  62.27715
+Loss step 5:  58.5037
+Loss step 10:  53.984245
+Loss step 15:  49.513382
+Loss step 20:  43.078316
+Loss step 25:  38.30596
+--------End-------------</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="90">
+<pre><code>DeviceArray(-36.75615, dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="91">
+<div class="sourceCode cell-code" id="cb120"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb120-1"><a href="#cb120-1" aria-hidden="true" tabindex="-1"></a>pbounds <span class="op">=</span> {<span class="st">"bn"</span>: (<span class="dv">1</span>, <span class="dv">40</span>)}</span>
+<span id="cb120-2"><a href="#cb120-2" aria-hidden="true" tabindex="-1"></a>optimizer <span class="op">=</span> BayesianOptimization(</span>
+<span id="cb120-3"><a href="#cb120-3" aria-hidden="true" tabindex="-1"></a>    f<span class="op">=</span>validation_loss_bb,</span>
+<span id="cb120-4"><a href="#cb120-4" aria-hidden="true" tabindex="-1"></a>    pbounds<span class="op">=</span>pbounds,</span>
+<span id="cb120-5"><a href="#cb120-5" aria-hidden="true" tabindex="-1"></a>    verbose<span class="op">=</span><span class="dv">2</span>,  <span class="co"># verbose = 1 prints only when a maximum is observed, verbose = 0 is silent</span></span>
+<span id="cb120-6"><a href="#cb120-6" aria-hidden="true" tabindex="-1"></a>    random_state<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb120-7"><a href="#cb120-7" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="92">
+<div class="sourceCode cell-code" id="cb121"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb121-1"><a href="#cb121-1" aria-hidden="true" tabindex="-1"></a>optimizer.maximize(n_iter<span class="op">=</span><span class="dv">8</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>|   iter    |  target   |    bn     |
+-------------------------------------
+--------Bottleneck of Size: 17-------------
+Loss step 0:  62.85297
+Loss step 5:  52.85449
+Loss step 10:  40.903214
+Loss step 15:  35.32036
+Loss step 20:  35.3193
+Loss step 25:  33.33418
+--------End-------------
+| 1         | -32.36    | 17.26     |
+--------Bottleneck of Size: 29-------------
+Loss step 0:  64.064514
+Loss step 5:  53.85875
+Loss step 10:  47.26749
+Loss step 15:  43.828564
+Loss step 20:  41.847286
+Loss step 25:  39.23966
+--------End-------------
+| 2         | -37.29    | 29.09     |
+--------Bottleneck of Size: 1-------------
+Loss step 0:  60.969757
+Loss step 5:  58.92785
+Loss step 10:  53.683678
+Loss step 15:  49.58035
+Loss step 20:  45.86102
+Loss step 25:  44.17104
+--------End-------------
+| 3         | -42.48    | 1.004     |
+--------Bottleneck of Size: 12-------------
+Loss step 0:  63.704227
+Loss step 5:  57.338806
+Loss step 10:  49.537926
+Loss step 15:  41.210827
+Loss step 20:  38.469257
+Loss step 25:  35.276833
+--------End-------------
+| 4         | -34.07    | 12.79     |
+--------Bottleneck of Size: 6-------------
+Loss step 0:  61.450924
+Loss step 5:  55.82548
+Loss step 10:  47.88899
+Loss step 15:  40.131763
+Loss step 20:  37.62544
+Loss step 25:  35.873016
+--------End-------------
+| 5         | -34.2     | 6.723     |
+--------Bottleneck of Size: 20-------------
+Loss step 0:  61.81845
+Loss step 5:  56.358246
+Loss step 10:  51.92751
+Loss step 15:  47.312576
+Loss step 20:  42.146885
+Loss step 25:  37.025486
+--------End-------------
+| 6         | -33.86    | 20.39     |
+--------Bottleneck of Size: 40-------------
+Loss step 0:  61.5667
+Loss step 5:  49.598972
+Loss step 10:  42.639145
+Loss step 15:  39.22532
+Loss step 20:  36.597954
+Loss step 25:  34.528015
+--------End-------------
+| 7         | -32.67    | 40.0      |
+--------Bottleneck of Size: 36-------------
+Loss step 0:  62.303535
+Loss step 5:  52.075367
+Loss step 10:  44.435425
+Loss step 15:  40.889286
+Loss step 20:  39.280178
+Loss step 25:  37.09512
+--------End-------------
+| 8         | -35.77    | 36.05     |
+--------Bottleneck of Size: 9-------------
+Loss step 0:  63.35566
+Loss step 5:  52.45499
+Loss step 10:  43.281902
+Loss step 15:  37.028984
+Loss step 20:  35.006325
+Loss step 25:  33.583298
+--------End-------------
+| 9         | -33.01    | 9.596     |
+--------Bottleneck of Size: 24-------------
+Loss step 0:  62.888515
+Loss step 5:  52.035835
+Loss step 10:  42.154068
+Loss step 15:  36.804348
+Loss step 20:  34.53549
+Loss step 25:  32.37921
+--------End-------------
+| 10        | -30.08    | 24.26     |
+--------Bottleneck of Size: 25-------------
+Loss step 0:  63.406757
+Loss step 5:  50.291225
+Loss step 10:  41.73214
+Loss step 15:  38.421593
+Loss step 20:  37.0491
+Loss step 25:  34.847046
+--------End-------------
+| 11        | -33.89    | 25.81     |
+--------Bottleneck of Size: 22-------------
+Loss step 0:  62.303898
+Loss step 5:  53.713398
+Loss step 10:  47.806355
+Loss step 15:  43.550034
+Loss step 20:  42.033653
+Loss step 25:  39.68766
+--------End-------------
+| 12        | -38.51    | 22.8      |
+--------Bottleneck of Size: 24-------------
+Loss step 0:  62.888515
+Loss step 5:  52.035835
+Loss step 10:  42.154068
+Loss step 15:  36.804348
+Loss step 20:  34.53549
+Loss step 25:  32.37921
+--------End-------------
+| 13        | -30.08    | 24.3      |
+=====================================</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="93">
+<div class="sourceCode cell-code" id="cb123"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb123-1"><a href="#cb123-1" aria-hidden="true" tabindex="-1"></a>optimizer.<span class="bu">max</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="93">
+<pre><code>{'target': -30.082199096679688, 'params': {'bn': 24.25939633195359}}</code></pre>
+</div>
+</div>
+</section>
+<section id="vae" class="level3">
+<h3 class="anchored" data-anchor-id="vae">VAE</h3>
+<div class="cell" data-execution_count="89">
+<div class="sourceCode cell-code" id="cb125"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb125-1"><a href="#cb125-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> VAE_Encoder(nn.Module):</span>
+<span id="cb125-2"><a href="#cb125-2" aria-hidden="true" tabindex="-1"></a>    bottleneck: <span class="bu">int</span></span>
+<span id="cb125-3"><a href="#cb125-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb125-4"><a href="#cb125-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">@nn.compact</span></span>
+<span id="cb125-5"><a href="#cb125-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb125-6"><a href="#cb125-6" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.Dense(<span class="dv">5</span>)(x)</span>
+<span id="cb125-7"><a href="#cb125-7" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> nn.selu(x)</span>
+<span id="cb125-8"><a href="#cb125-8" aria-hidden="true" tabindex="-1"></a>        mu <span class="op">=</span> nn.Dense(features<span class="op">=</span><span class="va">self</span>.bottleneck)(x)</span>
+<span id="cb125-9"><a href="#cb125-9" aria-hidden="true" tabindex="-1"></a>        log_std <span class="op">=</span> nn.Dense(features<span class="op">=</span><span class="va">self</span>.bottleneck)(x)</span>
+<span id="cb125-10"><a href="#cb125-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mu, log_std</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="90">
+<div class="sourceCode cell-code" id="cb126"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb126-1"><a href="#cb126-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> reparameterize(mu, log_std, key<span class="op">=</span>random.PRNGKey(<span class="dv">0</span>), samples<span class="op">=</span><span class="dv">1</span>):</span>
+<span id="cb126-2"><a href="#cb126-2" aria-hidden="true" tabindex="-1"></a>    std <span class="op">=</span> jnp.exp(log_std)</span>
+<span id="cb126-3"><a href="#cb126-3" aria-hidden="true" tabindex="-1"></a>    eps <span class="op">=</span> random.normal(key<span class="op">=</span>key, shape<span class="op">=</span>(samples,))</span>
+<span id="cb126-4"><a href="#cb126-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> mu <span class="op">+</span> eps <span class="op">*</span> std</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="91">
+<div class="sourceCode cell-code" id="cb127"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb127-1"><a href="#cb127-1" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> reparameterize(<span class="dv">2</span>, jnp.log(<span class="dv">1</span>), samples<span class="op">=</span><span class="dv">5000</span>)</span>
+<span id="cb127-2"><a href="#cb127-2" aria-hidden="true" tabindex="-1"></a>sns.kdeplot(samples)</span>
+<span id="cb127-3"><a href="#cb127-3" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="ss">f"Mean:</span><span class="sc">{</span>jnp<span class="sc">.</span>mean(samples)<span class="sc">:0.2f}</span><span class="ss">, stddev: </span><span class="sc">{</span>jnp<span class="sc">.</span>std(samples)<span class="sc">:0.2f}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="91">
+<pre><code>Text(0.5, 1.0, 'Mean:2.00, stddev: 1.00')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-88-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="92">
+<div class="sourceCode cell-code" id="cb129"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb129-1"><a href="#cb129-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> VAE(nn.Module):</span>
+<span id="cb129-2"><a href="#cb129-2" aria-hidden="true" tabindex="-1"></a>    bottleneck: <span class="bu">int</span></span>
+<span id="cb129-3"><a href="#cb129-3" aria-hidden="true" tabindex="-1"></a>    out: <span class="bu">int</span></span>
+<span id="cb129-4"><a href="#cb129-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb129-5"><a href="#cb129-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> setup(<span class="va">self</span>):</span>
+<span id="cb129-6"><a href="#cb129-6" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Alternative to @nn.compact -&gt; explicitly define modules</span></span>
+<span id="cb129-7"><a href="#cb129-7" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Better for later when we want to access the encoder and decoder explicitly</span></span>
+<span id="cb129-8"><a href="#cb129-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.encoder <span class="op">=</span> VAE_Encoder(bottleneck<span class="op">=</span><span class="va">self</span>.bottleneck)</span>
+<span id="cb129-9"><a href="#cb129-9" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.decoder <span class="op">=</span> Decoder(out<span class="op">=</span><span class="va">self</span>.out)</span>
+<span id="cb129-10"><a href="#cb129-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb129-11"><a href="#cb129-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x, rng<span class="op">=</span>random.PRNGKey(<span class="dv">0</span>)):</span>
+<span id="cb129-12"><a href="#cb129-12" aria-hidden="true" tabindex="-1"></a>        mu, log_std <span class="op">=</span> <span class="va">self</span>.encoder(x)</span>
+<span id="cb129-13"><a href="#cb129-13" aria-hidden="true" tabindex="-1"></a>        z <span class="op">=</span> reparameterize(mu, log_std, key<span class="op">=</span>rng)</span>
+<span id="cb129-14"><a href="#cb129-14" aria-hidden="true" tabindex="-1"></a>        x_hat <span class="op">=</span> <span class="va">self</span>.decoder(z)</span>
+<span id="cb129-15"><a href="#cb129-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x_hat, mu, log_std</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="93">
+<div class="sourceCode cell-code" id="cb130"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb130-1"><a href="#cb130-1" aria-hidden="true" tabindex="-1"></a>vae <span class="op">=</span> VAE(bottleneck<span class="op">=</span><span class="dv">2</span>, out<span class="op">=</span><span class="dv">64</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="94">
+<div class="sourceCode cell-code" id="cb131"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb131-1"><a href="#cb131-1" aria-hidden="true" tabindex="-1"></a>params <span class="op">=</span> vae.init(random.PRNGKey(<span class="dv">10</span>), X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="95">
+<div class="sourceCode cell-code" id="cb132"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb132-1"><a href="#cb132-1" aria-hidden="true" tabindex="-1"></a>plt.imshow(vae.<span class="bu">apply</span>(params, X)[<span class="dv">0</span>][<span class="dv">0</span>].reshape(<span class="dv">8</span>, <span class="dv">8</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="95">
+<pre><code>&lt;matplotlib.image.AxesImage at 0x17e9a0a30&gt;</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="autoencoder_files/figure-html/cell-92-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="96">
+<div class="sourceCode cell-code" id="cb134"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb134-1"><a href="#cb134-1" aria-hidden="true" tabindex="-1"></a>vae.<span class="bu">apply</span>(params, X, random.PRNGKey(<span class="dv">10</span>))[<span class="dv">0</span>][<span class="dv">0</span>].reshape(<span class="dv">8</span>, <span class="dv">8</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="96">
+<pre><code>DeviceArray([[ -3999.399   ,   6091.6396  ,  -2634.2932  ,    307.47302 ,
+                3932.0298  ,   1823.3352  ,   3852.157   ,   5576.5605  ],
+             [ -8809.304   ,   5299.91    ,    286.5227  ,   1059.3925  ,
+                -951.62537 ,  -6623.4824  ,  -1463.6239  ,  16223.624   ],
+             [ -5279.1323  ,  -7333.815   ,    -71.1485  ,   5679.2773  ,
+                1384.2794  ,   8326.92    ,  -1747.943   ,  -4802.341   ],
+             [   403.3739  ,  13455.688   ,  -7414.195   ,   7299.713   ,
+                1180.7408  ,   -328.49432 ,   6619.1357  ,    363.74713 ],
+             [ -4376.3506  ,  -2045.3063  ,   2618.412   , -10890.402   ,
+               -3035.3848  ,  -3574.7527  ,  -5057.2593  ,  -1859.8529  ],
+             [   -53.99241 ,   2318.109   ,  -1323.9087  ,  -6801.4814  ,
+               -7300.1553  ,    865.4169  ,  13349.937   ,    865.3773  ],
+             [    37.275284,  -3962.8357  ,   1771.9886  ,  -7992.7188  ,
+                4896.562   , -17371.383   ,   4737.3887  ,   7307.3384  ],
+             [  -221.0234  ,  -5475.8447  ,   4189.172   ,  -1095.9471  ,
+               -6452.915   ,   3767.8381  , -10514.758   ,  -2311.0862  ]],            dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="97">
+<div class="sourceCode cell-code" id="cb136"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb136-1"><a href="#cb136-1" aria-hidden="true" tabindex="-1"></a>vae_e <span class="op">=</span> VAE_Encoder(<span class="dv">2</span>)</span>
+<span id="cb136-2"><a href="#cb136-2" aria-hidden="true" tabindex="-1"></a>mu, log_sigma <span class="op">=</span> vae_e.<span class="bu">apply</span>({<span class="st">"params"</span>: params[<span class="st">"params"</span>][<span class="st">"encoder"</span>]}, X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="98">
+<div class="sourceCode cell-code" id="cb137"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb137-1"><a href="#cb137-1" aria-hidden="true" tabindex="-1"></a>tfd <span class="op">=</span> tfp.distributions</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="99">
+<div class="sourceCode cell-code" id="cb138"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb138-1"><a href="#cb138-1" aria-hidden="true" tabindex="-1"></a>q</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre><code>NameError: name 'q' is not defined</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb140"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb140-1"><a href="#cb140-1" aria-hidden="true" tabindex="-1"></a>tfd.kl_divergence(q, p).shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb141"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb141-1"><a href="#cb141-1" aria-hidden="true" tabindex="-1"></a>tfd.kl_divergence(q, p).mean()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb142"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb142-1"><a href="#cb142-1" aria-hidden="true" tabindex="-1"></a>q.stddev()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="loss" class="level3">
+<h3 class="anchored" data-anchor-id="loss">Loss</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb143"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb143-1"><a href="#cb143-1" aria-hidden="true" tabindex="-1"></a><span class="at">@jax.jit</span></span>
+<span id="cb143-2"><a href="#cb143-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> loss_vae(params, X, rng<span class="op">=</span>random.PRNGKey(<span class="dv">0</span>)):</span>
+<span id="cb143-3"><a href="#cb143-3" aria-hidden="true" tabindex="-1"></a>    X_hat, mu, log_sigma <span class="op">=</span> vae.<span class="bu">apply</span>(params, X, rng)</span>
+<span id="cb143-4"><a href="#cb143-4" aria-hidden="true" tabindex="-1"></a>    q <span class="op">=</span> tfd.Normal(loc<span class="op">=</span>mu, scale<span class="op">=</span>jnp.exp(log_sigma))</span>
+<span id="cb143-5"><a href="#cb143-5" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> tfd.Normal(loc<span class="op">=</span><span class="fl">0.0</span>, scale<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb143-6"><a href="#cb143-6" aria-hidden="true" tabindex="-1"></a>    kl_loss <span class="op">=</span> tfd.kl_divergence(q, p).mean()</span>
+<span id="cb143-7"><a href="#cb143-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb143-8"><a href="#cb143-8" aria-hidden="true" tabindex="-1"></a>    diff <span class="op">=</span> X <span class="op">-</span> X_hat</span>
+<span id="cb143-9"><a href="#cb143-9" aria-hidden="true" tabindex="-1"></a>    recon_loss <span class="op">=</span> (diff<span class="op">**</span><span class="dv">2</span>).<span class="bu">sum</span>(axis<span class="op">=</span><span class="dv">1</span>).mean() <span class="op">/</span> X.shape[<span class="dv">1</span>]</span>
+<span id="cb143-10"><a href="#cb143-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb143-11"><a href="#cb143-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> recon_loss <span class="op">+</span> <span class="fl">0.0020</span> <span class="op">*</span> kl_loss</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb144"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb144-1"><a href="#cb144-1" aria-hidden="true" tabindex="-1"></a>loss_vae(params, X, random.PRNGKey(<span class="dv">4</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb145"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb145-1"><a href="#cb145-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> optax</span>
+<span id="cb145-2"><a href="#cb145-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb145-3"><a href="#cb145-3" aria-hidden="true" tabindex="-1"></a>learning_rate <span class="op">=</span> <span class="fl">0.01</span></span>
+<span id="cb145-4"><a href="#cb145-4" aria-hidden="true" tabindex="-1"></a>tx <span class="op">=</span> optax.adam(learning_rate<span class="op">=</span>learning_rate)</span>
+<span id="cb145-5"><a href="#cb145-5" aria-hidden="true" tabindex="-1"></a>opt_state <span class="op">=</span> tx.init(params)</span>
+<span id="cb145-6"><a href="#cb145-6" aria-hidden="true" tabindex="-1"></a>loss_grad_fn <span class="op">=</span> jax.value_and_grad(loss_vae)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb146"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb146-1"><a href="#cb146-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">2001</span>):</span>
+<span id="cb146-2"><a href="#cb146-2" aria-hidden="true" tabindex="-1"></a>    rng, key <span class="op">=</span> random.split(rng)</span>
+<span id="cb146-3"><a href="#cb146-3" aria-hidden="true" tabindex="-1"></a>    loss_val, grads <span class="op">=</span> loss_grad_fn(params, X, rng)</span>
+<span id="cb146-4"><a href="#cb146-4" aria-hidden="true" tabindex="-1"></a>    updates, opt_state <span class="op">=</span> tx.update(grads, opt_state)</span>
+<span id="cb146-5"><a href="#cb146-5" aria-hidden="true" tabindex="-1"></a>    params <span class="op">=</span> optax.apply_updates(params, updates)</span>
+<span id="cb146-6"><a href="#cb146-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">%</span> <span class="dv">50</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb146-7"><a href="#cb146-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Loss step </span><span class="sc">{}</span><span class="st">: "</span>.<span class="bu">format</span>(i), loss_val)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb147"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb147-1"><a href="#cb147-1" aria-hidden="true" tabindex="-1"></a>X_recon, _, _ <span class="op">=</span> vae.<span class="bu">apply</span>(params, X)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb148"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb148-1"><a href="#cb148-1" aria-hidden="true" tabindex="-1"></a>plot_orig_recon(<span class="dv">8</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb149"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb149-1"><a href="#cb149-1" aria-hidden="true" tabindex="-1"></a>dec <span class="op">=</span> Decoder(out<span class="op">=</span><span class="dv">64</span>)</span>
+<span id="cb149-2"><a href="#cb149-2" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb149-3"><a href="#cb149-3" aria-hidden="true" tabindex="-1"></a>x_range <span class="op">=</span> jnp.linspace(<span class="op">-</span><span class="dv">2</span>, <span class="dv">2</span>, N)</span>
+<span id="cb149-4"><a href="#cb149-4" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(ncols<span class="op">=</span>N, sharey<span class="op">=</span><span class="va">True</span>, figsize<span class="op">=</span>(<span class="dv">20</span>, <span class="dv">4</span>))</span>
+<span id="cb149-5"><a href="#cb149-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(N):</span>
+<span id="cb149-6"><a href="#cb149-6" aria-hidden="true" tabindex="-1"></a>    ax[i].imshow(</span>
+<span id="cb149-7"><a href="#cb149-7" aria-hidden="true" tabindex="-1"></a>        dec.<span class="bu">apply</span>(</span>
+<span id="cb149-8"><a href="#cb149-8" aria-hidden="true" tabindex="-1"></a>            {<span class="st">"params"</span>: params[<span class="st">"params"</span>][<span class="st">"decoder"</span>]}, jnp.array([x_range[i], <span class="fl">0.0</span>])</span>
+<span id="cb149-9"><a href="#cb149-9" aria-hidden="true" tabindex="-1"></a>        ).reshape(<span class="dv">8</span>, <span class="dv">8</span>),</span>
+<span id="cb149-10"><a href="#cb149-10" aria-hidden="true" tabindex="-1"></a>        cmap<span class="op">=</span><span class="st">"Greys"</span>,</span>
+<span id="cb149-11"><a href="#cb149-11" aria-hidden="true" tabindex="-1"></a>    )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb150"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb150-1"><a href="#cb150-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> plot_encoding_2dim_vae(encoder, params):</span>
+<span id="cb150-2"><a href="#cb150-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> encoder.bottleneck <span class="op">&gt;=</span> <span class="dv">2</span></span>
+<span id="cb150-3"><a href="#cb150-3" aria-hidden="true" tabindex="-1"></a>    mu, log_sigma <span class="op">=</span> encoder.<span class="bu">apply</span>({<span class="st">"params"</span>: params[<span class="st">"params"</span>][<span class="st">"encoder"</span>]}, X)</span>
+<span id="cb150-4"><a href="#cb150-4" aria-hidden="true" tabindex="-1"></a>    df <span class="op">=</span> pd.DataFrame(mu)</span>
+<span id="cb150-5"><a href="#cb150-5" aria-hidden="true" tabindex="-1"></a>    df[<span class="st">"label"</span>] <span class="op">=</span> y</span>
+<span id="cb150-6"><a href="#cb150-6" aria-hidden="true" tabindex="-1"></a>    sns.pairplot(df, hue<span class="op">=</span><span class="st">"label"</span>, palette<span class="op">=</span><span class="st">"bright"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb151"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb151-1"><a href="#cb151-1" aria-hidden="true" tabindex="-1"></a>vae_enc <span class="op">=</span> VAE_Encoder(<span class="dv">2</span>)</span>
+<span id="cb151-2"><a href="#cb151-2" aria-hidden="true" tabindex="-1"></a>mu, log_sigma <span class="op">=</span> vae_enc.<span class="bu">apply</span>({<span class="st">"params"</span>: params[<span class="st">"params"</span>][<span class="st">"encoder"</span>]}, X)</span>
+<span id="cb151-3"><a href="#cb151-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plot_encoding_2dim_vae(VAE_Encoder(2), params)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb152"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb152-1"><a href="#cb152-1" aria-hidden="true" tabindex="-1"></a>plot_encoding_2dim_vae(vae_enc, params)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="todo" class="level3">
+<h3 class="anchored" data-anchor-id="todo">TODO</h3>
+<ul>
+<li>regular AE: Bayesopt for latent dimension</li>
+<li>generation from regular AE</li>
+<li>graph of reconstruction loss v/s latent dimension for regular AE</li>
+<li>GIF for walking in latent space for VAE</li>
+<li>Reconstruction as a factor of Recon + Beta X KL</li>
+<li>Get the Encoder from AE object directly</li>
+<li>Impact of MC samples</li>
+<li>Reconstruction v/s Expected Log Likelihood (confirm the trend is same for both)</li>
+<li>Cleanup code so that can be reused rather than copy pasting</li>
+<li>Sparse VAE</li>
+<li>Add references</li>
+<li>Add bib entry</li>
+<li>Consider CNNs for more realistic datasets</li>
+</ul>
+<ol type="1">
+<li>https://lilianweng.github.io/posts/2018-08-12-vae/</li>
+<li>https://theaisummer.com/jax-tensorflow-pytorch/</li>
+<li>https://dmol.pub/dl/VAE.html</li>
+</ol>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const disableStylesheet = (stylesheets) => {
+    for (let i=0; i < stylesheets.length; i++) {
+      const stylesheet = stylesheets[i];
+      stylesheet.rel = 'prefetch';
+    }
+  }
+  const enableStylesheet = (stylesheets) => {
+    for (let i=0; i < stylesheets.length; i++) {
+      const stylesheet = stylesheets[i];
+      stylesheet.rel = 'stylesheet';
+    }
+  }
+  const manageTransitions = (selector, allowTransitions) => {
+    const els = window.document.querySelectorAll(selector);
+    for (let i=0; i < els.length; i++) {
+      const el = els[i];
+      if (allowTransitions) {
+        el.classList.remove('notransition');
+      } else {
+        el.classList.add('notransition');
+      }
+    }
+  }
+  const toggleColorMode = (alternate) => {
+    // Switch the stylesheets
+    const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+    manageTransitions('#quarto-margin-sidebar .nav-link', false);
+    if (alternate) {
+      enableStylesheet(alternateStylesheets);
+      for (const sheetNode of alternateStylesheets) {
+        if (sheetNode.id === "quarto-bootstrap") {
+          toggleBodyColorMode(sheetNode);
+        }
+      }
+    } else {
+      disableStylesheet(alternateStylesheets);
+      toggleBodyColorPrimary();
+    }
+    manageTransitions('#quarto-margin-sidebar .nav-link', true);
+    // Switch the toggles
+    const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+    for (let i=0; i < toggles.length; i++) {
+      const toggle = toggles[i];
+      if (toggle) {
+        if (alternate) {
+          toggle.classList.add("alternate");     
+        } else {
+          toggle.classList.remove("alternate");
+        }
+      }
+    }
+    // Hack to workaround the fact that safari doesn't
+    // properly recolor the scrollbar when toggling (#1455)
+    if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+      manageTransitions("body", false);
+      window.scrollTo(0, 1);
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        manageTransitions("body", true);
+      }, 40);  
+    }
+  }
+  const isFileUrl = () => { 
+    return window.location.protocol === 'file:';
+  }
+  const hasAlternateSentinel = () => {  
+    let styleSentinel = getColorSchemeSentinel();
+    if (styleSentinel !== null) {
+      return styleSentinel === "alternate";
+    } else {
+      return false;
+    }
+  }
+  const setStyleSentinel = (alternate) => {
+    const value = alternate ? "alternate" : "default";
+    if (!isFileUrl()) {
+      window.localStorage.setItem("quarto-color-scheme", value);
+    } else {
+      localAlternateSentinel = value;
+    }
+  }
+  const getColorSchemeSentinel = () => {
+    if (!isFileUrl()) {
+      const storageValue = window.localStorage.getItem("quarto-color-scheme");
+      return storageValue != null ? storageValue : localAlternateSentinel;
+    } else {
+      return localAlternateSentinel;
+    }
+  }
+  let localAlternateSentinel = 'default';
+  // Dark / light mode switch
+  window.quartoToggleColorScheme = () => {
+    // Read the current dark / light value 
+    let toAlternate = !hasAlternateSentinel();
+    toggleColorMode(toAlternate);
+    setStyleSentinel(toAlternate);
+  };
+  // Ensure there is a toggle, if there isn't float one in the top right
+  if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+    const a = window.document.createElement('a');
+    a.classList.add('top-right');
+    a.classList.add('quarto-color-scheme-toggle');
+    a.href = "";
+    a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+    const i = window.document.createElement("i");
+    i.classList.add('bi');
+    a.appendChild(i);
+    window.document.body.appendChild(a);
+  }
+  // Switch to dark mode if need be
+  if (hasAlternateSentinel()) {
+    toggleColorMode(true);
+  } else {
+    toggleColorMode(false);
+  }
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
