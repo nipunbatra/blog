@@ -9,7 +9,7 @@
 <meta name="author" content="Nipun Batra">
 <meta name="dcterms.date" content="2024-05-30">
 
-<title>Nipun Batra Blog - RNN</title>
+<title>Nipun Batra Blog - Attention</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -144,7 +144,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">RNN</h1>
+      <h1 class="title">Attention</h1>
                                 <div class="quarto-categories">
                 <div class="quarto-category">ML</div>
               </div>
@@ -348,7 +348,7 @@ names-indian.txt    100%[===================&gt;]   8.55K  --.-KB/s    in 0s
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>ct <span class="op">=</span> CharTable(vocab)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let us process the first name in the dataset</p>
-<div id="b63bb74d" class="cell" data-execution_count="14">
+<div id="b63bb74d" class="cell" data-execution_count="55">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># create embedding layer</span></span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CharEmbedding(nn.Module):</span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, vocab_size, embed_size):</span>
@@ -358,66 +358,77 @@ names-indian.txt    100%[===================&gt;]   8.55K  --.-KB/s    in 0s
 <span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> forward(<span class="va">self</span>, x):</span>
 <span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.embedding(x)</span>
 <span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>embedding_dim <span class="op">=</span> <span class="dv">4</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>embedding_dim <span class="op">=</span> <span class="dv">8</span></span>
 <span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>char_embedding <span class="op">=</span> CharEmbedding(ct.vocab_size, embedding_dim )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="eba870c4" class="cell" data-execution_count="16">
+<div id="eba870c4" class="cell" data-execution_count="56">
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>name <span class="op">=</span> names[<span class="dv">0</span>]</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>encoding <span class="op">=</span> ct.encode(name)</span>
 <span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(name, encoding, ct.decode(encoding), char_embedding(encoding))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>^abhishek$ tensor([ 1,  2,  3,  9, 10, 20,  9,  6, 12,  0]) ^abhishek$ tensor([[ 1.5891,  0.8863,  0.5558, -1.0004],
-        [ 2.4161,  0.1106, -0.5029,  1.6437],
-        [-0.0986,  0.0308,  0.2803,  1.6360],
-        [ 1.7311,  0.3999, -0.1855,  0.4308],
-        [-2.3946,  0.0651, -0.9694,  1.3782],
-        [ 0.3705,  0.3209, -0.7172, -1.1866],
-        [ 1.7311,  0.3999, -0.1855,  0.4308],
-        [ 2.0051, -0.9762, -0.5970, -0.0305],
-        [ 0.8369,  0.1552,  0.2730,  0.1157],
-        [ 1.1796,  0.8084, -0.7100,  0.0446]], grad_fn=&lt;EmbeddingBackward0&gt;)</code></pre>
+<pre><code>^abhishek$ tensor([ 1,  2,  3,  9, 10, 20,  9,  6, 12,  0]) ^abhishek$ tensor([[-1.3499, -0.8886, -0.6833, -2.4340, -0.3476, -0.2824,  0.3694, -1.2859],
+        [ 0.6961, -0.3760, -1.1183,  2.2782, -1.3446,  0.2088,  0.4919, -0.1777],
+        [-0.3584,  0.3688,  0.3429,  0.2168,  2.0347, -1.5288, -0.4697, -0.3612],
+        [-1.5195,  2.0605,  0.2935,  0.0287,  0.2705, -1.4502, -0.6650,  0.3143],
+        [-0.6630,  0.0302,  0.4576,  0.3651, -1.6005, -0.5861, -1.9137, -0.4006],
+        [ 0.0552,  0.1175,  1.7384,  0.0691,  1.1881,  0.1506, -0.3215,  2.6402],
+        [-1.5195,  2.0605,  0.2935,  0.0287,  0.2705, -1.4502, -0.6650,  0.3143],
+        [-0.1919,  1.4137,  0.0158, -0.0030, -0.6109,  0.4661, -0.1131,  0.2733],
+        [ 0.8686,  0.3222, -0.2661,  2.1850, -1.3195, -0.6661,  0.8780,  0.2122],
+        [ 0.6729,  0.4587, -0.3165,  1.4831,  0.1030, -1.4689,  0.4894,  1.2956]],
+       grad_fn=&lt;EmbeddingBackward0&gt;)</code></pre>
 </div>
 </div>
-<div id="df8b8f38" class="cell" data-execution_count="17">
+<div id="df8b8f38" class="cell" data-execution_count="57">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(char_embedding(encoding).shape)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>torch.Size([10, 4])</code></pre>
+<pre><code>torch.Size([10, 8])</code></pre>
 </div>
 </div>
-<div id="9b81e142" class="cell" data-execution_count="26">
+<div id="9b81e142" class="cell" data-execution_count="58">
 <div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>xs<span class="op">=</span>[]</span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(name)):</span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    xs.append(char_embedding(ct.encode(name[i])))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="a569105d" class="cell" data-execution_count="27">
+<div id="a569105d" class="cell" data-execution_count="59">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>length_name <span class="op">=</span> <span class="bu">len</span>(name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="8fdad8b3" class="cell" data-execution_count="22">
+<div id="8fdad8b3" class="cell" data-execution_count="60">
 <div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="dv">4</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>val_linear <span class="op">=</span> nn.Linear(d, d)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>val_linear <span class="op">=</span> nn.Linear(embedding_dim, embedding_dim)</span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>query_linear <span class="op">=</span> nn.Linear(d, d)</span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>key_linear <span class="op">=</span> nn.Linear(d, d)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>query_linear <span class="op">=</span> nn.Linear(embedding_dim, d)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>key_linear <span class="op">=</span> nn.Linear(embedding_dim, d)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="79cdc3b3" class="cell" data-execution_count="28">
+<div id="79cdc3b3" class="cell" data-execution_count="61">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>vs <span class="op">=</span> []</span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(length_name):</span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    vs.append(val_linear(xs[i]))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="a789b442" class="cell" data-execution_count="30">
+<div id="a789b442" class="cell" data-execution_count="62">
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>vs</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="30">
-<pre><code>[tensor([[-0.3461, -0.2448, -0.9961, -0.9596]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 1.5822, -0.3118, -0.5811, -1.5842]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 0.6367, -0.1960, -0.6915, -0.9352]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 0.6783, -0.3742, -0.6622, -1.1489]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 0.2293, -1.0647,  0.0114,  0.0629]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[-0.2407, -0.8153, -0.2297, -0.0817]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 0.6783, -0.3742, -0.6622, -1.1489]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 1.0542, -0.1283, -0.1633, -0.4887]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 0.2097, -0.1923, -0.7083, -0.7685]], grad_fn=&lt;AddmmBackward0&gt;),
- tensor([[ 0.3976, -0.8262, -0.4771, -0.9123]], grad_fn=&lt;AddmmBackward0&gt;)]</code></pre>
+<div class="cell-output cell-output-display" data-execution_count="62">
+<pre><code>[tensor([[-0.5005,  1.1128,  0.8048,  0.3994,  0.8465, -1.2007, -0.3687,  0.2159]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[-0.2514, -0.1905, -0.5204,  0.0249, -0.1457,  0.2114,  0.3625,  0.5944]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[ 0.2653, -0.4796, -0.9962,  0.3799,  0.1251,  0.3504,  0.2554, -0.4853]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[ 0.1296, -0.0862, -0.9042, -0.4130, -0.2025, -0.7218,  0.4927, -0.0048]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[-1.1825,  0.4473, -0.7623, -0.5004, -0.6020, -0.9123, -0.4412,  0.3128]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[ 0.5342, -0.9138, -0.6400, -0.0377, -0.0354,  0.3041, -1.2578,  0.3234]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[ 0.1296, -0.0862, -0.9042, -0.4130, -0.2025, -0.7218,  0.4927, -0.0048]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[-0.0751, -0.1357, -0.5498, -0.0227,  0.0025, -0.0453, -0.2706, -0.0690]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[ 0.1425, -0.2478, -0.5700, -0.0055, -0.2560,  0.2981,  0.7119,  0.5840]],
+        grad_fn=&lt;AddmmBackward0&gt;),
+ tensor([[ 0.9592, -0.7415, -0.7288, -0.1082,  0.1099, -0.0595,  0.4140,  0.6418]],
+        grad_fn=&lt;AddmmBackward0&gt;)]</code></pre>
 </div>
 </div>
 <div id="e40dd109" class="cell" data-execution_count="31">
@@ -491,31 +502,41 @@ names-indian.txt    100%[===================&gt;]   8.55K  --.-KB/s    in 0s
           0.1241,  0.0637]], grad_fn=&lt;CopySlices&gt;)</code></pre>
 </div>
 </div>
-<div id="d32c2a4c" class="cell" data-execution_count="42">
+<div id="d32c2a4c" class="cell" data-execution_count="68">
 <div class="sourceCode cell-code" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># applt softmax to get attention weights</span></span>
 <span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>attns <span class="op">=</span> F.softmax(attns, dim<span class="op">=-</span><span class="dv">1</span>)</span>
 <span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>attns</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="42">
-<pre><code>tensor([[0.1250, 0.2586, 0.0569, 0.1330, 0.0043, 0.0230, 0.1330, 0.1286, 0.0812,
-         0.0565],
-        [0.0816, 0.1381, 0.0634, 0.1082, 0.0596, 0.1014, 0.1082, 0.1484, 0.0792,
-         0.1119],
-        [0.0942, 0.0649, 0.0996, 0.0823, 0.1718, 0.1287, 0.0823, 0.0798, 0.0969,
-         0.0996],
-        [0.1074, 0.1735, 0.0674, 0.1228, 0.0253, 0.0633, 0.1228, 0.1374, 0.0875,
-         0.0925],
-        [0.0508, 0.0080, 0.0622, 0.0241, 0.5664, 0.1444, 0.0241, 0.0143, 0.0509,
-         0.0547],
-        [0.1318, 0.1882, 0.0648, 0.1312, 0.0153, 0.0494, 0.1312, 0.1108, 0.0883,
-         0.0890],
-        [0.1074, 0.1735, 0.0674, 0.1228, 0.0253, 0.0633, 0.1228, 0.1374, 0.0875,
-         0.0925],
-        [0.0451, 0.3538, 0.0263, 0.1149, 0.0059, 0.0294, 0.1149, 0.1924, 0.0396,
-         0.0776],
-        [0.1076, 0.1890, 0.0714, 0.1253, 0.0215, 0.0531, 0.1253, 0.1325, 0.0882,
-         0.0861],
-        [0.1422, 0.1134, 0.0830, 0.1145, 0.0438, 0.0853, 0.1145, 0.0991, 0.1051,
-         0.0990]], grad_fn=&lt;SoftmaxBackward0&gt;)</code></pre>
+<div class="cell-output cell-output-display" data-execution_count="68">
+<pre><code>tensor([[0.1023, 0.1169, 0.0955, 0.1031, 0.0907, 0.0924, 0.1031, 0.1026, 0.0979,
+         0.0955],
+        [0.0981, 0.1038, 0.0964, 0.1008, 0.0960, 0.1001, 0.1008, 0.1049, 0.0979,
+         0.1012],
+        [0.0994, 0.0965, 0.0999, 0.0982, 0.1074, 0.1029, 0.0982, 0.0980, 0.0996,
+         0.0999],
+        [0.1007, 0.1075, 0.0967, 0.1022, 0.0927, 0.0963, 0.1022, 0.1037, 0.0987,
+         0.0992],
+        [0.0938, 0.0899, 0.0949, 0.0914, 0.1571, 0.1030, 0.0914, 0.0905, 0.0938,
+         0.0942],
+        [0.1031, 0.1091, 0.0964, 0.1031, 0.0918, 0.0950, 0.1031, 0.1010, 0.0987,
+         0.0988],
+        [0.1007, 0.1075, 0.0967, 0.1022, 0.0927, 0.0963, 0.1022, 0.1037, 0.0987,
+         0.0992],
+        [0.0942, 0.1282, 0.0924, 0.1010, 0.0905, 0.0927, 0.1010, 0.1091, 0.0937,
+         0.0973],
+        [0.1007, 0.1092, 0.0971, 0.1025, 0.0924, 0.0953, 0.1025, 0.1032, 0.0987,
+         0.0985],
+        [0.1043, 0.1013, 0.0983, 0.1014, 0.0945, 0.0985, 0.1014, 0.0999, 0.1005,
+         0.0999]], grad_fn=&lt;SoftmaxBackward0&gt;)</code></pre>
+</div>
+</div>
+<div id="dfe5e1de" class="cell" data-execution_count="67">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>plt.imshow(attns.detach().numpy(), cmap<span class="op">=</span><span class="st">'hot'</span>, interpolation<span class="op">=</span><span class="st">'nearest'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2024-attention_files/figure-html/cell-26-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
 </div>
 </div>
 
