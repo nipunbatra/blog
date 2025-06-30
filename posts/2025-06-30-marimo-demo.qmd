@@ -4,6 +4,8 @@ author: "Nipun Batra"
 date: "2025-06-30"
 categories: [python, interactive, data-science, marimo]
 description: "Exploring Marimo's reactive notebook capabilities integrated with Quarto"
+filters:
+  - marimo-team/marimo
 ---
 
 ## Introduction
@@ -20,57 +22,75 @@ Marimo brings several advantages over traditional notebooks:
 - **Reproducible**: Deterministic execution order ensures reproducibility
 - **Pythonic**: Notebooks are valid Python scripts
 
-## What Marimo Looks Like
+## Interactive Demo
 
-Here are examples of Marimo's interactive capabilities. These show static outputs, but in a live Marimo notebook, the sliders and dropdowns would be fully interactive:
+**Try these live interactive examples!** Adjust the sliders and dropdowns to see the plots update in real-time:
 
 ### Example 1: Interactive Function Plotting
 
-```{python}
+```{marimo}
+import marimo as mo
 import numpy as np
 import matplotlib.pyplot as plt
 
-# In Marimo, these would be interactive controls:
-# n_points = mo.ui.slider(10, 100, value=50, label="Number of points:")
-# func_type = mo.ui.dropdown(["sine", "cosine", "tangent"], value="sine")
+# Interactive controls
+n_points = mo.ui.slider(10, 100, value=50, label="Number of points:")
+func_type = mo.ui.dropdown(["sine", "cosine", "tangent"], value="sine", label="Function type:")
 
-# Static example with sine wave
-n_points = 50
-func_type = "sine"
+mo.md("**Interactive Controls:**")
+mo.hstack([n_points, func_type], justify="space-between", gap=2)
+```
 
-x = np.linspace(0, 2*np.pi, n_points)
-y = np.sin(x)
+```{marimo}
+# Reactive plot that updates automatically when sliders change
+x = np.linspace(0, 2*np.pi, n_points.value)
+
+if func_type.value == "sine":
+    y = np.sin(x)
+    title = "Sine Wave"
+elif func_type.value == "cosine":
+    y = np.cos(x)
+    title = "Cosine Wave"
+else:  # tangent
+    y = np.tan(x)
+    title = "Tangent Wave"
 
 plt.figure(figsize=(10, 6))
 plt.plot(x, y, 'b-', linewidth=2)
-plt.title(f"Sine Wave with {n_points} points")
+plt.title(f"{title} with {n_points.value} points")
 plt.xlabel("x")
 plt.ylabel("y")
 plt.grid(True, alpha=0.3)
 plt.axhline(y=0, color='k', linewidth=0.5)
 plt.axvline(x=0, color='k', linewidth=0.5)
+
+if func_type.value == "tangent":
+    plt.ylim(-10, 10)
+
 plt.show()
 
-print(f"In Marimo: Drag sliders to change points (10-100) and function type!")
+mo.md(f"**Current settings:** {n_points.value} points, {func_type.value} function")
 ```
 
 ### Example 2: Interactive Data Analysis
 
-```{python}
-# In Marimo, these would be interactive sliders:
-# sample_size = mo.ui.slider(100, 1000, step=50, value=500)
-# noise_level = mo.ui.slider(0.1, 2.0, step=0.1, value=0.5)
+```{marimo}
+# Interactive controls for data generation
+sample_size = mo.ui.slider(100, 1000, step=50, value=500, label="Sample size:")
+noise_level = mo.ui.slider(0.1, 2.0, step=0.1, value=0.5, label="Noise level:")
 
-# Static example
-sample_size = 500
-noise_level = 0.5
+mo.md("**Data Generation Controls:**")
+mo.hstack([sample_size, noise_level], justify="space-between", gap=2)
+```
 
+```{marimo}
+# Reactive data analysis that updates when controls change
 np.random.seed(42)
 
 # Generate sample data
-x_data = np.linspace(0, 10, sample_size)
+x_data = np.linspace(0, 10, sample_size.value)
 y_true = 2 * x_data + 1
-y_noisy = y_true + noise_level * np.random.randn(sample_size)
+y_noisy = y_true + noise_level.value * np.random.randn(sample_size.value)
 
 # Simple linear regression
 coeffs = np.polyfit(x_data, y_noisy, 1)
@@ -103,20 +123,18 @@ plt.grid(True, alpha=0.3)
 plt.tight_layout()
 plt.show()
 
-# Display statistics
+# Display live-updating statistics
 mse = np.mean(residuals**2)
 r_squared = 1 - np.sum(residuals**2) / np.sum((y_noisy - np.mean(y_noisy))**2)
 
-print(f"""
-Regression Results:
-- Sample size: {sample_size}
-- Noise level: {noise_level}
+mo.md(f"""
+**Live Regression Results:**
+- Sample size: {sample_size.value}
+- Noise level: {noise_level.value}
 - Fitted slope: {coeffs[0]:.3f} (true slope: 2.000)
-- Fitted intercept: {coeffs[1]:.3f} (true intercept: 1.000)
+- Fitted intercept: {coeffs[1]:.3f} (true intercept: 1.000)  
 - Mean Squared Error: {mse:.3f}
 - R-squared: {r_squared:.3f}
-
-In Marimo: Adjust sliders to see regression update in real-time!
 """)
 ```
 
