@@ -4,8 +4,6 @@ author: "Nipun Batra"
 date: "2025-06-30"
 categories: [python, interactive, data-science, marimo]
 description: "Exploring Marimo's reactive notebook capabilities integrated with Quarto"
-filters:
-  - marimo-team/marimo
 ---
 
 ## Introduction
@@ -22,74 +20,57 @@ Marimo brings several advantages over traditional notebooks:
 - **Reproducible**: Deterministic execution order ensures reproducibility
 - **Pythonic**: Notebooks are valid Python scripts
 
-## Interactive Demo
+## What Marimo Looks Like
 
-Try these interactive examples right here in your browser! Adjust the controls and watch the plots update in real-time:
+Here are examples of Marimo's interactive capabilities. These show static outputs, but in a live Marimo notebook, the sliders and dropdowns would be fully interactive:
 
 ### Example 1: Interactive Function Plotting
 
-```{marimo}
-import marimo as mo
+```{python}
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Interactive controls
-n_points = mo.ui.slider(10, 100, value=50, label="Number of points:")
-func_type = mo.ui.dropdown(["sine", "cosine", "tangent"], value="sine", label="Function type:")
+# In Marimo, these would be interactive controls:
+# n_points = mo.ui.slider(10, 100, value=50, label="Number of points:")
+# func_type = mo.ui.dropdown(["sine", "cosine", "tangent"], value="sine")
 
-# Display controls
-mo.hstack([n_points, func_type], justify="space-between", gap=2)
-```
+# Static example with sine wave
+n_points = 50
+func_type = "sine"
 
-```{marimo}
-# Reactive plot that updates automatically
-x = np.linspace(0, 2*np.pi, n_points.value)
-
-if func_type.value == "sine":
-    y = np.sin(x)
-    title = "Sine Wave"
-elif func_type.value == "cosine":
-    y = np.cos(x)
-    title = "Cosine Wave"
-else:  # tangent
-    y = np.tan(x)
-    title = "Tangent Wave"
+x = np.linspace(0, 2*np.pi, n_points)
+y = np.sin(x)
 
 plt.figure(figsize=(10, 6))
 plt.plot(x, y, 'b-', linewidth=2)
-plt.title(f"{title} with {n_points.value} points")
+plt.title(f"Sine Wave with {n_points} points")
 plt.xlabel("x")
 plt.ylabel("y")
 plt.grid(True, alpha=0.3)
 plt.axhline(y=0, color='k', linewidth=0.5)
 plt.axvline(x=0, color='k', linewidth=0.5)
-
-if func_type.value == "tangent":
-    plt.ylim(-10, 10)
-
 plt.show()
 
-mo.md(f"**Current settings:** {n_points.value} points, {func_type.value} function")
+print(f"In Marimo: Drag sliders to change points (10-100) and function type!")
 ```
 
 ### Example 2: Interactive Data Analysis
 
-```{marimo}
-# Interactive controls for data generation
-sample_size = mo.ui.slider(100, 1000, step=50, value=500, label="Sample size:")
-noise_level = mo.ui.slider(0.1, 2.0, step=0.1, value=0.5, label="Noise level:")
+```{python}
+# In Marimo, these would be interactive sliders:
+# sample_size = mo.ui.slider(100, 1000, step=50, value=500)
+# noise_level = mo.ui.slider(0.1, 2.0, step=0.1, value=0.5)
 
-mo.hstack([sample_size, noise_level], justify="space-between", gap=2)
-```
+# Static example
+sample_size = 500
+noise_level = 0.5
 
-```{marimo}
-# Reactive data analysis
 np.random.seed(42)
 
 # Generate sample data
-x_data = np.linspace(0, 10, sample_size.value)
+x_data = np.linspace(0, 10, sample_size)
 y_true = 2 * x_data + 1
-y_noisy = y_true + noise_level.value * np.random.randn(sample_size.value)
+y_noisy = y_true + noise_level * np.random.randn(sample_size)
 
 # Simple linear regression
 coeffs = np.polyfit(x_data, y_noisy, 1)
@@ -126,14 +107,16 @@ plt.show()
 mse = np.mean(residuals**2)
 r_squared = 1 - np.sum(residuals**2) / np.sum((y_noisy - np.mean(y_noisy))**2)
 
-mo.md(f"""
-**Regression Results:**
-- Sample size: {sample_size.value}
-- Noise level: {noise_level.value}
+print(f"""
+Regression Results:
+- Sample size: {sample_size}
+- Noise level: {noise_level}
 - Fitted slope: {coeffs[0]:.3f} (true slope: 2.000)
 - Fitted intercept: {coeffs[1]:.3f} (true intercept: 1.000)
 - Mean Squared Error: {mse:.3f}
 - R-squared: {r_squared:.3f}
+
+In Marimo: Adjust sliders to see regression update in real-time!
 """)
 ```
 
