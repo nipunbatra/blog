@@ -4,6 +4,8 @@ author: "Nipun Batra"
 date: "2025-06-30"
 categories: [python, interactive, data-science, marimo]
 description: "Exploring Marimo's reactive notebook capabilities integrated with Quarto"
+filters:
+  - marimo-team/marimo
 ---
 
 ## Introduction
@@ -22,24 +24,31 @@ Marimo brings several advantages over traditional notebooks:
 
 ## Interactive Demo
 
-Below are some examples of what Marimo can do. In a live Marimo environment, these would be fully interactive:
+Try these interactive examples right here in your browser! Adjust the controls and watch the plots update in real-time:
 
 ### Example 1: Interactive Function Plotting
 
-```{python}
+```{marimo}
+import marimo as mo
 import numpy as np
 import matplotlib.pyplot as plt
 
-# This would be controlled by interactive sliders in Marimo
-n_points = 50  # Slider: 10-100
-func_type = "sine"  # Dropdown: sine, cosine, tangent
+# Interactive controls
+n_points = mo.ui.slider(10, 100, value=50, label="Number of points:")
+func_type = mo.ui.dropdown(["sine", "cosine", "tangent"], value="sine", label="Function type:")
 
-x = np.linspace(0, 2*np.pi, n_points)
+# Display controls
+mo.hstack([n_points, func_type], justify="space-between", gap=2)
+```
 
-if func_type == "sine":
+```{marimo}
+# Reactive plot that updates automatically
+x = np.linspace(0, 2*np.pi, n_points.value)
+
+if func_type.value == "sine":
     y = np.sin(x)
     title = "Sine Wave"
-elif func_type == "cosine":
+elif func_type.value == "cosine":
     y = np.cos(x)
     title = "Cosine Wave"
 else:  # tangent
@@ -48,32 +57,39 @@ else:  # tangent
 
 plt.figure(figsize=(10, 6))
 plt.plot(x, y, 'b-', linewidth=2)
-plt.title(f"{title} with {n_points} points")
+plt.title(f"{title} with {n_points.value} points")
 plt.xlabel("x")
 plt.ylabel("y")
 plt.grid(True, alpha=0.3)
 plt.axhline(y=0, color='k', linewidth=0.5)
 plt.axvline(x=0, color='k', linewidth=0.5)
+
+if func_type.value == "tangent":
+    plt.ylim(-10, 10)
+
 plt.show()
 
-print(f"Current settings: {n_points} points, {func_type} function")
+mo.md(f"**Current settings:** {n_points.value} points, {func_type.value} function")
 ```
-
-*In Marimo: Adjusting the sliders would instantly update this plot!*
 
 ### Example 2: Interactive Data Analysis
 
-```{python}
-# These would be interactive sliders in Marimo
-sample_size = 500  # Slider: 100-1000
-noise_level = 0.5  # Slider: 0.1-2.0
+```{marimo}
+# Interactive controls for data generation
+sample_size = mo.ui.slider(100, 1000, step=50, value=500, label="Sample size:")
+noise_level = mo.ui.slider(0.1, 2.0, step=0.1, value=0.5, label="Noise level:")
 
+mo.hstack([sample_size, noise_level], justify="space-between", gap=2)
+```
+
+```{marimo}
+# Reactive data analysis
 np.random.seed(42)
 
 # Generate sample data
-x_data = np.linspace(0, 10, sample_size)
+x_data = np.linspace(0, 10, sample_size.value)
 y_true = 2 * x_data + 1
-y_noisy = y_true + noise_level * np.random.randn(sample_size)
+y_noisy = y_true + noise_level.value * np.random.randn(sample_size.value)
 
 # Simple linear regression
 coeffs = np.polyfit(x_data, y_noisy, 1)
@@ -110,18 +126,16 @@ plt.show()
 mse = np.mean(residuals**2)
 r_squared = 1 - np.sum(residuals**2) / np.sum((y_noisy - np.mean(y_noisy))**2)
 
-print(f"""
-Regression Results:
-- Sample size: {sample_size}
-- Noise level: {noise_level}
+mo.md(f"""
+**Regression Results:**
+- Sample size: {sample_size.value}
+- Noise level: {noise_level.value}
 - Fitted slope: {coeffs[0]:.3f} (true slope: 2.000)
 - Fitted intercept: {coeffs[1]:.3f} (true intercept: 1.000)
 - Mean Squared Error: {mse:.3f}
 - R-squared: {r_squared:.3f}
 """)
 ```
-
-*In Marimo: Change the sample size or noise level sliders and watch the regression update instantly!*
 
 ## Key Features Demonstrated
 
@@ -137,14 +151,13 @@ Marimo provides a rich set of UI elements:
 ### 3. Real-time Data Analysis
 The linear regression example shows how you can explore data interactively, adjusting parameters and immediately seeing the impact on your analysis.
 
-## Try the Full Interactive Version
+## Try More Complex Examples
 
-To experience the full interactivity shown above, you can run the Marimo notebook locally:
+The examples above demonstrate basic interactivity. For more complex scenarios, you can:
 
-1. **Install marimo**: `pip install marimo matplotlib numpy`
-2. **Download the notebook**: Save [this file](2025-06-30-marimo-demo.py) locally
-3. **Run interactively**: `marimo edit 2025-06-30-marimo-demo.py`
-4. **Play with the sliders** and see the plots update in real-time!
+1. **Download the full notebook**: Save [this file](2025-06-30-marimo-demo.py) locally
+2. **Run with marimo**: `pip install marimo matplotlib numpy && marimo edit 2025-06-30-marimo-demo.py`
+3. **Explore additional features** like multiple linked widgets, complex layouts, and advanced reactive patterns
 
 ## Getting Started with Marimo
 
