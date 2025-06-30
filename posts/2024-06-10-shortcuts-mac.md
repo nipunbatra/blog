@@ -3,6 +3,11 @@ aliases:
 - /setup/2024/06/12/shortuts-mac
 categories:
 - setup
+- macos
+- shortcuts
+- productivity
+- keyboard-shortcuts
+- workflow
 date: '2024-06-12'
 description: Keyboard shortcuts on mac
 layout: post

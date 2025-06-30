@@ -3,6 +3,10 @@ aliases:
 - /setup/2021/06/14/setup-ipad
 categories:
 - setup
+- ipad
+- mobile-development
+- productivity
+- ios
 date: '2021-06-14'
 description: My iPad computing setup
 layout: post

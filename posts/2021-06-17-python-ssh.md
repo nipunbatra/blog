@@ -3,6 +3,11 @@ aliases:
 - /setup/2021/06/17/python-ssh
 categories:
 - setup
+- python
+- ssh
+- remote-development
+- networking
+- terminal
 date: '2021-06-17'
 description: Running Python scripts on server over ssh and getting back content
 layout: post

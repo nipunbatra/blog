@@ -3,6 +3,11 @@ aliases:
 - /setup/2021/06/16/shortcuts-ipad
 categories:
 - setup
+- ipad
+- shortcuts
+- automation
+- productivity
+- ios
 date: '2021-06-16'
 description: Some of my shortcuts on the iPad
 layout: post
