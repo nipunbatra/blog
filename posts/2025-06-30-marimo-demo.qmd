@@ -24,124 +24,56 @@ Marimo brings several advantages over traditional notebooks:
 
 ## Interactive Demo
 
-**Try these live interactive examples!** Adjust the sliders and dropdowns to see the plots update in real-time:
+**Try these live interactive examples!** Adjust the sliders and dropdowns to see the content update in real-time:
 
-### Example 1: Interactive Function Plotting
+### Example 1: Simple Interactive Slider
 
-```{marimo}
+```python {.marimo}
+#| echo: true
 import marimo as mo
-import numpy as np
-import matplotlib.pyplot as plt
-
-# Interactive controls
-n_points = mo.ui.slider(10, 100, value=50, label="Number of points:")
-func_type = mo.ui.dropdown(["sine", "cosine", "tangent"], value="sine", label="Function type:")
-
-mo.md("**Interactive Controls:**")
-mo.hstack([n_points, func_type], justify="space-between", gap=2)
+slider = mo.ui.slider(1, 10, 1, label="Look, a slider!")
+slider
 ```
 
-```{marimo}
-# Reactive plot that updates automatically when sliders change
-x = np.linspace(0, 2*np.pi, n_points.value)
-
-if func_type.value == "sine":
-    y = np.sin(x)
-    title = "Sine Wave"
-elif func_type.value == "cosine":
-    y = np.cos(x)
-    title = "Cosine Wave"
-else:  # tangent
-    y = np.tan(x)
-    title = "Tangent Wave"
-
-plt.figure(figsize=(10, 6))
-plt.plot(x, y, 'b-', linewidth=2)
-plt.title(f"{title} with {n_points.value} points")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.grid(True, alpha=0.3)
-plt.axhline(y=0, color='k', linewidth=0.5)
-plt.axvline(x=0, color='k', linewidth=0.5)
-
-if func_type.value == "tangent":
-    plt.ylim(-10, 10)
-
-plt.show()
-
-mo.md(f"**Current settings:** {n_points.value} points, {func_type.value} function")
+```python {.marimo}
+mo.md("NaN" * slider.value + " Batman!")
 ```
 
-### Example 2: Interactive Data Analysis
+### Example 2: Interactive Text and Dropdown
 
-```{marimo}
-# Interactive controls for data generation
-sample_size = mo.ui.slider(100, 1000, step=50, value=500, label="Sample size:")
-noise_level = mo.ui.slider(0.1, 2.0, step=0.1, value=0.5, label="Noise level:")
+```python {.marimo}
+#| echo: true
+# Interactive controls for text generation
+word_count = mo.ui.slider(1, 20, step=1, value=5, label="Word count:")
+greeting = mo.ui.dropdown(["Hello", "Hi", "Hey", "Greetings"], value="Hello", label="Greeting:")
 
-mo.md("**Data Generation Controls:**")
-mo.hstack([sample_size, noise_level], justify="space-between", gap=2)
+mo.md("**Text Generation Controls:**")
+mo.hstack([word_count, greeting], justify="space-between", gap=2)
 ```
 
-```{marimo}
-# Reactive data analysis that updates when controls change
-np.random.seed(42)
+```python {.marimo}
+# Reactive text that updates when controls change
+words = ["world", "there", "friend", "everyone", "folks", "people", "team", "readers", "visitors", "audience"] * 2
 
-# Generate sample data
-x_data = np.linspace(0, 10, sample_size.value)
-y_true = 2 * x_data + 1
-y_noisy = y_true + noise_level.value * np.random.randn(sample_size.value)
-
-# Simple linear regression
-coeffs = np.polyfit(x_data, y_noisy, 1)
-y_pred = np.polyval(coeffs, x_data)
-
-# Create visualization
-plt.figure(figsize=(12, 5))
-
-# Plot 1: Data and fit
-plt.subplot(1, 2, 1)
-plt.scatter(x_data, y_noisy, alpha=0.6, s=1, label='Noisy data')
-plt.plot(x_data, y_true, 'r-', linewidth=2, label='True function')
-plt.plot(x_data, y_pred, 'g--', linewidth=2, label=f'Fitted line (slope={coeffs[0]:.2f})')
-plt.xlabel('x')
-plt.ylabel('y')
-plt.legend()
-plt.title('Linear Regression')
-plt.grid(True, alpha=0.3)
-
-# Plot 2: Residuals
-plt.subplot(1, 2, 2)
-residuals = y_noisy - y_pred
-plt.scatter(x_data, residuals, alpha=0.6, s=1)
-plt.axhline(y=0, color='r', linestyle='--')
-plt.xlabel('x')
-plt.ylabel('Residuals')
-plt.title('Residual Plot')
-plt.grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-
-# Display live-updating statistics
-mse = np.mean(residuals**2)
-r_squared = 1 - np.sum(residuals**2) / np.sum((y_noisy - np.mean(y_noisy))**2)
+selected_words = words[:word_count.value]
+message = f"{greeting.value} {' '.join(selected_words)}!"
 
 mo.md(f"""
-**Live Regression Results:**
-- Sample size: {sample_size.value}
-- Noise level: {noise_level.value}
-- Fitted slope: {coeffs[0]:.3f} (true slope: 2.000)
-- Fitted intercept: {coeffs[1]:.3f} (true intercept: 1.000)  
-- Mean Squared Error: {mse:.3f}
-- R-squared: {r_squared:.3f}
+**Generated Message:**
+
+> {message}
+
+**Settings:**
+- Greeting: {greeting.value}
+- Word count: {word_count.value}
+- Words used: {', '.join(selected_words)}
 """)
 ```
 
 ## Key Features Demonstrated
 
 ### 1. Reactive Updates
-Try adjusting the sliders in the notebook above - notice how all dependent visualizations update automatically without manually re-running cells.
+Try adjusting the sliders in the examples above - notice how all dependent content updates automatically without manually re-running cells.
 
 ### 2. Interactive Widgets
 Marimo provides a rich set of UI elements:
@@ -149,16 +81,16 @@ Marimo provides a rich set of UI elements:
 - Dropdowns for categorical selections  
 - Text inputs, checkboxes, and more
 
-### 3. Real-time Data Analysis
-The linear regression example shows how you can explore data interactively, adjusting parameters and immediately seeing the impact on your analysis.
+### 3. Real-time Content Generation
+The examples show how you can create interactive content that responds to user input, generating text and messages dynamically.
 
 ## Try More Complex Examples
 
 The examples above demonstrate basic interactivity. For more complex scenarios, you can:
 
 1. **Download the full notebook**: Save [this file](2025-06-30-marimo-demo.py) locally
-2. **Run with marimo**: `pip install marimo matplotlib numpy && marimo edit 2025-06-30-marimo-demo.py`
-3. **Explore additional features** like multiple linked widgets, complex layouts, and advanced reactive patterns
+2. **Run with marimo**: `pip install marimo && marimo edit 2025-06-30-marimo-demo.py`
+3. **Explore additional features** like multiple linked widgets, complex layouts, data visualization, and advanced reactive patterns
 
 ## Getting Started with Marimo
 
