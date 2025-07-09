@@ -436,43 +436,8 @@ window.Quarto = {
 <section id="visual-demonstration" class="level2">
 <h2 class="anchored" data-anchor-id="visual-demonstration">Visual Demonstration</h2>
 <p>Let’s create a visual diagram showing how temperature affects probability distributions:</p>
-<div id="cell-6" class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create sample logits and temperature ranges</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> np.array([<span class="fl">2.0</span>, <span class="fl">1.0</span>, <span class="fl">0.5</span>, <span class="fl">0.2</span>, <span class="fl">0.1</span>])</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>temperatures <span class="op">=</span> [<span class="fl">0.1</span>, <span class="fl">0.5</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span>, <span class="fl">5.0</span>]</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Create subplots to show each temperature's distribution</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="bu">len</span>(temperatures), figsize<span class="op">=</span>(<span class="dv">20</span>, <span class="dv">4</span>))</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, temp <span class="kw">in</span> <span class="bu">enumerate</span>(temperatures):</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate probabilities for this temperature</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    scaled_logits <span class="op">=</span> logits <span class="op">/</span> temp</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    probs <span class="op">=</span> np.exp(scaled_logits) <span class="op">/</span> np.<span class="bu">sum</span>(np.exp(scaled_logits))</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Create DataFrame for this temperature</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    df_temp <span class="op">=</span> pd.DataFrame({</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Token'</span>: [<span class="ss">f'Token_</span><span class="sc">{</span>j<span class="sc">}</span><span class="ss">'</span> <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(logits))],</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Probability'</span>: probs</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    })</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Plot distribution for this temperature</span></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    df_temp.plot(x<span class="op">=</span><span class="st">'Token'</span>, y<span class="op">=</span><span class="st">'Probability'</span>, kind<span class="op">=</span><span class="st">'bar'</span>, ax<span class="op">=</span>axes[i], </span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>                 color<span class="op">=</span><span class="st">'steelblue'</span>, alpha<span class="op">=</span><span class="fl">0.7</span>, legend<span class="op">=</span><span class="va">False</span>)</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    axes[i].set_title(<span class="ss">f'Temperature = </span><span class="sc">{</span>temp<span class="sc">}</span><span class="ss">'</span>)</span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    axes[i].set_ylabel(<span class="st">'Probability'</span>)</span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    axes[i].set_ylim(<span class="dv">0</span>, <span class="dv">1</span>)</span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    axes[i].tick_params(axis<span class="op">=</span><span class="st">'x'</span>, rotation<span class="op">=</span><span class="dv">45</span>)</span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">'Temperature Scaling Effects: Distribution Shape Changes'</span>, fontsize<span class="op">=</span><span class="dv">16</span>)</span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="2025-07-09-temperature-softmax_files/figure-html/cell-3-output-1.png" class="img-fluid figure-img"></p>
-</figure>
-</div>
-</div>
+<div id="cell-6" class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set up prettier matplotlib styling\nplt.rcParams.update({\n    'font.size': 12,\n    'axes.labelsize': 14,\n    'axes.titlesize': 16,\n    'xtick.labelsize': 12,\n    'ytick.labelsize': 12,\n    'legend.fontsize': 12,\n    'figure.titlesize': 18\n})\n\n# Create sample logits and temperature ranges\nlogits = np.array([2.0, 1.0, 0.5, 0.2, 0.1])\ntemperatures = [0.1, 0.5, 1.0, 2.0, 5.0]\n\n# Create subplots with better styling\nfig, axes = plt.subplots(1, len(temperatures), figsize=(20, 5))\ncolors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57']\n\nfor i, temp in enumerate(temperatures):\n    # Calculate probabilities for this temperature\n    scaled_logits = logits / temp\n    probs = np.exp(scaled_logits) / np.sum(np.exp(scaled_logits))\n    \n    # Create DataFrame for this temperature\n    df_temp = pd.DataFrame({\n        'Token': [f'Token_{j}' for j in range(len(logits))],\n        'Probability': probs\n    })\n    \n    # Plot distribution with better styling\n    bars = axes[i].bar(df_temp['Token'], df_temp['Probability'], \n                      color=colors[i], alpha=0.8, edgecolor='white', linewidth=1.5)\n    \n    # Bold T=1.0\n    title_weight = 'bold' if temp == 1.0 else 'normal'\n    title_size = 16 if temp == 1.0 else 14\n    axes[i].set_title(f'Temperature = {temp}', fontweight=title_weight, fontsize=title_size)\n    \n    axes[i].set_ylabel('Probability', fontweight='bold')\n    axes[i].set_ylim(0, 1.1)\n    axes[i].tick_params(axis='x', rotation=45)\n    axes[i].grid(True, alpha=0.3, linestyle='--')\n    axes[i].set_facecolor('#F8F9FA')\n    \n    # Add probability values on top of bars\n    for bar, prob in zip(bars, probs):\n        axes[i].text(bar.get_x() + bar.get_width()/2., bar.get_height() + 0.02,\n                    f'{prob:.2f}', ha='center', va='bottom', fontweight='bold', fontsize=10)\n\nplt.suptitle('Temperature Scaling Effects: Distribution Shape Changes', \n            fontsize=20, fontweight='bold', y=1.02)\nplt.tight_layout()\nplt.show()"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>This diagram clearly shows how temperature reshapes probability distributions - low temperatures create peaked distributions while high temperatures flatten them.</p>
 </section>
@@ -579,163 +544,24 @@ Vocabulary size: 50257</code></pre>
 <section id="token-sampling" class="level2">
 <h2 class="anchored" data-anchor-id="token-sampling">Token Sampling</h2>
 <p>Sample tokens from the probability distribution to see randomness in action:</p>
-<div id="cell-21" class="cell" data-execution_count="7">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample tokens from the distribution</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>sampled_indices <span class="op">=</span> torch.multinomial(top_probs, num_samples<span class="op">=</span><span class="dv">100</span>, replacement<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>sampled_tokens <span class="op">=</span> [top_tokens[idx] <span class="cf">for</span> idx <span class="kw">in</span> sampled_indices]</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Sample of tokens:"</span>, sampled_tokens[:<span class="dv">20</span>])</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Count occurrences</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>token_counts <span class="op">=</span> Counter(sampled_tokens)</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Token counts from 100 samples:"</span>)</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> token, count <span class="kw">in</span> token_counts.most_common():</span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Token: </span><span class="sc">{</span>token<span class="sc">}</span><span class="ss">, Count: </span><span class="sc">{</span>count<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Sample of tokens: [' not', ' be', ' be', ' be', ' be', ' become', ' be', ' have', ' be', ' be', ' need', ' have', ' be', ' be', ' be', ' be', ' make', ' be', ' need', ' be']
-
-Token counts from 100 samples:
-Token:  be, Count: 55
-Token:  have, Count: 14
-Token:  become, Count: 8
-Token:  need, Count: 8
-Token:  make, Count: 4
-Token:  not, Count: 3
-Token:  take, Count: 2
-Token:  also, Count: 2
-Token:  continue, Count: 2
-Token:  only, Count: 2</code></pre>
-</div>
+<div id="cell-21" class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample tokens from the distribution\nsampled_indices = torch.multinomial(top_probs, num_samples=100, replacement=True)\nsampled_tokens = [top_tokens[idx] for idx in sampled_indices]\n\n# Display sample using Rich\nrprint(\"Sample of tokens:\")\nrprint(\" \".join([f\"[cyan]{token}[/cyan]\" for token in sampled_tokens[:20]]))\n\n# Count occurrences and display in Rich table\ntoken_counts = Counter(sampled_tokens)\n\n# Create Rich table for token counts\ntable = Table(title=\"Token Counts from 100 Samples\")\ntable.add_column(\"Token\", style=\"cyan\")\ntable.add_column(\"Count\", style=\"green\")\ntable.add_column(\"Percentage\", style=\"yellow\")\n\nfor token, count in token_counts.most_common():\n    percentage = (count / 100) * 100\n    table.add_row(token, str(count), f\"{percentage:.1f}%\")\n\nconsole.print(table)"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Token counts from 100 samples reflect the underlying probability distribution.</p>
 </section>
 <section id="temperature-scaling-comparison" class="level2">
 <h2 class="anchored" data-anchor-id="temperature-scaling-comparison">Temperature Scaling Comparison</h2>
 <p>Compare extreme temperature values to see dramatic differences:</p>
-<div id="cell-24" class="cell" data-execution_count="8">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Temperature scaling comparison</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>high_temperature <span class="op">=</span> <span class="fl">100.0</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>low_temperature <span class="op">=</span> <span class="fl">0.01</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>scaled_logits_high <span class="op">=</span> logits <span class="op">/</span> high_temperature</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>scaled_logits_low <span class="op">=</span> logits <span class="op">/</span> low_temperature</span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Get top 10 tokens for each temperature</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>top_logits_high, top_indices_high <span class="op">=</span> torch.topk(scaled_logits_high[<span class="dv">0</span>, <span class="op">-</span><span class="dv">1</span>], k<span class="op">=</span><span class="dv">10</span>)</span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>top_probs_high <span class="op">=</span> torch.softmax(top_logits_high, dim<span class="op">=</span><span class="dv">0</span>)</span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>top_tokens_high <span class="op">=</span> [tokenizer.decode([idx]) <span class="cf">for</span> idx <span class="kw">in</span> top_indices_high]</span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>top_logits_low, top_indices_low <span class="op">=</span> torch.topk(scaled_logits_low[<span class="dv">0</span>, <span class="op">-</span><span class="dv">1</span>], k<span class="op">=</span><span class="dv">10</span>)</span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>top_probs_low <span class="op">=</span> torch.softmax(top_logits_low, dim<span class="op">=</span><span class="dv">0</span>)</span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>top_tokens_low <span class="op">=</span> [tokenizer.decode([idx]) <span class="cf">for</span> idx <span class="kw">in</span> top_indices_low]</span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Create comparison table</span></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>table <span class="op">=</span> Table(title<span class="op">=</span><span class="st">"Temperature Scaling Comparison"</span>)</span>
-<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>table.add_column(<span class="st">"Rank"</span>, style<span class="op">=</span><span class="st">"dim"</span>)</span>
-<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>table.add_column(<span class="st">"Token"</span>, style<span class="op">=</span><span class="st">"cyan"</span>)</span>
-<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>table.add_column(<span class="st">"High T (100.0)"</span>, style<span class="op">=</span><span class="st">"green"</span>)</span>
-<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>table.add_column(<span class="st">"Low T (0.01)"</span>, style<span class="op">=</span><span class="st">"red"</span>)</span>
-<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">10</span>):</span>
-<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>    table.add_row(</span>
-<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">str</span>(i <span class="op">+</span> <span class="dv">1</span>),</span>
-<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">repr</span>(top_tokens_high[i]),</span>
-<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"</span><span class="sc">{</span>top_probs_high[i]<span class="sc">.</span>item()<span class="sc">:.4f}</span><span class="ss">"</span>,</span>
-<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"</span><span class="sc">{</span>top_probs_low[i]<span class="sc">.</span>item()<span class="sc">:.4f}</span><span class="ss">"</span></span>
-<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>console.<span class="bu">print</span>(table)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display">
-<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="font-style: italic">            Temperature Scaling Comparison            </span>
-┏━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
-┃<span style="font-weight: bold"> Rank </span>┃<span style="font-weight: bold"> Token       </span>┃<span style="font-weight: bold"> High T (100.0) </span>┃<span style="font-weight: bold"> Low T (0.01) </span>┃
-┡━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 1    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' be'       </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.1023         </span>│<span style="color: #800000; text-decoration-color: #800000"> 1.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 2    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' have'     </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.1012         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 3    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' need'     </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.1004         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 4    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' become'   </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.1000         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 5    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' not'      </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.0998         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 6    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' also'     </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.0995         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 7    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' take'     </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.0993         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 8    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' continue' </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.0993         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 9    </span>│<span style="color: #008080; text-decoration-color: #008080"> ' make'     </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.0992         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 10   </span>│<span style="color: #008080; text-decoration-color: #008080"> ' only'     </span>│<span style="color: #008000; text-decoration-color: #008000"> 0.0990         </span>│<span style="color: #800000; text-decoration-color: #800000"> 0.0000       </span>│
-└──────┴─────────────┴────────────────┴──────────────┘
-</pre>
-</div>
+<div id="cell-24" class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Temperature scaling comparison across multiple temperatures\ntemperature_values = [0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 100.0]\n\n# Calculate probabilities for each temperature\ntemp_results = {}\nfor temp in temperature_values:\n    scaled_logits = logits / temp\n    top_logits_temp, top_indices_temp = torch.topk(scaled_logits[0, -1], k=10)\n    top_probs_temp = torch.softmax(top_logits_temp, dim=0)\n    temp_results[temp] = {\n        'probs': top_probs_temp,\n        'tokens': [tokenizer.decode([idx]) for idx in top_indices_temp]\n    }\n\n# Create comprehensive comparison table\ntable = Table(title=\"Temperature Scaling: Full Spectrum Comparison\")\ntable.add_column(\"Rank\", style=\"dim\")\ntable.add_column(\"Token\", style=\"cyan\")\n\nfor temp in temperature_values:\n    if temp == 1.0:\n        table.add_column(f\"**T={temp}**\", style=\"bold green\")  # Bold T=1\n    else:\n        table.add_column(f\"T={temp}\", style=\"green\" if temp &gt; 1.0 else \"red\")\n\nfor i in range(10):\n    row_data = [str(i + 1), repr(temp_results[temperature_values[0]]['tokens'][i])]\n    \n    for temp in temperature_values:\n        prob = temp_results[temp]['probs'][i].item()\n        row_data.append(f\"{prob:.4f}\")\n    \n    table.add_row(*row_data)\n\nconsole.print(table)"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>High temperature creates uniform distribution while low temperature creates deterministic selection.</p>
 </section>
 <section id="temperature-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="temperature-analysis">Temperature Analysis</h2>
 <p>Analyze how different temperatures affect probability distributions and entropy:</p>
-<div id="cell-27" class="cell" data-execution_count="9">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Function to analyze temperature effects</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> analyze_temperature_effects(logits, temperatures, top_k<span class="op">=</span><span class="dv">10</span>):</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> []</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> temp <span class="kw">in</span> temperatures:</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        scaled_logits <span class="op">=</span> logits <span class="op">/</span> temp</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        probs <span class="op">=</span> torch.softmax(scaled_logits, dim<span class="op">=-</span><span class="dv">1</span>)</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Get top-k tokens</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>        top_probs, top_indices <span class="op">=</span> torch.topk(probs[<span class="dv">0</span>, <span class="op">-</span><span class="dv">1</span>], k<span class="op">=</span>top_k)</span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        top_tokens <span class="op">=</span> [tokenizer.decode([idx]) <span class="cf">for</span> idx <span class="kw">in</span> top_indices]</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Calculate entropy</span></span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>        prob_dist <span class="op">=</span> probs[<span class="dv">0</span>, <span class="op">-</span><span class="dv">1</span>].cpu().numpy()</span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        entropy_value <span class="op">=</span> entropy(prob_dist)</span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i, (token, prob) <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="bu">zip</span>(top_tokens, top_probs)):</span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>            results.append({</span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>                <span class="st">'temperature'</span>: temp,</span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>                <span class="st">'token'</span>: token,</span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>                <span class="st">'probability'</span>: prob.item(),</span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>                <span class="st">'rank'</span>: i <span class="op">+</span> <span class="dv">1</span>,</span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>                <span class="st">'entropy'</span>: entropy_value</span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>            })</span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Test with different temperature values</span></span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>temperatures <span class="op">=</span> [<span class="fl">0.1</span>, <span class="fl">0.5</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span>, <span class="fl">5.0</span>]</span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> analyze_temperature_effects(logits, temperatures)</span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualize results</span></span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">15</span>, <span class="dv">5</span>))</span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 1: Top-k probabilities</span></span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> temp <span class="kw">in</span> temperatures:</span>
-<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>    temp_data <span class="op">=</span> [r <span class="cf">for</span> r <span class="kw">in</span> results <span class="cf">if</span> r[<span class="st">'temperature'</span>] <span class="op">==</span> temp]</span>
-<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>    ranks <span class="op">=</span> [r[<span class="st">'rank'</span>] <span class="cf">for</span> r <span class="kw">in</span> temp_data]</span>
-<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>    probs <span class="op">=</span> [r[<span class="st">'probability'</span>] <span class="cf">for</span> r <span class="kw">in</span> temp_data]</span>
-<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>].plot(ranks, probs, <span class="st">'o-'</span>, label<span class="op">=</span><span class="ss">f'T=</span><span class="sc">{</span>temp<span class="sc">}</span><span class="ss">'</span>, alpha<span class="op">=</span><span class="fl">0.7</span>)</span>
-<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_xlabel(<span class="st">'Token Rank'</span>)</span>
-<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_ylabel(<span class="st">'Probability'</span>)</span>
-<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_title(<span class="st">'Top-k Token Probabilities vs Temperature'</span>)</span>
-<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].legend()</span>
-<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
-<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 2: Entropy vs Temperature</span></span>
-<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a>entropies <span class="op">=</span> []</span>
-<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> temp <span class="kw">in</span> temperatures:</span>
-<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a>    temp_entropy <span class="op">=</span> [r[<span class="st">'entropy'</span>] <span class="cf">for</span> r <span class="kw">in</span> results <span class="cf">if</span> r[<span class="st">'temperature'</span>] <span class="op">==</span> temp][<span class="dv">0</span>]</span>
-<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a>    entropies.append(temp_entropy)</span>
-<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].plot(temperatures, entropies, <span class="st">'ro-'</span>, linewidth<span class="op">=</span><span class="dv">2</span>, markersize<span class="op">=</span><span class="dv">8</span>)</span>
-<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_xlabel(<span class="st">'Temperature'</span>)</span>
-<span id="cb12-55"><a href="#cb12-55" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_ylabel(<span class="st">'Entropy'</span>)</span>
-<span id="cb12-56"><a href="#cb12-56" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_title(<span class="st">'Entropy vs Temperature'</span>)</span>
-<span id="cb12-57"><a href="#cb12-57" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
-<span id="cb12-58"><a href="#cb12-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-59"><a href="#cb12-59" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb12-60"><a href="#cb12-60" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="2025-07-09-temperature-softmax_files/figure-html/cell-10-output-1.png" class="img-fluid figure-img"></p>
-</figure>
-</div>
-</div>
+<div id="cell-27" class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Function to analyze temperature effects\ndef analyze_temperature_effects(logits, temperatures, top_k=10):\n    results = []\n    for temp in temperatures:\n        scaled_logits = logits / temp\n        probs = torch.softmax(scaled_logits, dim=-1)\n        \n        # Get top-k tokens\n        top_probs, top_indices = torch.topk(probs[0, -1], k=top_k)\n        top_tokens = [tokenizer.decode([idx]) for idx in top_indices]\n        \n        # Calculate entropy\n        prob_dist = probs[0, -1].cpu().numpy()\n        entropy_value = entropy(prob_dist)\n        \n        for i, (token, prob) in enumerate(zip(top_tokens, top_probs)):\n            results.append({\n                'temperature': temp,\n                'token': token,\n                'probability': prob.item(),\n                'rank': i + 1,\n                'entropy': entropy_value\n            })\n    \n    return results\n\n# Test with different temperature values\ntemperatures = [0.1, 0.5, 1.0, 2.0, 5.0]\nresults = analyze_temperature_effects(logits, temperatures)\n\n# Create prettier visualizations\nplt.rcParams.update({\n    'font.size': 12,\n    'axes.labelsize': 14,\n    'axes.titlesize': 16,\n    'xtick.labelsize': 12,\n    'ytick.labelsize': 12,\n    'legend.fontsize': 12,\n    'figure.titlesize': 18\n})\n\nfig, axes = plt.subplots(1, 2, figsize=(16, 6))\n\n# Plot 1: Top-k probabilities with better styling\ncolors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57']\nfor i, temp in enumerate(temperatures):\n    temp_data = [r for r in results if r['temperature'] == temp]\n    ranks = [r['rank'] for r in temp_data]\n    probs = [r['probability'] for r in temp_data]\n    \n    linewidth = 3 if temp == 1.0 else 2\n    axes[0].plot(ranks, probs, 'o-', label=f'T={temp}', \n                color=colors[i], linewidth=linewidth, markersize=8, alpha=0.8)\n\naxes[0].set_xlabel('Token Rank', fontweight='bold')\naxes[0].set_ylabel('Probability', fontweight='bold')\naxes[0].set_title('Top-k Token Probabilities vs Temperature', fontweight='bold')\naxes[0].legend(frameon=True, fancybox=True, shadow=True)\naxes[0].grid(True, alpha=0.3, linestyle='--')\naxes[0].set_facecolor('#F8F9FA')\n\n# Plot 2: Entropy vs Temperature with better styling\nentropies = []\nfor temp in temperatures:\n    temp_entropy = [r['entropy'] for r in results if r['temperature'] == temp][0]\n    entropies.append(temp_entropy)\n\naxes[1].plot(temperatures, entropies, 'o-', color='#E74C3C', \n            linewidth=3, markersize=10, alpha=0.8)\naxes[1].set_xlabel('Temperature', fontweight='bold')\naxes[1].set_ylabel('Entropy', fontweight='bold')\naxes[1].set_title('Entropy vs Temperature', fontweight='bold')\naxes[1].grid(True, alpha=0.3, linestyle='--')\naxes[1].set_facecolor('#F8F9FA')\n\n# Highlight T=1.0 on entropy plot\nidx_1 = temperatures.index(1.0)\naxes[1].scatter(1.0, entropies[idx_1], color='#2ECC71', s=150, \n               zorder=5, edgecolors='white', linewidth=2)\naxes[1].annotate('T=1.0\\n(Standard)', xy=(1.0, entropies[idx_1]), \n                xytext=(1.5, entropies[idx_1] + 0.5),\n                arrowprops=dict(arrowstyle='-&gt;', color='#2ECC71', lw=2),\n                fontsize=11, ha='center', fontweight='bold')\n\nplt.tight_layout()\nplt.show()"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Higher temperatures lead to flatter distributions and higher entropy, confirming the mathematical relationship.</p>
 </section>
@@ -743,44 +569,44 @@ Token:  only, Count: 2</code></pre>
 <h2 class="anchored" data-anchor-id="diverse-examples-across-domains">Diverse Examples Across Domains</h2>
 <p>Test temperature effects on different types of content:</p>
 <div id="cell-30" class="cell" data-execution_count="10">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> generate_comparison_examples():</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Generate examples across different domains to show temperature effects"""</span></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    examples <span class="op">=</span> [</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        (<span class="st">"The scientific method involves"</span>, <span class="st">"Science"</span>),</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        (<span class="st">"To solve the equation x^2 - 4x + 3 = 0,"</span>, <span class="st">"Mathematics"</span>),</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        (<span class="st">"In Shakespeare's time, the theater"</span>, <span class="st">"Literature/English"</span>)</span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    ]</span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    temperatures <span class="op">=</span> [<span class="fl">0.3</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span>]</span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> prompt, domain <span class="kw">in</span> examples:</span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        rprint(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[bold]</span><span class="sc">{</span>domain<span class="sc">.</span>upper()<span class="sc">}</span><span class="ss">[/bold]"</span>)</span>
-<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        rprint(<span class="ss">f"Prompt: '</span><span class="sc">{</span>prompt<span class="sc">}</span><span class="ss">'"</span>)</span>
-<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>        rprint(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">50</span>)</span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>        input_ids <span class="op">=</span> tokenizer(prompt, return_tensors<span class="op">=</span><span class="st">"pt"</span>).input_ids</span>
-<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> temp <span class="kw">in</span> temperatures:</span>
-<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>            rprint(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[cyan]Temperature </span><span class="sc">{</span>temp<span class="sc">}</span><span class="ss">:[/cyan]"</span>)</span>
-<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>):  <span class="co"># Generate 3 samples per temperature</span></span>
-<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>                output <span class="op">=</span> model.generate(</span>
-<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>                    input_ids,</span>
-<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>                    do_sample<span class="op">=</span><span class="va">True</span>,</span>
-<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>                    temperature<span class="op">=</span>temp,</span>
-<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>                    max_new_tokens<span class="op">=</span><span class="dv">15</span>,</span>
-<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>                    top_k<span class="op">=</span><span class="dv">50</span>,</span>
-<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>                    pad_token_id<span class="op">=</span>tokenizer.eos_token_id,</span>
-<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>                    attention_mask<span class="op">=</span>torch.ones_like(input_ids)</span>
-<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>                )</span>
-<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>                </span>
-<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>                generated_text <span class="op">=</span> tokenizer.decode(output[<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>                new_text <span class="op">=</span> generated_text[<span class="bu">len</span>(prompt):].strip()</span>
-<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>                rprint(<span class="ss">f"  Sample </span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>new_text<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>()</span>
-<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>generate_comparison_examples()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> generate_comparison_examples():</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Generate examples across different domains to show temperature effects"""</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    examples <span class="op">=</span> [</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        (<span class="st">"The scientific method involves"</span>, <span class="st">"Science"</span>),</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        (<span class="st">"To solve the equation x^2 - 4x + 3 = 0,"</span>, <span class="st">"Mathematics"</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        (<span class="st">"In Shakespeare's time, the theater"</span>, <span class="st">"Literature/English"</span>)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    temperatures <span class="op">=</span> [<span class="fl">0.3</span>, <span class="fl">1.0</span>, <span class="fl">2.0</span>]</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> prompt, domain <span class="kw">in</span> examples:</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>        rprint(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[bold]</span><span class="sc">{</span>domain<span class="sc">.</span>upper()<span class="sc">}</span><span class="ss">[/bold]"</span>)</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        rprint(<span class="ss">f"Prompt: '</span><span class="sc">{</span>prompt<span class="sc">}</span><span class="ss">'"</span>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>        rprint(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">50</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>        input_ids <span class="op">=</span> tokenizer(prompt, return_tensors<span class="op">=</span><span class="st">"pt"</span>).input_ids</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> temp <span class="kw">in</span> temperatures:</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>            rprint(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[cyan]Temperature </span><span class="sc">{</span>temp<span class="sc">}</span><span class="ss">:[/cyan]"</span>)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>):  <span class="co"># Generate 3 samples per temperature</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>                output <span class="op">=</span> model.generate(</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>                    input_ids,</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>                    do_sample<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>                    temperature<span class="op">=</span>temp,</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>                    max_new_tokens<span class="op">=</span><span class="dv">15</span>,</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>                    top_k<span class="op">=</span><span class="dv">50</span>,</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>                    pad_token_id<span class="op">=</span>tokenizer.eos_token_id,</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>                    attention_mask<span class="op">=</span>torch.ones_like(input_ids)</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>                )</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>                generated_text <span class="op">=</span> tokenizer.decode(output[<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>                new_text <span class="op">=</span> generated_text[<span class="bu">len</span>(prompt):].strip()</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>                rprint(<span class="ss">f"  Sample </span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>new_text<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>()</span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>generate_comparison_examples()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="font-weight: bold">SCIENCE</span>
 </pre>
