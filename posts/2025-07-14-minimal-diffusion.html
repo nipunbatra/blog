@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.32">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>minimal-diffusion – Nipun Batra Blog</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-c3c2c9e745155556954bc4da23476b10.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-c3c2c9e745155556954bc4da23476b10.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-c3c2c9e745155556954bc4da23476b10.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-6f4daa0acb84b33b6cf00c2f0c443f78.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-f1f85bb7dbd4314d5ad09add27c1e8f0.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-6f4daa0acb84b33b6cf00c2f0c443f78.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed fullcontent quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block"></header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<p>Diffusion models have become one of the most powerful approaches for generative modeling, powering everything from DALL-E to Stable Diffusion. At their core, they work by gradually adding noise to data and then learning to reverse this process. The key insight is surprisingly simple: if we can learn to denoise images at different noise levels, we can generate new images by starting with pure noise and progressively denoising it. This tutorial implements a minimal diffusion model using PyTorch and the sklearn digits dataset.## The Math Behind DiffusionThe diffusion process consists of two parts:<strong>Forward Process (Adding Noise):</strong> We gradually add Gaussian noise to clean images over <span class="math inline">\(T\)</span> timesteps:<span class="math display">\[q(x_t | x_{t-1}) = \mathcal{N}(x_t; \sqrt{1-\beta_t} x_{t-1}, \beta_t I)\]</span><strong>Reverse Process (Denoising):</strong> We learn to reverse this process:<span class="math display">\[p_\theta(x_{t-1} | x_t) = \mathcal{N}(x_{t-1}; \mu_\theta(x_t, t), \sigma_t^2 I)\]</span>The beautiful mathematical insight is that we can train a neural network to predict the noise <span class="math inline">\(\epsilon\)</span> that was added, rather than directly predicting the clean image.</p>
+<div id="cell-1" class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torchimport torch.nn <span class="im">as</span> nnimport torch.nn.functional <span class="im">as</span> Fimport torch.optim <span class="im">as</span> optimimport numpy <span class="im">as</span> npimport matplotlib.pyplot <span class="im">as</span> pltimport matplotlib.animation <span class="im">as</span> animationfrom sklearn.datasets <span class="im">import</span> load_digitsfrom torch.utils.data <span class="im">import</span> DataLoader, TensorDatasetfrom tqdm <span class="im">import</span> tqdmimport seaborn <span class="im">as</span> snsfrom IPython.display <span class="im">import</span> HTMLimport warningswarnings.filterwarnings(<span class="st">'ignore'</span>)<span class="co"># Set random seed for reproducibilitytorch.manual_seed(42)np.random.seed(42)# Set up plotting styleplt.style.use('seaborn-v0_8')sns.set_palette("husl")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="load-and-explore-the-datawell-use-the-sklearn-digits-dataset-which-contains-88-grayscale-images-of-handwritten-digits-0-9.-this-is-perfect-for-our-minimal-implementation-as-the-images-are-small-and-the-dataset-is-manageable.the-dataset-contains-1797-samples-each-representing-a-digit-as-a-64-dimensional-vector-88-flattened.-well-normalize-the-pixel-values-to-the-range-0-1-to-match-the-assumptions-of-our-diffusion-model." class="level2">
+<h2 class="anchored" data-anchor-id="load-and-explore-the-datawell-use-the-sklearn-digits-dataset-which-contains-88-grayscale-images-of-handwritten-digits-0-9.-this-is-perfect-for-our-minimal-implementation-as-the-images-are-small-and-the-dataset-is-manageable.the-dataset-contains-1797-samples-each-representing-a-digit-as-a-64-dimensional-vector-88-flattened.-well-normalize-the-pixel-values-to-the-range-0-1-to-match-the-assumptions-of-our-diffusion-model.">Load and Explore the DataWe’ll use the sklearn digits dataset, which contains 8×8 grayscale images of handwritten digits 0-9. This is perfect for our minimal implementation as the images are small and the dataset is manageable.The dataset contains 1,797 samples, each representing a digit as a 64-dimensional vector (8×8 flattened). We’ll normalize the pixel values to the range [0, 1] to match the assumptions of our diffusion model.</h2>
+<div id="cell-3" class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load and prepare the digits datasetdigits = load_digits()X = digits.data.reshape(-1, 8, 8)  # 8x8 imagesX = X / 16.0  # Normalize to [0, 1] (original max value is 16)# Convert to PyTorch tensorsX_tensor = torch.FloatTensor(X).unsqueeze(1)  # Add channel dimension: [N, 1, 8, 8]# Create DataLoaderdataset = TensorDataset(X_tensor)dataloader = DataLoader(dataset, batch_size=32, shuffle=True)print(f"Dataset shape: {X_tensor.shape}")print(f"Data range: [{X_tensor.min():.3f}, {X_tensor.max():.3f}]")print(f"Number of samples: {len(X_tensor)}")print(f"Unique digits: {np.unique(digits.target)}")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-4" class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show overall data distributionplt.figure(figsize=(12, 4))plt.subplot(1, 3, 1)plt.hist(digits.target, bins=10, alpha=0.7, color='skyblue', edgecolor='black')plt.title('Distribution of Digits')plt.xlabel('Digit')plt.ylabel('Count')plt.subplot(1, 3, 2)plt.hist(X.flatten(), bins=50, alpha=0.7, color='lightgreen', edgecolor='black')plt.title('Pixel Intensity Distribution')plt.xlabel('Pixel Value')plt.ylabel('Count')plt.subplot(1, 3, 3)mean_image = X.mean(axis=0)plt.imshow(mean_image, cmap='gray')plt.title('Mean Image Across Dataset')plt.colorbar()plt.axis('off')plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-5" class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the diffusion schedulerclass DiffusionScheduler:    def __init__(self, num_timesteps=1000, beta_start=1e-4, beta_end=0.02):        """        Initialize the diffusion scheduler with a linear beta schedule.                Args:            num_timesteps: Number of diffusion steps            beta_start: Starting value for beta schedule            beta_end: Ending value for beta schedule        """        self.num_timesteps = num_timesteps                # Linear schedule for beta values        self.betas = torch.linspace(beta_start, beta_end, num_timesteps)        self.alphas = 1.0 - self.betas        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)                # Useful for sampling        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)            def add_noise(self, x0, t, noise=None):        """        Add noise to clean images at timestep t using the reparameterization trick.                Args:            x0: Clean images [batch_size, channels, height, width]            t: Timesteps [batch_size]            noise: Optional noise tensor, will be generated if None                    Returns:            Noisy images at timestep t        """        if noise is None:            noise = torch.randn_like(x0)                sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod[t])        sqrt_one_minus_alphas_cumprod = torch.sqrt(1 - self.alphas_cumprod[t])                # Reshape for broadcasting        sqrt_alphas_cumprod = sqrt_alphas_cumprod.view(-1, 1, 1, 1)        sqrt_one_minus_alphas_cumprod = sqrt_one_minus_alphas_cumprod.view(-1, 1, 1, 1)                return sqrt_alphas_cumprod * x0 + sqrt_one_minus_alphas_cumprod * noisescheduler = DiffusionScheduler()print(f"Scheduler initialized with {scheduler.num_timesteps} timesteps")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-6" class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Demonstrate the forward diffusion processsample_image = X_tensor[0:1]  # Take first imagetimesteps = [0, 50, 100, 200, 400, 600, 800, 999]fig, axes = plt.subplots(2, len(timesteps), figsize=(20, 6))fig.suptitle('Forward Diffusion Process: Gradual Noise Addition', fontsize=16)for i, t in enumerate(timesteps):    t_tensor = torch.tensor([t])    noisy_image = scheduler.add_noise(sample_image, t_tensor)        # Show image    axes[0, i].imshow(noisy_image[0, 0].numpy(), cmap='gray')    axes[0, i].set_title(f't = {t}')    axes[0, i].axis('off')        # Show histogram of pixel values    axes[1, i].hist(noisy_image[0, 0].flatten().numpy(), bins=20, alpha=0.7, color=f'C{i}')    axes[1, i].set_title(f'Histogram t={t}')    axes[1, i].set_xlim([-3, 3])    axes[1, i].set_ylim([0, 20])plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-7" class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Time embedding using sinusoidal positional encodingclass TimeEmbedding(nn.Module):    """Sinusoidal time embedding similar to transformers"""    def __init__(self, embed_dim):        super().__init__()        self.embed_dim = embed_dim            def forward(self, t):        device = t.device        half_dim = self.embed_dim // 2        embeddings = np.log(10000) / (half_dim - 1)        embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)        embeddings = t[:, None] * embeddings[None, :]        embeddings = torch.cat([torch.sin(embeddings), torch.cos(embeddings)], dim=-1)        return embeddings</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-8" class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create and test the modelmodel = ImprovedDenoiser()total_params = sum(p.numel() for p in model.parameters())print(f"Model created with {total_params:,} parameters")# Test the modeltest_input = torch.randn(2, 1, 8, 8)test_time = torch.randint(0, 1000, (2,))test_output = model(test_input, test_time)print(f"Test input shape: {test_input.shape}")print(f"Test output shape: {test_output.shape}")print(f"Model successfully processes input → output")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-9" class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Training setupdevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')model = model.to(device)scheduler.betas = scheduler.betas.to(device)scheduler.alphas = scheduler.alphas.to(device)scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)optimizer = optim.AdamW(model.parameters(), lr=2e-4, weight_decay=0.01)criterion = nn.MSELoss()num_epochs = 50losses = []epoch_losses = []print(f"Training on device: {device}")print(f"Training for {num_epochs} epochs with {len(dataloader)} batches per epoch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-10" class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot training progressfig, axes = plt.subplots(1, 3, figsize=(18, 5))# Loss over batchesaxes[0].plot(losses, alpha=0.7)axes[0].set_title('Training Loss (per batch)')axes[0].set_xlabel('Batch')axes[0].set_ylabel('MSE Loss')axes[0].grid(True)# Loss over epochsaxes[1].plot(epoch_losses, 'o-')axes[1].set_title('Training Loss (per epoch)')axes[1].set_xlabel('Epoch')axes[1].set_ylabel('Average MSE Loss')axes[1].grid(True)# Loss distributionaxes[2].hist(losses, bins=50, alpha=0.7, edgecolor='black')axes[2].set_title('Distribution of Batch Losses')axes[2].set_xlabel('Loss')axes[2].set_ylabel('Frequency')axes[2].grid(True)plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-11" class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define sampling functiondef sample_images(model, scheduler, num_samples=8, device='cpu', show_progress=True):    """Generate images using the trained diffusion model"""    model.eval()        with torch.no_grad():        # Start with pure noise        x = torch.randn(num_samples, 1, 8, 8, device=device)                # Store intermediate steps for visualization        intermediate_steps = []        save_steps = [999, 800, 600, 400, 200, 100, 50, 0]                # Reverse diffusion process        iterator = reversed(range(scheduler.num_timesteps))        if show_progress:            iterator = tqdm(iterator, desc="Sampling")                    for i, t in enumerate(iterator):            t_tensor = torch.full((num_samples,), t, device=device)                        # Predict noise            predicted_noise = model(x, t_tensor)                        # Remove predicted noise            alpha_t = scheduler.alphas[t]            alpha_cumprod_t = scheduler.alphas_cumprod[t]            beta_t = scheduler.betas[t]                        # Compute x_{t-1}            x = (1 / torch.sqrt(alpha_t)) * (x - (beta_t / torch.sqrt(1 - alpha_cumprod_t)) * predicted_noise)                        # Add noise if not the last step            if t &gt; 0:                noise = torch.randn_like(x)                x = x + torch.sqrt(beta_t) * noise                        # Save intermediate steps            if t in save_steps:                intermediate_steps.append((t, x.clone().cpu()))        return x.cpu(), intermediate_steps</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-12" class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show quality metricsprint("Generated Image Statistics:")print(f"Mean pixel value: {generated_images.mean():.3f}")print(f"Std pixel value: {generated_images.std():.3f}")print(f"Min pixel value: {generated_images.min():.3f}")print(f"Max pixel value: {generated_images.max():.3f}")print("\nOriginal Image Statistics:")print(f"Mean pixel value: {X_tensor.mean():.3f}")print(f"Std pixel value: {X_tensor.std():.3f}")print(f"Min pixel value: {X_tensor.min():.3f}")print(f"Max pixel value: {X_tensor.max():.3f}")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-13" class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualize the reverse diffusion processintermediates = all_intermediates[0]  # Use first batch's intermediatesfig, axes = plt.subplots(len(intermediates), 8, figsize=(16, 20))fig.suptitle('Reverse Diffusion Process: From Noise to Digits', fontsize=16)for step_idx, (timestep, images) in enumerate(intermediates):    for sample_idx in range(8):        axes[step_idx, sample_idx].imshow(images[sample_idx, 0], cmap='gray')        axes[step_idx, sample_idx].axis('off')        if sample_idx == 0:            axes[step_idx, sample_idx].set_ylabel(f't = {timestep}', fontsize=12)        if step_idx == 0:            axes[step_idx, sample_idx].set_title(f'Sample {sample_idx+1}', fontsize=10)plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-14" class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show pixel intensity evolutionfig, axes = plt.subplots(1, 2, figsize=(15, 5))# Plot mean pixel intensity over timemean_intensities = []std_intensities = []timesteps_list = []for timestep, images in intermediates:    mean_intensities.append(images.mean().item())    std_intensities.append(images.std().item())    timesteps_list.append(timestep)axes[0].plot(timesteps_list, mean_intensities, 'o-', label='Mean Intensity')axes[0].fill_between(timesteps_list,                      np.array(mean_intensities) - np.array(std_intensities),                     np.array(mean_intensities) + np.array(std_intensities),                     alpha=0.3)axes[0].set_xlabel('Timestep')axes[0].set_ylabel('Pixel Intensity')axes[0].set_title('Pixel Intensity Evolution During Sampling')axes[0].legend()axes[0].grid(True)# Show histogram evolutionsample_images = [images[0, 0].numpy().flatten() for _, images in intermediates]colors = plt.cm.viridis(np.linspace(0, 1, len(sample_images)))for i, (pixels, color) in enumerate(zip(sample_images, colors)):    axes[1].hist(pixels, bins=30, alpha=0.5, color=color,                 label=f't={timesteps_list[i]}' if i % 2 == 0 else '')axes[1].set_xlabel('Pixel Value')axes[1].set_ylabel('Frequency')axes[1].set_title('Pixel Value Distribution Evolution')axes[1].legend()axes[1].grid(True)plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-15" class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create detailed animation functiondef create_detailed_animation():    """Create detailed animation frames showing the full reverse process"""    model.eval()        with torch.no_grad():        # Start with pure noise (single sample for cleaner animation)        x = torch.randn(1, 1, 8, 8, device=device)                # Store ALL intermediate steps        all_frames = []                # Reverse diffusion process        for t in tqdm(reversed(range(scheduler.num_timesteps)), desc="Creating animation"):            # Save every 50th frame to keep animation manageable            if t % 50 == 0 or t &lt; 50:                all_frames.append((t, x[0, 0].cpu().numpy().copy()))                        t_tensor = torch.full((1,), t, device=device)                        # Predict noise            predicted_noise = model(x, t_tensor)                        # Remove predicted noise            alpha_t = scheduler.alphas[t]            alpha_cumprod_t = scheduler.alphas_cumprod[t]            beta_t = scheduler.betas[t]                        # Compute x_{t-1}            x = (1 / torch.sqrt(alpha_t)) * (x - (beta_t / torch.sqrt(1 - alpha_cumprod_t)) * predicted_noise)                        # Add noise if not the last step            if t &gt; 0:                noise = torch.randn_like(x)                x = x + torch.sqrt(beta_t) * noise        return all_frames# Create animation framesprint("Creating detailed animation frames...")animation_frames = create_detailed_animation()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-16" class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show final comparisonfig, axes = plt.subplots(len(comparison_frames), 4, figsize=(12, 20))fig.suptitle('Multiple Samples Diffusion Process', fontsize=16)for step_idx, (timestep, images) in enumerate(comparison_frames):    for sample_idx in range(4):        axes[step_idx, sample_idx].imshow(images[sample_idx, 0], cmap='gray')        axes[step_idx, sample_idx].axis('off')        if sample_idx == 0:            axes[step_idx, sample_idx].set_ylabel(f't = {timestep}', fontsize=10)        if step_idx == 0:            axes[step_idx, sample_idx].set_title(f'Sample {sample_idx+1}', fontsize=10)plt.tight_layout()plt.show()print(f"Created {len(animation_frames)} animation frames")print(f"Created {len(comparison_frames)} comparison frames")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-17" class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-18" class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show key frames from the animationkey_frames = animation_frames[::len(animation_frames)//8]  # Show 8 key framesfig, axes = plt.subplots(1, len(key_frames), figsize=(20, 3))fig.suptitle('Key Frames from Diffusion Animation', fontsize=16)for i, (timestep, image) in enumerate(key_frames):    axes[i].imshow(image, cmap='gray')    axes[i].set_title(f't = {timestep}')    axes[i].axis('off')plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-19" class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create and save animationfig, ax = plt.subplots(figsize=(6, 6))ax.set_xlim(0, 8)ax.set_ylim(0, 8)ax.set_aspect('equal')def animate(frame_idx):    ax.clear()    timestep, image = animation_frames[frame_idx]        # Display the image    im = ax.imshow(image, cmap='gray', vmin=-2, vmax=2)    ax.set_title(f'Diffusion Sampling: t = {timestep}', fontsize=14)    ax.axis('off')        return [im]# Create animationanim = animation.FuncAnimation(fig, animate, frames=len(animation_frames),                              interval=200, blit=False, repeat=True)# Save as GIFprint("Saving animation as GIF...")anim.save('diffusion_process.gif', writer='pillow', fps=5)print("Animation saved as 'diffusion_process.gif'")# Display the animation in notebookplt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-20" class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show the progression for a single samplesample_idx = 0fig, axes = plt.subplots(1, len(intermediates), figsize=(20, 3))fig.suptitle(f'Single Sample Progression: From Noise to Digit', fontsize=16)for step_idx, (timestep, images) in enumerate(intermediates):    axes[step_idx].imshow(images[sample_idx, 0], cmap='gray')    axes[step_idx].set_title(f't = {timestep}')    axes[step_idx].axis('off')plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-21" class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show multiple generationsfig, axes = plt.subplots(5, 8, figsize=(16, 10))fig.suptitle('Multiple Generated Samples (5 batches × 8 samples)', fontsize=16)for batch_idx in range(5):    for sample_idx in range(8):        img_idx = batch_idx * 8 + sample_idx        axes[batch_idx, sample_idx].imshow(generated_images[img_idx, 0], cmap='gray')        axes[batch_idx, sample_idx].axis('off')        axes[batch_idx, sample_idx].set_title(f'B{batch_idx+1}S{sample_idx+1}', fontsize=8)plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-22" class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate multiple batches of samplesprint("Generating samples...")all_samples = []all_intermediates = []for i in range(5):  # Generate 5 batches of 8 samples each    samples, intermediates = sample_images(model, scheduler, num_samples=8, device=device, show_progress=(i==0))    all_samples.append(samples)    all_intermediates.append(intermediates)    print(f"Generated batch {i+1}/5")# Combine all samplesgenerated_images = torch.cat(all_samples, dim=0)print(f"Generated {len(generated_images)} total images")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-23" class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Self-attention mechanismclass AttentionBlock(nn.Module):    """Simple self-attention block"""    def __init__(self, channels):        super().__init__()        self.channels = channels        self.norm = nn.GroupNorm(8, channels)        self.qkv = nn.Conv2d(channels, channels * 3, 1)        self.proj = nn.Conv2d(channels, channels, 1)            def forward(self, x):        b, c, h, w = x.shape        x_norm = self.norm(x)        qkv = self.qkv(x_norm)        q, k, v = qkv.chunk(3, dim=1)                # Reshape for attention        q = q.view(b, c, h * w).transpose(1, 2)        k = k.view(b, c, h * w).transpose(1, 2)        v = v.view(b, c, h * w).transpose(1, 2)                # Compute attention        attn = torch.softmax(q @ k.transpose(-2, -1) / (c ** 0.5), dim=-1)        out = attn @ v                # Reshape back        out = out.transpose(1, 2).view(b, c, h, w)        out = self.proj(out)                return x + out</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="cell-24" class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Residual block with time conditioningclass ResidualBlock(nn.Module):    """Residual block with time conditioning"""    def __init__(self, in_channels, out_channels, time_embed_dim):        super().__init__()        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1)        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)        self.time_mlp = nn.Sequential(            nn.Linear(time_embed_dim, out_channels),            nn.ReLU()        )        self.norm1 = nn.GroupNorm(8, out_channels)        self.norm2 = nn.GroupNorm(8, out_channels)        self.shortcut = nn.Conv2d(in_channels, out_channels, 1) if in_channels != out_channels else nn.Identity()            def forward(self, x, time_emb):        # First convolution        h = self.conv1(x)        h = self.norm1(h)        h = F.relu(h)                # Add time conditioning        time_cond = self.time_mlp(time_emb)        h = h + time_cond.unsqueeze(-1).unsqueeze(-1)                # Second convolution        h = self.conv2(h)        h = self.norm2(h)        h = F.relu(h)                # Skip connection        return h + self.shortcut(x)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="forward-diffusion-process-adding-noisethe-forward-diffusion-process-gradually-corrupts-clean-images-by-adding-gaussian-noise.-the-key-insight-is-that-we-can-jump-to-any-timestep-t-directly-using-the-reparameterization-trickx_t-sqrtbaralpha_t-x_0-sqrt1---baralpha_t-epsilonwhere--x_0-is-the-clean-image--epsilon-sim-mathcaln0-i-is-random-noise--baralpha_t-prod_i1t-alpha_i-is-the-cumulative-product-of-alphas--alpha_t-1---beta_t-where-beta_t-is-the-noise-schedulethis-allows-us-to-efficiently-sample-noisy-images-at-any-timestep-during-training-without-having-to-iteratively-apply-the-forward-process." class="level2">
+<h2 class="anchored" data-anchor-id="forward-diffusion-process-adding-noisethe-forward-diffusion-process-gradually-corrupts-clean-images-by-adding-gaussian-noise.-the-key-insight-is-that-we-can-jump-to-any-timestep-t-directly-using-the-reparameterization-trickx_t-sqrtbaralpha_t-x_0-sqrt1---baralpha_t-epsilonwhere--x_0-is-the-clean-image--epsilon-sim-mathcaln0-i-is-random-noise--baralpha_t-prod_i1t-alpha_i-is-the-cumulative-product-of-alphas--alpha_t-1---beta_t-where-beta_t-is-the-noise-schedulethis-allows-us-to-efficiently-sample-noisy-images-at-any-timestep-during-training-without-having-to-iteratively-apply-the-forward-process.">Forward Diffusion Process: Adding NoiseThe forward diffusion process gradually corrupts clean images by adding Gaussian noise. The key insight is that we can jump to any timestep <span class="math inline">\(t\)</span> directly using the reparameterization trick:<span class="math display">\[x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon\]</span>where:- <span class="math inline">\(x_0\)</span> is the clean image- <span class="math inline">\(\epsilon \sim \mathcal{N}(0, I)\)</span> is random noise- <span class="math inline">\(\bar{\alpha}_t = \prod_{i=1}^t \alpha_i\)</span> is the cumulative product of alphas- <span class="math inline">\(\alpha_t = 1 - \beta_t\)</span> where <span class="math inline">\(\beta_t\)</span> is the noise scheduleThis allows us to efficiently sample noisy images at any timestep during training without having to iteratively apply the forward process.</h2>
+<div id="cell-26" class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DiffusionScheduler:    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, num_timesteps<span class="op">=</span><span class="dv">1000</span>, beta_start<span class="op">=</span><span class="fl">1e-4</span>, beta_end<span class="op">=</span><span class="fl">0.02</span>):        <span class="st">"""        Initialize the diffusion scheduler with a linear beta schedule.                Args:            num_timesteps: Number of diffusion steps            beta_start: Starting value for beta schedule            beta_end: Ending value for beta schedule        """</span>        <span class="va">self</span>.num_timesteps <span class="op">=</span> num_timesteps                <span class="co"># Linear schedule for beta values        self.betas = torch.linspace(beta_start, beta_end, num_timesteps)        self.alphas = 1.0 - self.betas        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)                # Useful for sampling        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)            def add_noise(self, x0, t, noise=None):        """        Add noise to clean images at timestep t using the reparameterization trick.                Args:            x0: Clean images [batch_size, channels, height, width]            t: Timesteps [batch_size]            noise: Optional noise tensor, will be generated if None                    Returns:            Noisy images at timestep t        """        if noise is None:            noise = torch.randn_like(x0)                sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod[t])        sqrt_one_minus_alphas_cumprod = torch.sqrt(1 - self.alphas_cumprod[t])                # Reshape for broadcasting        sqrt_alphas_cumprod = sqrt_alphas_cumprod.view(-1, 1, 1, 1)        sqrt_one_minus_alphas_cumprod = sqrt_one_minus_alphas_cumprod.view(-1, 1, 1, 1)                return sqrt_alphas_cumprod * x0 + sqrt_one_minus_alphas_cumprod * noisescheduler = DiffusionScheduler()print(f"Scheduler initialized with {scheduler.num_timesteps} timesteps")# Visualize the noise schedulefig, axes = plt.subplots(1, 3, figsize=(15, 4))# Beta scheduleaxes[0].plot(scheduler.betas.numpy())axes[0].set_title('Beta Schedule (Noise Rate)')axes[0].set_xlabel('Timestep')axes[0].set_ylabel('Beta')axes[0].grid(True)# Alpha scheduleaxes[1].plot(scheduler.alphas.numpy())axes[1].set_title('Alpha Schedule (1 - Beta)')axes[1].set_xlabel('Timestep')axes[1].set_ylabel('Alpha')axes[1].grid(True)# Cumulative alpha scheduleaxes[2].plot(scheduler.alphas_cumprod.numpy())axes[2].set_title('Cumulative Alpha Schedule')axes[2].set_xlabel('Timestep')axes[2].set_ylabel('Cumulative Alpha')axes[2].grid(True)plt.tight_layout()plt.show()# Show the forward diffusion process on a sample imagesample_image = X_tensor[0:1]  # Take first imagetimesteps = [0, 50, 100, 200, 400, 600, 800, 999]fig, axes = plt.subplots(2, len(timesteps), figsize=(20, 6))fig.suptitle('Forward Diffusion Process: Gradual Noise Addition', fontsize=16)for i, t in enumerate(timesteps):    t_tensor = torch.tensor([t])    noisy_image = scheduler.add_noise(sample_image, t_tensor)        # Show image    axes[0, i].imshow(noisy_image[0, 0].numpy(), cmap='gray')    axes[0, i].set_title(f't = {t}')    axes[0, i].axis('off')        # Show histogram of pixel values    axes[1, i].hist(noisy_image[0, 0].flatten().numpy(), bins=20, alpha=0.7, color=f'C{i}')    axes[1, i].set_title(f'Histogram t={t}')    axes[1, i].set_xlim([-3, 3])    axes[1, i].set_ylim([0, 20])plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="improved-denoising-model-architectureour-denoising-model-needs-to-predict-the-noise-epsilon_thetax_t-t-that-was-added-to-create-the-noisy-image-x_t.-the-model-takes-two-inputs1.-noisy-image-x_t-at-timestep-t2.-timestep-t-embedded-as-a-featurethe-key-architectural-components-are1.-time-embedding-we-embed-the-timestep-t-using-sinusoidal-positional-encoding-similar-to-transformers2.-u-net-like-architecture-we-use-a-simplified-u-net-with-residual-connections-and-attention3.-residual-blocks-each-block-combines-convolution-normalization-and-time-conditioning4.-attention-mechanism-simple-self-attention-to-capture-long-range-dependenciesthe-loss-function-is-simply-the-mean-squared-error-between-predicted-and-actual-noisemathcall-mathbbe_tx_0epsilon-epsilon---epsilon_thetax_t-t2" class="level2">
+<h2 class="anchored" data-anchor-id="improved-denoising-model-architectureour-denoising-model-needs-to-predict-the-noise-epsilon_thetax_t-t-that-was-added-to-create-the-noisy-image-x_t.-the-model-takes-two-inputs1.-noisy-image-x_t-at-timestep-t2.-timestep-t-embedded-as-a-featurethe-key-architectural-components-are1.-time-embedding-we-embed-the-timestep-t-using-sinusoidal-positional-encoding-similar-to-transformers2.-u-net-like-architecture-we-use-a-simplified-u-net-with-residual-connections-and-attention3.-residual-blocks-each-block-combines-convolution-normalization-and-time-conditioning4.-attention-mechanism-simple-self-attention-to-capture-long-range-dependenciesthe-loss-function-is-simply-the-mean-squared-error-between-predicted-and-actual-noisemathcall-mathbbe_tx_0epsilon-epsilon---epsilon_thetax_t-t2">Improved Denoising Model ArchitectureOur denoising model needs to predict the noise <span class="math inline">\(\epsilon_\theta(x_t, t)\)</span> that was added to create the noisy image <span class="math inline">\(x_t\)</span>. The model takes two inputs:1. <strong>Noisy image</strong> <span class="math inline">\(x_t\)</span> at timestep $t$2. <strong>Timestep</strong> <span class="math inline">\(t\)</span> (embedded as a feature)The key architectural components are:1. <strong>Time Embedding</strong>: We embed the timestep <span class="math inline">\(t\)</span> using sinusoidal positional encoding (similar to transformers)2. <strong>U-Net-like Architecture</strong>: We use a simplified U-Net with residual connections and attention3. <strong>Residual Blocks</strong>: Each block combines convolution, normalization, and time conditioning4. <strong>Attention Mechanism</strong>: Simple self-attention to capture long-range dependenciesThe loss function is simply the Mean Squared Error between predicted and actual noise:<span class="math display">\[\mathcal{L} = \mathbb{E}_{t,x_0,\epsilon} [||\epsilon - \epsilon_\theta(x_t, t)||^2]\]</span></h2>
+<div id="cell-28" class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TimeEmbedding(nn.Module):    <span class="st">"""Sinusoidal time embedding similar to transformers"""</span>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, embed_dim):        <span class="bu">super</span>().<span class="fu">__init__</span>()        <span class="va">self</span>.embed_dim <span class="op">=</span> embed_dim            <span class="kw">def</span> forward(<span class="va">self</span>, t):        device <span class="op">=</span> t.device        half_dim <span class="op">=</span> <span class="va">self</span>.embed_dim <span class="op">//</span> <span class="dv">2</span>        embeddings <span class="op">=</span> np.log(<span class="dv">10000</span>) <span class="op">/</span> (half_dim <span class="op">-</span> <span class="dv">1</span>)        embeddings <span class="op">=</span> torch.exp(torch.arange(half_dim, device<span class="op">=</span>device) <span class="op">*</span> <span class="op">-</span>embeddings)        embeddings <span class="op">=</span> t[:, <span class="va">None</span>] <span class="op">*</span> embeddings[<span class="va">None</span>, :]        embeddings <span class="op">=</span> torch.cat([torch.sin(embeddings), torch.cos(embeddings)], dim<span class="op">=-</span><span class="dv">1</span>)        <span class="cf">return</span> embeddingsclass ResidualBlock(nn.Module):    <span class="st">"""Residual block with time conditioning"""</span>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, in_channels, out_channels, time_embed_dim):        <span class="bu">super</span>().<span class="fu">__init__</span>()        <span class="va">self</span>.conv1 <span class="op">=</span> nn.Conv2d(in_channels, out_channels, <span class="dv">3</span>, padding<span class="op">=</span><span class="dv">1</span>)        <span class="va">self</span>.conv2 <span class="op">=</span> nn.Conv2d(out_channels, out_channels, <span class="dv">3</span>, padding<span class="op">=</span><span class="dv">1</span>)        <span class="va">self</span>.time_mlp <span class="op">=</span> nn.Sequential(            nn.Linear(time_embed_dim, out_channels),            nn.ReLU()        )        <span class="va">self</span>.norm1 <span class="op">=</span> nn.GroupNorm(<span class="dv">8</span>, out_channels)        <span class="va">self</span>.norm2 <span class="op">=</span> nn.GroupNorm(<span class="dv">8</span>, out_channels)        <span class="va">self</span>.shortcut <span class="op">=</span> nn.Conv2d(in_channels, out_channels, <span class="dv">1</span>) <span class="cf">if</span> in_channels <span class="op">!=</span> out_channels <span class="cf">else</span> nn.Identity()            <span class="kw">def</span> forward(<span class="va">self</span>, x, time_emb):        <span class="co"># First convolution        h = self.conv1(x)        h = self.norm1(h)        h = F.relu(h)                # Add time conditioning        time_cond = self.time_mlp(time_emb)        h = h + time_cond.unsqueeze(-1).unsqueeze(-1)                # Second convolution        h = self.conv2(h)        h = self.norm2(h)        h = F.relu(h)                # Skip connection        return h + self.shortcut(x)class AttentionBlock(nn.Module):    """Simple self-attention block"""    def __init__(self, channels):        super().__init__()        self.channels = channels        self.norm = nn.GroupNorm(8, channels)        self.qkv = nn.Conv2d(channels, channels * 3, 1)        self.proj = nn.Conv2d(channels, channels, 1)            def forward(self, x):        b, c, h, w = x.shape        x_norm = self.norm(x)        qkv = self.qkv(x_norm)        q, k, v = qkv.chunk(3, dim=1)                # Reshape for attention        q = q.view(b, c, h * w).transpose(1, 2)        k = k.view(b, c, h * w).transpose(1, 2)        v = v.view(b, c, h * w).transpose(1, 2)                # Compute attention        attn = torch.softmax(q @ k.transpose(-2, -1) / (c ** 0.5), dim=-1)        out = attn @ v                # Reshape back        out = out.transpose(1, 2).view(b, c, h, w)        out = self.proj(out)                return x + outclass ImprovedDenoiser(nn.Module):    """Improved U-Net-like denoiser with time conditioning and attention"""    def __init__(self, in_channels=1, model_channels=64, time_embed_dim=128):        super().__init__()                self.time_embed = nn.Sequential(            TimeEmbedding(time_embed_dim),            nn.Linear(time_embed_dim, time_embed_dim),            nn.ReLU(),            nn.Linear(time_embed_dim, time_embed_dim)        )                # Encoder        self.init_conv = nn.Conv2d(in_channels, model_channels, 3, padding=1)                self.down1 = ResidualBlock(model_channels, model_channels, time_embed_dim)        self.down2 = ResidualBlock(model_channels, model_channels * 2, time_embed_dim)        self.down3 = ResidualBlock(model_channels * 2, model_channels * 4, time_embed_dim)                # Middle with attention        self.mid = ResidualBlock(model_channels * 4, model_channels * 4, time_embed_dim)        self.mid_attn = AttentionBlock(model_channels * 4)                # Decoder        self.up1 = ResidualBlock(model_channels * 4, model_channels * 2, time_embed_dim)        self.up2 = ResidualBlock(model_channels * 2, model_channels, time_embed_dim)        self.up3 = ResidualBlock(model_channels, model_channels, time_embed_dim)                # Output        self.out_conv = nn.Conv2d(model_channels, in_channels, 3, padding=1)            def forward(self, x, t):        # Time embedding        t_emb = self.time_embed(t.float())                # Initial convolution        x = self.init_conv(x)                # Encoder        x1 = self.down1(x, t_emb)        x2 = self.down2(x1, t_emb)        x3 = self.down3(x2, t_emb)                # Middle        x = self.mid(x3, t_emb)        x = self.mid_attn(x)                # Decoder (with skip connections)        x = self.up1(x + x3, t_emb)        x = self.up2(x + x2, t_emb)        x = self.up3(x + x1, t_emb)                # Output        return self.out_conv(x)# Create the improved modelmodel = ImprovedDenoiser()total_params = sum(p.numel() for p in model.parameters())print(f"Model created with {total_params:,} parameters")# Test the modeltest_input = torch.randn(2, 1, 8, 8)test_time = torch.randint(0, 1000, (2,))test_output = model(test_input, test_time)print(f"Test input shape: {test_input.shape}")print(f"Test output shape: {test_output.shape}")print(f"Model successfully processes input → output")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="training-the-denoising-modelnow-we-train-our-model-to-predict-the-noise-that-was-added-to-images.-the-training-process-is-surprisingly-simple1.-sample-a-batch-of-clean-images-x_02.-sample-random-timesteps-t-for-each-image3.-sample-noise-0-i4.-create-noisy-images-x_t-x_0-5.-predict-the-noise-_x_t-t6.-compute-loss-mathcall-epsilon---epsilon_thetax_t-t2the-key-insight-is-that-by-training-on-all-timesteps-simultaneously-the-model-learns-to-denoise-at-any-level-of-noise-corruption." class="level2">
+<h2 class="anchored" data-anchor-id="training-the-denoising-modelnow-we-train-our-model-to-predict-the-noise-that-was-added-to-images.-the-training-process-is-surprisingly-simple1.-sample-a-batch-of-clean-images-x_02.-sample-random-timesteps-t-for-each-image3.-sample-noise-0-i4.-create-noisy-images-x_t-x_0-5.-predict-the-noise-_x_t-t6.-compute-loss-mathcall-epsilon---epsilon_thetax_t-t2the-key-insight-is-that-by-training-on-all-timesteps-simultaneously-the-model-learns-to-denoise-at-any-level-of-noise-corruption.">Training the Denoising ModelNow we train our model to predict the noise that was added to images. The training process is surprisingly simple:1. <strong>Sample a batch</strong> of clean images $x_0$2. <strong>Sample random timesteps</strong> <span class="math inline">\(t\)</span> for each image3. <strong>Sample noise</strong> $(0, I)$4. <strong>Create noisy images</strong> $x_t = x_0 + $5. <strong>Predict the noise</strong> $_(x_t, t)$6. <strong>Compute loss</strong> <span class="math inline">\(\mathcal{L} = ||\epsilon - \epsilon_\theta(x_t, t)||^2\)</span>The key insight is that by training on all timesteps simultaneously, the model learns to denoise at any level of noise corruption.</h2>
+<div id="cell-30" class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Training setupdevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')model = model.to(device)scheduler.betas = scheduler.betas.to(device)scheduler.alphas = scheduler.alphas.to(device)scheduler.alphas_cumprod = scheduler.alphas_cumprod.to(device)optimizer = optim.AdamW(model.parameters(), lr=2e-4, weight_decay=0.01)criterion = nn.MSELoss()num_epochs = 50losses = []epoch_losses = []print(f"Training on device: {device}")print(f"Training for {num_epochs} epochs with {len(dataloader)} batches per epoch")# Training loop with progress trackingfor epoch in range(num_epochs):    model.train()    epoch_loss = 0    batch_losses = []        pbar = tqdm(dataloader, desc=f'Epoch {epoch+1}/{num_epochs}')    for batch_idx, (x0,) in enumerate(pbar):        x0 = x0.to(device)        batch_size = x0.size(0)                # Sample random timesteps        t = torch.randint(0, scheduler.num_timesteps, (batch_size,), device=device)                # Generate noise        noise = torch.randn_like(x0)                # Add noise to clean images        x_noisy = scheduler.add_noise(x0, t, noise)                # Predict noise        predicted_noise = model(x_noisy, t)                # Compute loss        loss = criterion(predicted_noise, noise)                # Backpropagation        optimizer.zero_grad()        loss.backward()                # Gradient clipping for stability        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)                optimizer.step()                # Track losses        batch_loss = loss.item()        epoch_loss += batch_loss        batch_losses.append(batch_loss)                # Update progress bar        pbar.set_postfix({'loss': f'{batch_loss:.4f}'})        avg_loss = epoch_loss / len(dataloader)    epoch_losses.append(avg_loss)    losses.extend(batch_losses)        print(f'Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}')        # Save some intermediate results every 10 epochs    if (epoch + 1) % 10 == 0:        model.eval()        with torch.no_grad():            # Test denoising on a sample            sample_x0 = X_tensor[0:1].to(device)            sample_t = torch.tensor([500], device=device)            sample_noise = torch.randn_like(sample_x0)            sample_noisy = scheduler.add_noise(sample_x0, sample_t, sample_noise)            sample_pred_noise = model(sample_noisy, sample_t)                        # Show denoising quality            print(f"  Noise prediction MSE: {F.mse_loss(sample_pred_noise, sample_noise):.4f}")print("Training completed!")# Plot training progressfig, axes = plt.subplots(1, 3, figsize=(18, 5))# Loss over batchesaxes[0].plot(losses, alpha=0.7)axes[0].set_title('Training Loss (per batch)')axes[0].set_xlabel('Batch')axes[0].set_ylabel('MSE Loss')axes[0].grid(True)# Loss over epochsaxes[1].plot(epoch_losses, 'o-')axes[1].set_title('Training Loss (per epoch)')axes[1].set_xlabel('Epoch')axes[1].set_ylabel('Average MSE Loss')axes[1].grid(True)# Loss distributionaxes[2].hist(losses, bins=50, alpha=0.7, edgecolor='black')axes[2].set_title('Distribution of Batch Losses')axes[2].set_xlabel('Loss')axes[2].set_ylabel('Frequency')axes[2].grid(True)plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="reverse-diffusion-sampling-new-imagesnow-comes-the-magic-to-generate-new-images-we-reverse-the-diffusion-process.-we-start-with-pure-noise-and-gradually-denoise-it-using-our-trained-model.the-reverse-process-follows-this-formulax_t-1-frac1sqrtalpha_t-left-x_t---fracbeta_tsqrt1-baralpha_t-epsilon_thetax_t-t-right-sigma_t-zwhere-z-sim-mathcaln0-i-is-additional-noise-except-for-the-final-step.this-is-essentially-asking-if-i-know-the-noise-that-was-added-how-can-i-remove-it-to-get-the-less-noisy-image" class="level2">
+<h2 class="anchored" data-anchor-id="reverse-diffusion-sampling-new-imagesnow-comes-the-magic-to-generate-new-images-we-reverse-the-diffusion-process.-we-start-with-pure-noise-and-gradually-denoise-it-using-our-trained-model.the-reverse-process-follows-this-formulax_t-1-frac1sqrtalpha_t-left-x_t---fracbeta_tsqrt1-baralpha_t-epsilon_thetax_t-t-right-sigma_t-zwhere-z-sim-mathcaln0-i-is-additional-noise-except-for-the-final-step.this-is-essentially-asking-if-i-know-the-noise-that-was-added-how-can-i-remove-it-to-get-the-less-noisy-image">Reverse Diffusion: Sampling New ImagesNow comes the magic! To generate new images, we reverse the diffusion process. We start with pure noise and gradually denoise it using our trained model.The reverse process follows this formula:<span class="math display">\[x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(x_t, t) \right) + \sigma_t z\]</span>where <span class="math inline">\(z \sim \mathcal{N}(0, I)\)</span> is additional noise (except for the final step).This is essentially asking: “If I know the noise that was added, how can I remove it to get the less noisy image?”</h2>
+<div id="cell-32" class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> sample_images(model, scheduler, num_samples<span class="op">=</span><span class="dv">8</span>, device<span class="op">=</span><span class="st">'cpu'</span>, show_progress<span class="op">=</span><span class="va">True</span>):    <span class="st">"""Generate images using the trained diffusion model"""</span>    model.<span class="bu">eval</span>()        <span class="cf">with</span> torch.no_grad():        <span class="co"># Start with pure noise        x = torch.randn(num_samples, 1, 8, 8, device=device)                # Store intermediate steps for visualization        intermediate_steps = []        save_steps = [999, 800, 600, 400, 200, 100, 50, 0]                # Reverse diffusion process        iterator = reversed(range(scheduler.num_timesteps))        if show_progress:            iterator = tqdm(iterator, desc="Sampling")                    for i, t in enumerate(iterator):            t_tensor = torch.full((num_samples,), t, device=device)                        # Predict noise            predicted_noise = model(x, t_tensor)                        # Remove predicted noise            alpha_t = scheduler.alphas[t]            alpha_cumprod_t = scheduler.alphas_cumprod[t]            beta_t = scheduler.betas[t]                        # Compute x_{t-1}            x = (1 / torch.sqrt(alpha_t)) * (x - (beta_t / torch.sqrt(1 - alpha_cumprod_t)) * predicted_noise)                        # Add noise if not the last step            if t &gt; 0:                noise = torch.randn_like(x)                x = x + torch.sqrt(beta_t) * noise                        # Save intermediate steps            if t in save_steps:                intermediate_steps.append((t, x.clone().cpu()))        return x.cpu(), intermediate_steps# Generate multiple batches of samplesprint("Generating samples...")all_samples = []all_intermediates = []for i in range(5):  # Generate 5 batches of 8 samples each    samples, intermediates = sample_images(model, scheduler, num_samples=8, device=device, show_progress=(i==0))    all_samples.append(samples)    all_intermediates.append(intermediates)    print(f"Generated batch {i+1}/5")# Combine all samplesgenerated_images = torch.cat(all_samples, dim=0)print(f"Generated {len(generated_images)} total images")# Show multiple generationsfig, axes = plt.subplots(5, 8, figsize=(16, 10))fig.suptitle('Multiple Generated Samples (5 batches × 8 samples)', fontsize=16)for batch_idx in range(5):    for sample_idx in range(8):        img_idx = batch_idx * 8 + sample_idx        axes[batch_idx, sample_idx].imshow(generated_images[img_idx, 0], cmap='gray')        axes[batch_idx, sample_idx].axis('off')        axes[batch_idx, sample_idx].set_title(f'B{batch_idx+1}S{sample_idx+1}', fontsize=8)plt.tight_layout()plt.show()# Compare with original digitsfig, axes = plt.subplots(2, 10, figsize=(20, 6))fig.suptitle('Original Digits vs Generated Samples', fontsize=16)# Original digits (one of each class)for i in range(10):    digit_idx = np.where(digits.target == i)[0][0]    axes[0, i].imshow(X[digit_idx], cmap='gray')    axes[0, i].set_title(f'Original {i}')    axes[0, i].axis('off')# Generated samplesfor i in range(10):    axes[1, i].imshow(generated_images[i, 0], cmap='gray')    axes[1, i].set_title(f'Generated {i}')    axes[1, i].axis('off')plt.tight_layout()plt.show()# Show quality metricsprint("\nGenerated Image Statistics:")print(f"Mean pixel value: {generated_images.mean():.3f}")print(f"Std pixel value: {generated_images.std():.3f}")print(f"Min pixel value: {generated_images.min():.3f}")print(f"Max pixel value: {generated_images.max():.3f}")print("\nOriginal Image Statistics:")print(f"Mean pixel value: {X_tensor.mean():.3f}")print(f"Std pixel value: {X_tensor.std():.3f}")print(f"Min pixel value: {X_tensor.min():.3f}")print(f"Max pixel value: {X_tensor.max():.3f}")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="visualizing-the-reverse-processlets-see-how-the-denoising-process-works-step-by-step.-well-track-the-intermediate-states-as-we-go-from-pure-noise-to-clean-digits." class="level2">
+<h2 class="anchored" data-anchor-id="visualizing-the-reverse-processlets-see-how-the-denoising-process-works-step-by-step.-well-track-the-intermediate-states-as-we-go-from-pure-noise-to-clean-digits.">Visualizing the Reverse ProcessLet’s see how the denoising process works step by step. We’ll track the intermediate states as we go from pure noise to clean digits.</h2>
+<div id="cell-34" class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualize the reverse diffusion processintermediates = all_intermediates[0]  # Use first batch's intermediatesfig, axes = plt.subplots(len(intermediates), 8, figsize=(16, 20))fig.suptitle('Reverse Diffusion Process: From Noise to Digits', fontsize=16)for step_idx, (timestep, images) in enumerate(intermediates):    for sample_idx in range(8):        axes[step_idx, sample_idx].imshow(images[sample_idx, 0], cmap='gray')        axes[step_idx, sample_idx].axis('off')        if sample_idx == 0:            axes[step_idx, sample_idx].set_ylabel(f't = {timestep}', fontsize=12)        if step_idx == 0:            axes[step_idx, sample_idx].set_title(f'Sample {sample_idx+1}', fontsize=10)plt.tight_layout()plt.show()# Show the progression for a single samplesample_idx = 0fig, axes = plt.subplots(1, len(intermediates), figsize=(20, 3))fig.suptitle(f'Single Sample Progression: From Noise to Digit', fontsize=16)for step_idx, (timestep, images) in enumerate(intermediates):    axes[step_idx].imshow(images[sample_idx, 0], cmap='gray')    axes[step_idx].set_title(f't = {timestep}')    axes[step_idx].axis('off')plt.tight_layout()plt.show()# Create a simple animation frame sequencedef create_animation_frames():    """Create frames for animation"""    frames = []    sample_idx = 0        for timestep, images in intermediates:        frames.append(images[sample_idx, 0].numpy())        return frames# Create and display animation framesanimation_frames = create_animation_frames()# Show animation frames in a gridfig, axes = plt.subplots(2, 4, figsize=(12, 6))fig.suptitle('Animation Frames: Reverse Diffusion Process', fontsize=16)for i, frame in enumerate(animation_frames):    row = i // 4    col = i % 4    axes[row, col].imshow(frame, cmap='gray')    axes[row, col].set_title(f'Frame {i+1}')    axes[row, col].axis('off')plt.tight_layout()plt.show()# Show pixel intensity evolutionfig, axes = plt.subplots(1, 2, figsize=(15, 5))# Plot mean pixel intensity over timemean_intensities = []std_intensities = []timesteps_list = []for timestep, images in intermediates:    mean_intensities.append(images.mean().item())    std_intensities.append(images.std().item())    timesteps_list.append(timestep)axes[0].plot(timesteps_list, mean_intensities, 'o-', label='Mean Intensity')axes[0].fill_between(timesteps_list,                      np.array(mean_intensities) - np.array(std_intensities),                     np.array(mean_intensities) + np.array(std_intensities),                     alpha=0.3)axes[0].set_xlabel('Timestep')axes[0].set_ylabel('Pixel Intensity')axes[0].set_title('Pixel Intensity Evolution During Sampling')axes[0].legend()axes[0].grid(True)# Show histogram evolutionsample_images = [images[0, 0].numpy().flatten() for _, images in intermediates]colors = plt.cm.viridis(np.linspace(0, 1, len(sample_images)))for i, (pixels, color) in enumerate(zip(sample_images, colors)):    axes[1].hist(pixels, bins=30, alpha=0.5, color=color,                 label=f't={timesteps_list[i]}' if i % 2 == 0 else '')axes[1].set_xlabel('Pixel Value')axes[1].set_ylabel('Frequency')axes[1].set_title('Pixel Value Distribution Evolution')axes[1].legend()axes[1].grid(True)plt.tight_layout()plt.show()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="creating-an-animated-giflets-create-an-animated-visualization-of-the-diffusion-process-to-really-see-how-the-model-transforms-noise-into-recognizable-digits" class="level2">
+<h2 class="anchored" data-anchor-id="creating-an-animated-giflets-create-an-animated-visualization-of-the-diffusion-process-to-really-see-how-the-model-transforms-noise-into-recognizable-digits">Creating an Animated GIFLet’s create an animated visualization of the diffusion process to really see how the model transforms noise into recognizable digits!</h2>
+<div id="cell-36" class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a detailed animation of the reverse diffusion processdef create_detailed_animation():    """Create detailed animation frames showing the full reverse process"""    model.eval()        with torch.no_grad():        # Start with pure noise (single sample for cleaner animation)        x = torch.randn(1, 1, 8, 8, device=device)                # Store ALL intermediate steps        all_frames = []                # Reverse diffusion process        for t in tqdm(reversed(range(scheduler.num_timesteps)), desc="Creating animation"):            # Save every 50th frame to keep animation manageable            if t % 50 == 0 or t &lt; 50:                all_frames.append((t, x[0, 0].cpu().numpy().copy()))                        t_tensor = torch.full((1,), t, device=device)                        # Predict noise            predicted_noise = model(x, t_tensor)                        # Remove predicted noise            alpha_t = scheduler.alphas[t]            alpha_cumprod_t = scheduler.alphas_cumprod[t]            beta_t = scheduler.betas[t]                        # Compute x_{t-1}            x = (1 / torch.sqrt(alpha_t)) * (x - (beta_t / torch.sqrt(1 - alpha_cumprod_t)) * predicted_noise)                        # Add noise if not the last step            if t &gt; 0:                noise = torch.randn_like(x)                x = x + torch.sqrt(beta_t) * noise        return all_frames# Create animation framesprint("Creating detailed animation frames...")animation_frames = create_detailed_animation()# Create the animationfig, ax = plt.subplots(figsize=(6, 6))ax.set_xlim(0, 8)ax.set_ylim(0, 8)ax.set_aspect('equal')def animate(frame_idx):    ax.clear()    timestep, image = animation_frames[frame_idx]        # Display the image    im = ax.imshow(image, cmap='gray', vmin=-2, vmax=2)    ax.set_title(f'Diffusion Sampling: t = {timestep}', fontsize=14)    ax.axis('off')        return [im]# Create animationanim = animation.FuncAnimation(fig, animate, frames=len(animation_frames),                              interval=200, blit=False, repeat=True)# Save as GIFprint("Saving animation as GIF...")anim.save('diffusion_process.gif', writer='pillow', fps=5)print("Animation saved as 'diffusion_process.gif'")# Display the animation in notebookplt.show()# Show key frames from the animationkey_frames = animation_frames[::len(animation_frames)//8]  # Show 8 key framesfig, axes = plt.subplots(1, len(key_frames), figsize=(20, 3))fig.suptitle('Key Frames from Diffusion Animation', fontsize=16)for i, (timestep, image) in enumerate(key_frames):    axes[i].imshow(image, cmap='gray')    axes[i].set_title(f't = {timestep}')    axes[i].axis('off')plt.tight_layout()plt.show()# Create a side-by-side comparison animationdef create_comparison_animation():    """Create animation showing multiple samples side by side"""    model.eval()        with torch.no_grad():        # Start with pure noise (4 samples)        x = torch.randn(4, 1, 8, 8, device=device)                # Store frames every 25 steps        frames = []                for t in tqdm(reversed(range(scheduler.num_timesteps)), desc="Creating comparison"):            if t % 25 == 0 or t &lt; 25:                frames.append((t, x.cpu().numpy().copy()))                        t_tensor = torch.full((4,), t, device=device)            predicted_noise = model(x, t_tensor)                        alpha_t = scheduler.alphas[t]            alpha_cumprod_t = scheduler.alphas_cumprod[t]            beta_t = scheduler.betas[t]                        x = (1 / torch.sqrt(alpha_t)) * (x - (beta_t / torch.sqrt(1 - alpha_cumprod_t)) * predicted_noise)                        if t &gt; 0:                noise = torch.randn_like(x)                x = x + torch.sqrt(beta_t) * noise        return frames# Create comparison framescomparison_frames = create_comparison_animation()# Show final comparisonfig, axes = plt.subplots(len(comparison_frames), 4, figsize=(12, 20))fig.suptitle('Multiple Samples Diffusion Process', fontsize=16)for step_idx, (timestep, images) in enumerate(comparison_frames):    for sample_idx in range(4):        axes[step_idx, sample_idx].imshow(images[sample_idx, 0], cmap='gray')        axes[step_idx, sample_idx].axis('off')        if sample_idx == 0:            axes[step_idx, sample_idx].set_ylabel(f't = {timestep}', fontsize=10)        if step_idx == 0:            axes[step_idx, sample_idx].set_title(f'Sample {sample_idx+1}', fontsize=10)plt.tight_layout()plt.show()print(f"Created {len(animation_frames)} animation frames")print(f"Created {len(comparison_frames)} comparison frames")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="key-takeaways-and-next-steps-what-weve-learned1.-diffusion-models-are-conceptually-simple-add-noise-gradually-then-learn-to-reverse-it2.-the-reparameterization-trick-is-key-we-can-jump-to-any-timestep-directly-during-training3.-time-conditioning-is-crucial-the-model-needs-to-know-how-much-noise-to-remove4.-architecture-matters-u-net-with-attention-works-better-than-simple-cnn5.-quality-emerges-gradually-the-model-progressively-refines-noise-into-structured-images-improvements-you-could-try1.-better-architectures-full-u-net-transformer-based-models2.-advanced-sampling-ddim-dpm-solver-for-faster-sampling3.-conditioning-add-class-labels-for-controlled-generation4.-better-schedules-cosine-learned-schedules5.-larger-datasets-cifar-10-celeba-etc.-applications--image-generation-create-new-images-from-noise--image-editing-inpainting-outpainting-style-transfer--data-augmentation-generate-training-data--interpolation-smooth-transitions-between-imagesthis-minimal-implementation-shows-that-diffusion-models-while-mathematically-sophisticated-can-be-implemented-and-understood-with-relatively-simple-code.-the-key-is-understanding-the-forward-and-reverse-processes-and-how-to-train-a-model-to-predict-noise-effectively." class="level2">
+<h2 class="anchored" data-anchor-id="key-takeaways-and-next-steps-what-weve-learned1.-diffusion-models-are-conceptually-simple-add-noise-gradually-then-learn-to-reverse-it2.-the-reparameterization-trick-is-key-we-can-jump-to-any-timestep-directly-during-training3.-time-conditioning-is-crucial-the-model-needs-to-know-how-much-noise-to-remove4.-architecture-matters-u-net-with-attention-works-better-than-simple-cnn5.-quality-emerges-gradually-the-model-progressively-refines-noise-into-structured-images-improvements-you-could-try1.-better-architectures-full-u-net-transformer-based-models2.-advanced-sampling-ddim-dpm-solver-for-faster-sampling3.-conditioning-add-class-labels-for-controlled-generation4.-better-schedules-cosine-learned-schedules5.-larger-datasets-cifar-10-celeba-etc.-applications--image-generation-create-new-images-from-noise--image-editing-inpainting-outpainting-style-transfer--data-augmentation-generate-training-data--interpolation-smooth-transitions-between-imagesthis-minimal-implementation-shows-that-diffusion-models-while-mathematically-sophisticated-can-be-implemented-and-understood-with-relatively-simple-code.-the-key-is-understanding-the-forward-and-reverse-processes-and-how-to-train-a-model-to-predict-noise-effectively.">Key Takeaways and Next Steps### What We’ve Learned1. <strong>Diffusion models are conceptually simple</strong>: Add noise gradually, then learn to reverse it2. <strong>The reparameterization trick is key</strong>: We can jump to any timestep directly during training3. <strong>Time conditioning is crucial</strong>: The model needs to know how much noise to remove4. <strong>Architecture matters</strong>: U-Net with attention works better than simple CNN5. <strong>Quality emerges gradually</strong>: The model progressively refines noise into structured images### Improvements You Could Try1. <strong>Better architectures</strong>: Full U-Net, transformer-based models2. <strong>Advanced sampling</strong>: DDIM, DPM-Solver for faster sampling3. <strong>Conditioning</strong>: Add class labels for controlled generation4. <strong>Better schedules</strong>: Cosine, learned schedules5. <strong>Larger datasets</strong>: CIFAR-10, CelebA, etc.### Applications- <strong>Image generation</strong>: Create new images from noise- <strong>Image editing</strong>: Inpainting, outpainting, style transfer- <strong>Data augmentation</strong>: Generate training data- <strong>Interpolation</strong>: Smooth transitions between imagesThis minimal implementation shows that diffusion models, while mathematically sophisticated, can be implemented and understood with relatively simple code. The key is understanding the forward and reverse processes and how to train a model to predict noise effectively.</h2>
+<div id="cell-38" class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show the forward diffusion process</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>sample_image <span class="op">=</span> X_tensor[<span class="dv">0</span>:<span class="dv">1</span>].to(device)</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>timesteps <span class="op">=</span> [<span class="dv">0</span>, <span class="dv">100</span>, <span class="dv">300</span>, <span class="dv">500</span>, <span class="dv">700</span>, <span class="dv">999</span>]</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="bu">len</span>(timesteps), figsize<span class="op">=</span>(<span class="dv">15</span>, <span class="dv">3</span>))</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>fig.suptitle(<span class="st">'Forward Diffusion Process (Adding Noise)'</span>, fontsize<span class="op">=</span><span class="dv">14</span>)</span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, t <span class="kw">in</span> <span class="bu">enumerate</span>(timesteps):</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>    t_tensor <span class="op">=</span> torch.tensor([t], device<span class="op">=</span>device)</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>    noisy_image <span class="op">=</span> scheduler.add_noise(sample_image, t_tensor)</span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>    axes[i].imshow(noisy_image[<span class="dv">0</span>, <span class="dv">0</span>].cpu().numpy(), cmap<span class="op">=</span><span class="st">'gray'</span>)</span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>    axes[i].set_title(<span class="ss">f't = </span><span class="sc">{</span>t<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>    axes[i].axis(<span class="st">'off'</span>)</span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2025-07-14-minimal-diffusion_files/figure-html/cell-31-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/nipunbatra\.github\.io\/blog\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
