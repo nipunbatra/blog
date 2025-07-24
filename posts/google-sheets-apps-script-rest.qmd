@@ -1,0 +1,114 @@
+---
+title: "Using REST APIs in Google Sheets with Apps Script"
+date: "24-08-2025"
+description: "Learn how to call REST APIs from Google Sheets using a custom Apps Script function."
+author: "Nipun Batra"
+format:
+  html:
+    toc: true
+    code-fold: true
+---
+
+In this tutorial, we demonstrate how to call a REST API from Google Sheets using a custom `=FUNC()` formula. We use the free JSONPlaceholder API for demonstration.
+
+## 🔧 Step-by-Step Guide
+
+### Step 1: Open the API Response
+
+We use a public test API:  
+`https://jsonplaceholder.typicode.com/users/2`
+
+```json
+{
+  "id": 2,
+  "name": "Ervin Howell",
+  "username": "Antonette",
+  ...
+}
+```
+
+![](1.png)
+
+---
+
+### Step 2: Create the Sheet
+
+Set up your Google Sheet with an `Id` column where you’ll pass user IDs.  
+We’ll extract `username` and `name`.
+
+![](2.png)
+
+---
+
+### Step 3: Open Apps Script
+
+Go to `Extensions → Apps Script` from your Sheet.
+
+![](3.png)
+
+---
+
+### Step 4: Add Script
+
+Replace the code with:
+
+```js
+function FUNC(id) {
+  var url = "https://jsonplaceholder.typicode.com/users/" + encodeURIComponent(id);
+  var response = UrlFetchApp.fetch(url);
+  var data = JSON.parse(response.getContentText());
+
+  return [[data.username, data.name]];
+}
+```
+
+![](4.png)
+
+---
+
+### Step 5: Use the Formula
+
+In cell `B2`, write:
+
+```excel
+=FUNC(A2)
+```
+
+![](5.png)
+
+---
+
+### Step 6: View Result
+
+It fetches the `username` and `name` of user ID `1`.
+
+![](6.png)
+
+---
+
+### Step 7: Drag the Formula
+
+Drag down the formula for other user IDs like 2, 3...
+
+![](7.png)
+
+---
+
+### Step 8: Done!
+
+Your sheet is now fetching data live from a REST API into multiple columns.
+
+![](8.png)
+
+---
+
+## Summary
+
+You’ve created a custom function in Google Sheets that:
+
+- Takes a value (`id`)
+- Fetches from a REST API
+- Parses the JSON response
+- Returns multiple columns (`username`, `name`)
+
+Try it with any API you have!
