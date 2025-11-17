@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>LLM as a Judge: Evaluating VLM Outputs with Structured Responses – Nipun Batra Blog</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-d6a2ae2cb249da1580f0a11f71b8f854.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-d6a2ae2cb249da1580f0a11f71b8f854.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-d6a2ae2cb249da1580f0a11f71b8f854.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-f66768d5dafd9c3acae8ce705804876b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-f82efa8544bee712ea998eb99d244a8b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-f66768d5dafd9c3acae8ce705804876b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-fixed fullcontent quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">LLM as a Judge: Evaluating VLM Outputs with Structured Responses</h1>
+                      </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>When evaluating Vision-Language Models (VLMs) on tasks like people counting, object detection, or scene understanding, we face a common challenge: <strong>how do we extract and validate structured information from free-form text responses?</strong></p>
+<p>Traditional approaches using regex patterns quickly become unwieldy and fragile. Instead, we can use an <strong>LLM as a judge</strong> with structured outputs to:</p>
+<ol type="1">
+<li>Parse VLM responses reliably</li>
+<li>Extract specific information (e.g., counts, classifications)</li>
+<li>Validate against ground truth</li>
+<li>Provide evaluation metrics</li>
+</ol>
+<p>This notebook demonstrates: - Using VLMs (Claude/Qwen) via OpenRouter for vision tasks - Implementing LLM-as-judge with structured outputs via JSON mode - Comparing regex vs LLM judge approaches - Computing evaluation metrics</p>
+</section>
+<section id="setup-and-dependencies" class="level2">
+<h2 class="anchored" data-anchor-id="setup-and-dependencies">Setup and Dependencies</h2>
+<section id="api-key-configuration" class="level3">
+<h3 class="anchored" data-anchor-id="api-key-configuration">API Key Configuration</h3>
+<p>Before running this notebook, you need to set up your OpenRouter API key:</p>
+<ol type="1">
+<li><p><strong>Get an API key</strong>: Visit <a href="https://openrouter.ai/keys">https://openrouter.ai/keys</a> to create an account and get your API key</p></li>
+<li><p><strong>Create a <code>.env</code> file</strong> in the root of your project directory with the following content:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># OpenRouter API Configuration</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Get your API key from: https://openrouter.ai/keys</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="va">OPENROUTER_API_KEY</span><span class="op">=</span>sk-or-v1-your-actual-key-here</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Important</strong>: Make sure <code>.env</code> is in your <code>.gitignore</code> to avoid committing your API key to version control</p></li>
+</ol>
+<div id="cell-4" class="cell" data-execution_count="23">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Install required packages (uncomment if needed)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># !pip install pillow requests pydantic numpy pandas matplotlib python-dotenv</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="cell-5" class="cell" data-execution_count="24">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> List, Dict, Optional, Literal</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> io <span class="im">import</span> BytesIO</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> requests</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pydantic <span class="im">import</span> BaseModel, Field</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dotenv <span class="im">import</span> load_dotenv</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Load environment variables</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>load_dotenv()</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="co"># OpenRouter configuration</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>OPENROUTER_API_KEY <span class="op">=</span> os.getenv(<span class="st">"OPENROUTER_API_KEY"</span>)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>OPENROUTER_BASE_URL <span class="op">=</span> <span class="st">"https://openrouter.ai/api/v1"</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">not</span> OPENROUTER_API_KEY:</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"⚠️  WARNING: OPENROUTER_API_KEY not found in environment variables!"</span>)</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Please set it in your .env file"</span>)</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"✓ OpenRouter API key loaded successfully"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>✓ OpenRouter API key loaded successfully</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="part-1-understanding-the-evaluation-tasks" class="level2">
+<h2 class="anchored" data-anchor-id="part-1-understanding-the-evaluation-tasks">Part 1: Understanding the Evaluation Tasks</h2>
+<p>We’ll evaluate VLMs on several common computer vision tasks:</p>
+<section id="task-1-people-counting" class="level3">
+<h3 class="anchored" data-anchor-id="task-1-people-counting">Task 1: People Counting</h3>
+<p>Count the number of people visible in an image. This is challenging because: - People may be partially occluded - Lighting and angles vary - VLM responses vary in format (“I see 3 people” vs “There are three individuals” vs “Count: 3”)</p>
+</section>
+<section id="task-2-scene-classification" class="level3">
+<h3 class="anchored" data-anchor-id="task-2-scene-classification">Task 2: Scene Classification</h3>
+<p>Identify the type of location or scene. Challenges include: - Ambiguous scenes that could fit multiple categories - Varying levels of detail in VLM responses - Different terminology for the same concept</p>
+</section>
+<section id="task-3-object-detection" class="level3">
+<h3 class="anchored" data-anchor-id="task-3-object-detection">Task 3: Object Detection</h3>
+<p>Identify specific objects in the image. Complex because: - Multiple objects may be present - Similar objects (car vs truck) - VLM may use different names for objects</p>
+<p>Let’s create our evaluation dataset with diverse examples:</p>
+<div id="cell-7" class="cell" data-execution_count="25">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Evaluation dataset with diverse tasks and images</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: We deliberately use prompts that encourage varied response formats</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># to demonstrate why regex-based parsing is fragile</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>evaluation_dataset <span class="op">=</span> [</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># People counting tasks - varied prompts to get different response formats</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"people_001"</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800"</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"people_count"</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: <span class="dv">2</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"Describe this scene and mention how many people you see."</span>,  <span class="co"># Encourages narrative response</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Gym scene with people exercising"</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"people_002"</span>,</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1543269865-cbf427effbad?w=800"</span>,</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"people_count"</span>,</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: <span class="dv">4</span>,</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"What's happening in this image? Include the number of people."</span>,  <span class="co"># Mixed format</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Group of people running outdoors"</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"people_003"</span>,</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800"</span>,</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"people_count"</span>,</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: <span class="dv">3</span>,</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"Tell me about this photo, specifically mentioning the count of people present."</span>,</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Small group photo"</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Scene classification tasks</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"scene_001"</span>,</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800"</span>,</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"scene_classification"</span>,</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: <span class="st">"restaurant"</span>,</span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"Describe the type of venue shown here."</span>,</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Restaurant interior"</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"scene_002"</span>,</span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1497366216548-37526070297c?w=800"</span>,</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"scene_classification"</span>,</span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: <span class="st">"office"</span>,</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"What kind of space is this?"</span>,</span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Modern office space"</span></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"scene_003"</span>,</span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1540553016722-983e48a2cd10?w=800"</span>,</span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"scene_classification"</span>,</span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: <span class="st">"beach"</span>,</span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"Identify the location type."</span>,</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Beach scene"</span></span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Object detection tasks - require structured list output</span></span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"object_001"</span>,</span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800"</span>,</span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"object_detection"</span>,</span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: [<span class="st">"cat"</span>],</span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"What animals can you see?"</span>,</span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Cat portrait"</span></span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>        <span class="st">"id"</span>: <span class="st">"object_002"</span>,</span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>        <span class="st">"image_url"</span>: <span class="st">"https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=800"</span>,</span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"object_detection"</span>,</span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>        <span class="st">"ground_truth"</span>: [<span class="st">"laptop"</span>, <span class="st">"phone"</span>, <span class="st">"coffee"</span>],</span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a>        <span class="st">"prompt"</span>: <span class="st">"Describe what you see on the desk or table."</span>,</span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>        <span class="st">"description"</span>: <span class="st">"Workspace with laptop"</span></span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Dataset: </span><span class="sc">{</span><span class="bu">len</span>(evaluation_dataset)<span class="sc">}</span><span class="ss"> images"</span>)</span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Tasks: </span><span class="sc">{</span><span class="st">', '</span><span class="sc">.</span>join(<span class="bu">set</span>(item[<span class="st">'task'</span>] <span class="cf">for</span> item <span class="kw">in</span> evaluation_dataset))<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Task distribution:"</span>)</span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> task <span class="kw">in</span> <span class="bu">set</span>(item[<span class="st">'task'</span>] <span class="cf">for</span> item <span class="kw">in</span> evaluation_dataset):</span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>    count <span class="op">=</span> <span class="bu">sum</span>(<span class="dv">1</span> <span class="cf">for</span> item <span class="kw">in</span> evaluation_dataset <span class="cf">if</span> item[<span class="st">'task'</span>] <span class="op">==</span> task)</span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>task<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>count<span class="sc">}</span><span class="ss"> images"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Dataset: 8 images
+Tasks: scene_classification, people_count, object_detection
+
+Task distribution:
+  scene_classification: 3 images
+  people_count: 3 images
+  object_detection: 2 images</code></pre>
+</div>
+</div>
+</section>
+<section id="visualize-all-images" class="level3">
+<h3 class="anchored" data-anchor-id="visualize-all-images">Visualize ALL Images</h3>
+<p>Let’s display all images from our evaluation dataset:</p>
+<div id="cell-9" class="cell" data-execution_count="26">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> display_all_images(dataset):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Display all images from the dataset in a grid."""</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    num_images <span class="op">=</span> <span class="bu">len</span>(dataset)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    cols <span class="op">=</span> <span class="dv">4</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    rows <span class="op">=</span> (num_images <span class="op">+</span> cols <span class="op">-</span> <span class="dv">1</span>) <span class="op">//</span> cols  <span class="co"># Ceiling division</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    fig, axes <span class="op">=</span> plt.subplots(rows, cols, figsize<span class="op">=</span>(<span class="dv">16</span>, rows <span class="op">*</span> <span class="dv">4</span>))</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> rows <span class="op">==</span> <span class="dv">1</span>:</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        axes <span class="op">=</span> axes.reshape(<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    axes <span class="op">=</span> axes.ravel()</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> idx, item <span class="kw">in</span> <span class="bu">enumerate</span>(dataset):</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>:</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>            response <span class="op">=</span> requests.get(item[<span class="st">'image_url'</span>])</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>            img <span class="op">=</span> Image.<span class="bu">open</span>(BytesIO(response.content))</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>            axes[idx].imshow(img)</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>            axes[idx].axis(<span class="st">'off'</span>)</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>            title <span class="op">=</span> <span class="ss">f"</span><span class="sc">{</span>item[<span class="st">'id'</span>]<span class="sc">}</span><span class="ch">\n</span><span class="sc">{</span>item[<span class="st">'description'</span>]<span class="sc">}</span><span class="ch">\n</span><span class="ss">Task: </span><span class="sc">{</span>item[<span class="st">'task'</span>]<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> item[<span class="st">'task'</span>] <span class="op">==</span> <span class="st">'people_count'</span>:</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>                title <span class="op">+=</span> <span class="ss">f"</span><span class="ch">\n</span><span class="ss">Ground truth: </span><span class="sc">{</span>item[<span class="st">'ground_truth'</span>]<span class="sc">}</span><span class="ss"> people"</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> item[<span class="st">'task'</span>] <span class="op">==</span> <span class="st">'scene_classification'</span>:</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>                title <span class="op">+=</span> <span class="ss">f"</span><span class="ch">\n</span><span class="ss">Ground truth: </span><span class="sc">{</span>item[<span class="st">'ground_truth'</span>]<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>                title <span class="op">+=</span> <span class="ss">f"</span><span class="ch">\n</span><span class="ss">Ground truth: </span><span class="sc">{</span><span class="st">', '</span><span class="sc">.</span>join(item[<span class="st">'ground_truth'</span>])<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>            axes[idx].set_title(title, fontsize<span class="op">=</span><span class="dv">9</span>, pad<span class="op">=</span><span class="dv">10</span>)</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>            axes[idx].text(<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="ss">f"Error loading image:</span><span class="ch">\n</span><span class="sc">{</span><span class="bu">str</span>(e)<span class="sc">}</span><span class="ss">"</span>, </span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>                          ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'center'</span>)</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>            axes[idx].axis(<span class="st">'off'</span>)</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Hide any unused subplots</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> idx <span class="kw">in</span> <span class="bu">range</span>(num_images, <span class="bu">len</span>(axes)):</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>        axes[idx].axis(<span class="st">'off'</span>)</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>    plt.tight_layout()</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    plt.show()</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>display_all_images(evaluation_dataset)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2025-11-17-llm-as-judge-vlm-evaluation_files/figure-html/cell-5-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="part-2-query-vlm-and-see-raw-outputs" class="level2">
+<h2 class="anchored" data-anchor-id="part-2-query-vlm-and-see-raw-outputs">Part 2: Query VLM and See Raw Outputs</h2>
+<p>First, let’s see what the VLM actually returns. This will help us understand why parsing is challenging.</p>
+<div id="cell-11" class="cell" data-execution_count="27">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> query_vlm_openrouter(image_url: <span class="bu">str</span>, prompt: <span class="bu">str</span>, model: <span class="bu">str</span> <span class="op">=</span> <span class="st">"anthropic/claude-3.5-sonnet"</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Query a VLM via OpenRouter API.</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    headers <span class="op">=</span> {</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Authorization"</span>: <span class="ss">f"Bearer </span><span class="sc">{</span>OPENROUTER_API_KEY<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Content-Type"</span>: <span class="st">"application/json"</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    payload <span class="op">=</span> {</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"model"</span>: model,</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">"messages"</span>: [</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>                <span class="st">"role"</span>: <span class="st">"user"</span>,</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>                <span class="st">"content"</span>: [</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>                    {<span class="st">"type"</span>: <span class="st">"text"</span>, <span class="st">"text"</span>: prompt},</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>                    {<span class="st">"type"</span>: <span class="st">"image_url"</span>, <span class="st">"image_url"</span>: {<span class="st">"url"</span>: image_url}}</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>                ]</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        ],</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_tokens"</span>: <span class="dv">300</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> requests.post(</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"</span><span class="sc">{</span>OPENROUTER_BASE_URL<span class="sc">}</span><span class="ss">/chat/completions"</span>,</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        headers<span class="op">=</span>headers,</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>        json<span class="op">=</span>payload</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>    response.raise_for_status()</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> response.json()</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result[<span class="st">'choices'</span>][<span class="dv">0</span>][<span class="st">'message'</span>][<span class="st">'content'</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="get-vlm-responses-for-all-images" class="level3">
+<h3 class="anchored" data-anchor-id="get-vlm-responses-for-all-images">Get VLM Responses for All Images</h3>
+<p>Let’s query the VLM and see the raw responses:</p>
+<div id="cell-13" class="cell" data-execution_count="28">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Choose VLM model (options: "anthropic/claude-3.5-sonnet", "qwen/qwen-vl-max")</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>VLM_MODEL <span class="op">=</span> <span class="st">"anthropic/claude-3.5-sonnet"</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Using VLM: </span><span class="sc">{</span>VLM_MODEL<span class="sc">}</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Get VLM responses</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> item <span class="kw">in</span> evaluation_dataset:</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>item[<span class="st">'id'</span>]<span class="sc">}</span><span class="ss">] </span><span class="sc">{</span>item[<span class="st">'description'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Task: </span><span class="sc">{</span>item[<span class="st">'task'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Prompt: </span><span class="sc">{</span>item[<span class="st">'prompt'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Ground Truth: </span><span class="sc">{</span>item[<span class="st">'ground_truth'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        vlm_response <span class="op">=</span> query_vlm_openrouter(</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>            image_url<span class="op">=</span>item[<span class="st">'image_url'</span>],</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>            prompt<span class="op">=</span>item[<span class="st">'prompt'</span>],</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>            model<span class="op">=</span>VLM_MODEL</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>        item[<span class="st">'vlm_response'</span>] <span class="op">=</span> vlm_response</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">VLM Response:</span><span class="ch">\n</span><span class="sc">{</span>vlm_response<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Error: </span><span class="sc">{</span><span class="bu">str</span>(e)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        item[<span class="st">'vlm_response'</span>] <span class="op">=</span> <span class="ss">f"ERROR: </span><span class="sc">{</span><span class="bu">str</span>(e)<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">All VLM responses collected!"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Using VLM: anthropic/claude-3.5-sonnet
+
+================================================================================
+
+[people_001] Gym scene with people exercising
+Task: people_count
+Prompt: Describe this scene and mention how many people you see.
+Ground Truth: 2
+
+VLM Response:
+This is a heartwarming scene showing a group of 9 people sitting in a row with their arms around each other's shoulders, facing a scenic view. They appear to be sitting along what might be a waterfront or pier. In the background, you can see cable cars or gondolas suspended in the air and mountains in the distance. The people are wearing casual summer attire including t-shirts, hats, and comfortable clothing in various colors like yellow, blue, and grey. The image captures a moment of unity and friendship as they take in the view together. The lighting suggests it might be around sunset or early evening.
+================================================================================
+
+[people_002] Group of people running outdoors
+Task: people_count
+Prompt: What's happening in this image? Include the number of people.
+Ground Truth: 4
+
+VLM Response:
+This image shows 4 people engaged in what appears to be a casual business meeting or study group. They are seated around a table and appear to be looking at devices or documents together. The setting looks casual with white brick walls and wooden furniture visible in the background. The group appears to be having a positive interaction, with some members smiling and engaged in conversation. They're dressed casually, with some wearing grey and denim clothing.
+================================================================================
+
+[people_003] Small group photo
+Task: people_count
+Prompt: Tell me about this photo, specifically mentioning the count of people present.
+Ground Truth: 3
+
+VLM Response:
+This photo shows four people standing together in a row, arms around each other's shoulders, as they watch a sunset or sunrise from what appears to be a hilltop or mountain viewpoint. The image has a warm, golden glow from the sun on the horizon, and the figures are silhouetted against the scenic landscape background. They appear to be enjoying a moment of togetherness in nature, with some backpacks or bags visible on the ground near their feet. The photo captures a feeling of friendship, adventure, and connection in the great outdoors.
+================================================================================
+
+[scene_001] Restaurant interior
+Task: scene_classification
+Prompt: Describe the type of venue shown here.
+Ground Truth: restaurant
+
+VLM Response:
+This appears to be a modern café or coffee shop with an industrial-chic aesthetic. The space features exposed ceiling elements, industrial pendant lighting, and geometric decorative elements hanging from above. The interior is characterized by wooden furniture including tables and chairs, and a wooden service counter/bar area. The design incorporates white brick walls, concrete flooring, and large windows that allow natural light to enter. There are also some plants adding greenery to the space. The overall atmosphere appears casual and welcoming, with a mix of seating options including tables and what looks like some cushioned seating areas. The venue has a contemporary, urban feel that's typical of modern coffee shops and casual dining establishments.
+================================================================================
+
+[scene_002] Modern office space
+Task: scene_classification
+Prompt: What kind of space is this?
+Ground Truth: office
+
+VLM Response:
+This appears to be a modern office or commercial space. It features a long hallway with glass-walled offices or meeting rooms along one side, and a built-in break area or kitchenette with dark cabinetry and a turquoise bench seat. The space has a minimalist design with a white slatted ceiling, track lighting, and what looks like polished concrete flooring. The color scheme is primarily navy blue, black, and neutral tones, giving it a contemporary professional atmosphere.
+================================================================================
+
+[scene_003] Beach scene
+Task: scene_classification
+Prompt: Identify the location type.
+Ground Truth: beach
+
+VLM Response:
+This appears to be an outdoor workspace or meeting area, likely at a café or restaurant with a patio setting. There's a wooden table where people are working on laptops, suggesting it's being used as a casual coworking space or for an informal business meeting. The environment has natural elements with greenery visible in the background.
+================================================================================
+
+[object_001] Cat portrait
+Task: object_detection
+Prompt: What animals can you see?
+Ground Truth: ['cat']
+
+VLM Response:
+In this image, there's a black and white cat with striking green eyes. It appears to be a domestic cat resting on what looks like a wooden surface, possibly a shelf or table. The cat has a distinctive black and white pattern on its face and white fur on its body. The background is a solid green color, making the cat stand out nicely in the photograph.
+================================================================================
+
+[object_002] Workspace with laptop
+Task: object_detection
+Prompt: Describe what you see on the desk or table.
+Ground Truth: ['laptop', 'phone', 'coffee']
+
+VLM Response:
+In this image, there's a notebook or notepad with a grid pattern visible. Someone is holding a pen or pencil and appears to be writing or marking items on what looks like a checklist or to-do list. The paper appears to be white with blue grid lines, and there are small checkboxes visible on the left side of the written text. The image is taken from a close-up angle and has a slightly soft, artistic focus to it.
+================================================================================
+
+All VLM responses collected!</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="part-3-the-problem-with-regex---no-type-safety-or-structure-validation" class="level2">
+<h2 class="anchored" data-anchor-id="part-3-the-problem-with-regex---no-type-safety-or-structure-validation">Part 3: The Problem with Regex - No Type Safety or Structure Validation</h2>
+<p>The fundamental issue with regex isn’t just about extracting values—it’s about <strong>type safety</strong> and <strong>structural validation</strong>. Let’s see the problems:</p>
+<section id="problem-1-no-type-guarantees" class="level3">
+<h3 class="anchored" data-anchor-id="problem-1-no-type-guarantees">Problem 1: No Type Guarantees</h3>
+<p>Regex can extract a string, but can’t ensure it’s the right type (int, list, enum, etc.)</p>
+</section>
+<section id="problem-2-no-structure-validation" class="level3">
+<h3 class="anchored" data-anchor-id="problem-2-no-structure-validation">Problem 2: No Structure Validation</h3>
+<p>Regex can’t validate complex nested structures or ensure all required fields are present</p>
+</section>
+<section id="problem-3-no-semantic-understanding" class="level3">
+<h3 class="anchored" data-anchor-id="problem-3-no-semantic-understanding">Problem 3: No Semantic Understanding</h3>
+<p>Regex can’t understand context, confidence, or provide explanations</p>
+<p>Let’s see regex in action:</p>
+<div id="cell-15" class="cell" data-execution_count="29">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> regex_extract_count(response: <span class="bu">str</span>) <span class="op">-&gt;</span> Optional[<span class="bu">int</span>]:</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Attempt to extract a count using regex patterns.</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co">    This shows how fragile regex-based extraction can be.</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> response <span class="kw">or</span> response.startswith(<span class="st">"ERROR"</span>):</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    patterns <span class="op">=</span> [</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r'</span><span class="kw">(</span><span class="dv">\d</span><span class="op">+</span><span class="kw">)</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">people</span><span class="cf">|</span><span class="vs">persons</span><span class="cf">|</span><span class="vs">individuals</span>)<span class="vs">'</span>,</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r'</span>(?:<span class="vs">count</span><span class="cf">|</span><span class="vs">total</span>)<span class="dv">\s</span><span class="op">*</span><span class="vs">:</span><span class="op">?</span><span class="dv">\s</span><span class="op">*</span><span class="kw">(</span><span class="dv">\d</span><span class="op">+</span><span class="kw">)</span><span class="vs">'</span>,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r'</span>(?:<span class="vs">there are</span><span class="cf">|</span><span class="vs">i see</span><span class="cf">|</span><span class="vs">i count</span>)<span class="dv">\s</span><span class="op">*</span><span class="kw">(</span><span class="dv">\d</span><span class="op">+</span><span class="kw">)</span><span class="vs">'</span>,</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r'number of people</span><span class="dv">\s</span><span class="op">*</span><span class="vs">:</span><span class="op">?</span><span class="dv">\s</span><span class="op">*</span><span class="kw">(</span><span class="dv">\d</span><span class="op">+</span><span class="kw">)</span><span class="vs">'</span>,</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r'</span>(?:<span class="dv">^</span><span class="cf">|</span><span class="dv">\s</span>)<span class="kw">(</span><span class="dv">\d</span><span class="op">+</span><span class="kw">)</span>(?:<span class="dv">$</span><span class="cf">|</span><span class="dv">\s</span>)<span class="vs">'</span>,  <span class="co"># Just a number</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> pattern <span class="kw">in</span> patterns:</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>        match <span class="op">=</span> re.search(pattern, response.lower())</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> match:</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="bu">int</span>(match.group(<span class="dv">1</span>))</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> regex_extract_scene(response: <span class="bu">str</span>) <span class="op">-&gt;</span> Optional[<span class="bu">str</span>]:</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Extract scene type - even more fragile!"""</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> response <span class="kw">or</span> response.startswith(<span class="st">"ERROR"</span>):</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Try to extract first word or phrase</span></span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>    words <span class="op">=</span> response.strip().split()</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> words:</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> words[<span class="dv">0</span>].lower().strip(<span class="st">'.,!?'</span>)</span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="va">None</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="cell-16" class="cell" data-execution_count="30">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Try regex extraction - showing its limitations</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"REGEX EXTRACTION ATTEMPTS"</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Notice the problems:"</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"1. Regex extracts raw values with NO type checking"</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"2. NO validation that the value makes sense"</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"3. NO confidence scores or explanations"</span>)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"4. NO structured error categorization"</span>)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> item <span class="kw">in</span> evaluation_dataset:</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> item[<span class="st">'task'</span>] <span class="op">==</span> <span class="st">'people_count'</span>:</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>        extracted <span class="op">=</span> regex_extract_count(item[<span class="st">'vlm_response'</span>])</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        correct <span class="op">=</span> extracted <span class="op">==</span> item[<span class="st">'ground_truth'</span>] <span class="cf">if</span> extracted <span class="cf">else</span> <span class="va">False</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>item[<span class="st">'id'</span>]<span class="sc">}</span><span class="ss">]"</span>)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"VLM Response: </span><span class="sc">{</span>item[<span class="st">'vlm_response'</span>][:<span class="dv">150</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Ground Truth: </span><span class="sc">{</span>item[<span class="st">'ground_truth'</span>]<span class="sc">}</span><span class="ss"> (type: </span><span class="sc">{</span><span class="bu">type</span>(item[<span class="st">'ground_truth'</span>])<span class="sc">.</span><span class="va">__name__</span><span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Regex Extracted: </span><span class="sc">{</span>extracted<span class="sc">}</span><span class="ss"> (type: </span><span class="sc">{</span><span class="bu">type</span>(extracted)<span class="sc">.</span><span class="va">__name__</span> <span class="cf">if</span> extracted <span class="cf">else</span> <span class="st">'None'</span><span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"❌ Correct: </span><span class="sc">{</span><span class="st">'✓'</span> <span class="cf">if</span> correct <span class="cf">else</span> <span class="st">'✗'</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"❌ Type validated: No"</span>)</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"❌ Confidence score: Not available"</span>)</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"❌ Explanation: Not available"</span>)</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Key Problem: Regex gives you a raw value with ZERO guarantees about:"</span>)</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"  - Type correctness (is it really an int?)"</span>)</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"  - Semantic validity (does the number make sense?)"</span>)  </span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"  - Confidence (how sure are we?)"</span>)</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"  - Structure (for complex outputs like lists/objects)"</span>)</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>REGEX EXTRACTION ATTEMPTS
+================================================================================
+
+Notice the problems:
+1. Regex extracts raw values with NO type checking
+2. NO validation that the value makes sense
+3. NO confidence scores or explanations
+4. NO structured error categorization
+================================================================================
+
+[people_001]
+VLM Response: This is a heartwarming scene showing a group of 9 people sitting in a row with their arms around each other's shoulders, facing a scenic view. They ap...
+Ground Truth: 2 (type: int)
+Regex Extracted: 9 (type: int)
+❌ Correct: ✗
+❌ Type validated: No
+❌ Confidence score: Not available
+❌ Explanation: Not available
+
+[people_002]
+VLM Response: This image shows 4 people engaged in what appears to be a casual business meeting or study group. They are seated around a table and appear to be look...
+Ground Truth: 4 (type: int)
+Regex Extracted: 4 (type: int)
+❌ Correct: ✓
+❌ Type validated: No
+❌ Confidence score: Not available
+❌ Explanation: Not available
+
+[people_003]
+VLM Response: This photo shows four people standing together in a row, arms around each other's shoulders, as they watch a sunset or sunrise from what appears to be...
+Ground Truth: 3 (type: int)
+Regex Extracted: None (type: None)
+❌ Correct: ✗
+❌ Type validated: No
+❌ Confidence score: Not available
+❌ Explanation: Not available
+
+================================================================================
+Key Problem: Regex gives you a raw value with ZERO guarantees about:
+  - Type correctness (is it really an int?)
+  - Semantic validity (does the number make sense?)
+  - Confidence (how sure are we?)
+  - Structure (for complex outputs like lists/objects)
+================================================================================</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="part-4-llm-judge-with-structured-outputs" class="level2">
+<h2 class="anchored" data-anchor-id="part-4-llm-judge-with-structured-outputs">Part 4: LLM Judge with Structured Outputs</h2>
+<p>Now let’s implement the proper solution using JSON mode for structured outputs.</p>
+<section id="define-pydantic-schemas" class="level3">
+<h3 class="anchored" data-anchor-id="define-pydantic-schemas">Define Pydantic Schemas</h3>
+<div id="cell-18" class="cell" data-execution_count="31">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ComprehensiveEvaluation(BaseModel):</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Comprehensive evaluation with correctness assessment."""</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    extracted_value: <span class="bu">str</span> <span class="op">=</span> Field(</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"The extracted answer from the VLM response (as a string)"</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    is_correct: <span class="bu">bool</span> <span class="op">=</span> Field(</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Whether the extracted value matches the ground truth"</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    confidence: Literal[<span class="st">"high"</span>, <span class="st">"medium"</span>, <span class="st">"low"</span>] <span class="op">=</span> Field(</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Confidence level in the evaluation"</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    explanation: <span class="bu">str</span> <span class="op">=</span> Field(</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Detailed explanation of the evaluation"</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>    error_type: Optional[<span class="bu">str</span>] <span class="op">=</span> Field(</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>        default<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"If incorrect, categorize the error type (e.g., 'undercount', 'overcount', 'misclassification', 'parsing_error')"</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ObjectDetectionEvaluation(BaseModel):</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Evaluation for object detection tasks."""</span></span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>    detected_objects: List[<span class="bu">str</span>] <span class="op">=</span> Field(</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"List of objects detected by the VLM"</span></span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>    all_objects_found: <span class="bu">bool</span> <span class="op">=</span> Field(</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Whether all ground truth objects were detected"</span></span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>    missing_objects: List[<span class="bu">str</span>] <span class="op">=</span> Field(</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Objects in ground truth but not detected"</span></span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>    extra_objects: List[<span class="bu">str</span>] <span class="op">=</span> Field(</span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Objects detected but not in ground truth"</span></span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>    confidence: Literal[<span class="st">"high"</span>, <span class="st">"medium"</span>, <span class="st">"low"</span>] <span class="op">=</span> Field(</span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Confidence level in the evaluation"</span></span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>    explanation: <span class="bu">str</span> <span class="op">=</span> Field(</span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>        description<span class="op">=</span><span class="st">"Explanation of the evaluation"</span></span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>    )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="implement-llm-judge-using-structured-json-output" class="level3">
+<h3 class="anchored" data-anchor-id="implement-llm-judge-using-structured-json-output">Implement LLM Judge Using Structured JSON Output</h3>
+<p>Using OpenRouter’s JSON mode for guaranteed structured outputs:</p>
+<div id="cell-20" class="cell" data-execution_count="32">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> llm_judge_structured(</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    vlm_response: <span class="bu">str</span>,</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    ground_truth: <span class="bu">any</span>,</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    task_type: <span class="bu">str</span>,</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    response_model: <span class="bu">type</span>[BaseModel],</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    judge_model: <span class="bu">str</span> <span class="op">=</span> <span class="st">"anthropic/claude-3.5-sonnet"</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> BaseModel:</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="co">    Use LLM as judge with structured JSON outputs via OpenRouter.</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="co">        vlm_response: The text response from the VLM</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="co">        ground_truth: The ground truth value</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="co">        task_type: Description of the task (e.g., 'people counting')</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="co">        response_model: Pydantic model for structured output</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="co">        judge_model: Model to use as judge</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns:</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="co">        Structured evaluation result</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get JSON schema from Pydantic model</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>    schema <span class="op">=</span> response_model.model_json_schema()</span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> <span class="ss">f"""You are evaluating a Vision-Language Model's response for a </span><span class="sc">{</span>task_type<span class="sc">}</span><span class="ss"> task.</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a><span class="ss">VLM Response:</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a><span class="sc">{</span>vlm_response<span class="sc">}</span></span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a><span class="ss">Ground Truth: </span><span class="sc">{</span>ground_truth<span class="sc">}</span></span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="ss">Please extract the answer from the VLM response and evaluate it against the ground truth.</span></span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a><span class="ss">Respond with ONLY a JSON object matching this schema:</span></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a><span class="sc">{</span>json<span class="sc">.</span>dumps(schema, indent<span class="op">=</span><span class="dv">2</span>)<span class="sc">}</span></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a><span class="ss">Do not include any other text or explanation outside the JSON object."""</span></span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>    headers <span class="op">=</span> {</span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Authorization"</span>: <span class="ss">f"Bearer </span><span class="sc">{</span>OPENROUTER_API_KEY<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Content-Type"</span>: <span class="st">"application/json"</span></span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>    payload <span class="op">=</span> {</span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>        <span class="st">"model"</span>: judge_model,</span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a>        <span class="st">"messages"</span>: [{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: prompt}],</span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>        <span class="st">"response_format"</span>: {<span class="st">"type"</span>: <span class="st">"json_object"</span>},</span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>        <span class="st">"max_tokens"</span>: <span class="dv">1024</span></span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> requests.post(</span>
+<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"</span><span class="sc">{</span>OPENROUTER_BASE_URL<span class="sc">}</span><span class="ss">/chat/completions"</span>,</span>
+<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a>        headers<span class="op">=</span>headers,</span>
+<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a>        json<span class="op">=</span>payload</span>
+<span id="cb15-53"><a href="#cb15-53" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb15-54"><a href="#cb15-54" aria-hidden="true" tabindex="-1"></a>    response.raise_for_status()</span>
+<span id="cb15-55"><a href="#cb15-55" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb15-56"><a href="#cb15-56" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> response.json()</span>
+<span id="cb15-57"><a href="#cb15-57" aria-hidden="true" tabindex="-1"></a>    result_json <span class="op">=</span> json.loads(result[<span class="st">'choices'</span>][<span class="dv">0</span>][<span class="st">'message'</span>][<span class="st">'content'</span>])</span>
+<span id="cb15-58"><a href="#cb15-58" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb15-59"><a href="#cb15-59" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> response_model(<span class="op">**</span>result_json)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="part-5-run-complete-evaluation" class="level2">
+<h2 class="anchored" data-anchor-id="part-5-run-complete-evaluation">Part 5: Run Complete Evaluation</h2>
+<p>Now let’s evaluate all images using both approaches:</p>
+<div id="cell-22" class="cell" data-execution_count="33">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>JUDGE_MODEL <span class="op">=</span> <span class="st">"anthropic/claude-3.5-sonnet"</span>  <span class="co"># Judge model via OpenRouter</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"COMPLETE EVALUATION: Regex vs LLM Judge"</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>comparison_results <span class="op">=</span> []</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> item <span class="kw">in</span> evaluation_dataset:</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>item[<span class="st">'id'</span>]<span class="sc">}</span><span class="ss">] </span><span class="sc">{</span>item[<span class="st">'task'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Ground Truth: </span><span class="sc">{</span>item[<span class="st">'ground_truth'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> {</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">'id'</span>: item[<span class="st">'id'</span>],</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">'task'</span>: item[<span class="st">'task'</span>],</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">'description'</span>: item[<span class="st">'description'</span>],</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">'ground_truth'</span>: item[<span class="st">'ground_truth'</span>],</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">'vlm_response'</span>: item[<span class="st">'vlm_response'</span>][:<span class="dv">200</span>] <span class="cf">if</span> <span class="bu">len</span>(item[<span class="st">'vlm_response'</span>]) <span class="op">&gt;</span> <span class="dv">200</span> <span class="cf">else</span> item[<span class="st">'vlm_response'</span>]</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Regex extraction (only for simple tasks)</span></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> item[<span class="st">'task'</span>] <span class="op">==</span> <span class="st">'people_count'</span>:</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>        regex_result <span class="op">=</span> regex_extract_count(item[<span class="st">'vlm_response'</span>])</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>        result[<span class="st">'regex_extracted'</span>] <span class="op">=</span> regex_result</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>        result[<span class="st">'regex_correct'</span>] <span class="op">=</span> regex_result <span class="op">==</span> item[<span class="st">'ground_truth'</span>] <span class="cf">if</span> regex_result <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="cf">else</span> <span class="va">False</span></span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Regex: extracted=</span><span class="sc">{</span>regex_result<span class="sc">}</span><span class="ss">, correct=</span><span class="sc">{</span>result[<span class="st">'regex_correct'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>    <span class="co"># LLM Judge with structured output</span></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> item[<span class="st">'task'</span>] <span class="op">==</span> <span class="st">'object_detection'</span>:</span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>            judge_result <span class="op">=</span> llm_judge_structured(</span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>                vlm_response<span class="op">=</span>item[<span class="st">'vlm_response'</span>],</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>                ground_truth<span class="op">=</span>item[<span class="st">'ground_truth'</span>],</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>                task_type<span class="op">=</span><span class="st">"object detection"</span>,</span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>                response_model<span class="op">=</span>ObjectDetectionEvaluation,</span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>                judge_model<span class="op">=</span>JUDGE_MODEL</span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_extracted'</span>] <span class="op">=</span> <span class="st">', '</span>.join(judge_result.detected_objects)</span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_correct'</span>] <span class="op">=</span> judge_result.all_objects_found</span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_confidence'</span>] <span class="op">=</span> judge_result.confidence</span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_explanation'</span>] <span class="op">=</span> judge_result.explanation</span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_missing'</span>] <span class="op">=</span> <span class="st">', '</span>.join(judge_result.missing_objects)</span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_extra'</span>] <span class="op">=</span> <span class="st">', '</span>.join(judge_result.extra_objects)</span>
+<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a>            task_name <span class="op">=</span> <span class="st">"people counting"</span> <span class="cf">if</span> item[<span class="st">'task'</span>] <span class="op">==</span> <span class="st">'people_count'</span> <span class="cf">else</span> <span class="st">"scene classification"</span></span>
+<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a>            judge_result <span class="op">=</span> llm_judge_structured(</span>
+<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a>                vlm_response<span class="op">=</span>item[<span class="st">'vlm_response'</span>],</span>
+<span id="cb16-47"><a href="#cb16-47" aria-hidden="true" tabindex="-1"></a>                ground_truth<span class="op">=</span>item[<span class="st">'ground_truth'</span>],</span>
+<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a>                task_type<span class="op">=</span>task_name,</span>
+<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a>                response_model<span class="op">=</span>ComprehensiveEvaluation,</span>
+<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a>                judge_model<span class="op">=</span>JUDGE_MODEL</span>
+<span id="cb16-51"><a href="#cb16-51" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb16-52"><a href="#cb16-52" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_extracted'</span>] <span class="op">=</span> judge_result.extracted_value</span>
+<span id="cb16-53"><a href="#cb16-53" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_correct'</span>] <span class="op">=</span> judge_result.is_correct</span>
+<span id="cb16-54"><a href="#cb16-54" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_confidence'</span>] <span class="op">=</span> judge_result.confidence</span>
+<span id="cb16-55"><a href="#cb16-55" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_explanation'</span>] <span class="op">=</span> judge_result.explanation</span>
+<span id="cb16-56"><a href="#cb16-56" aria-hidden="true" tabindex="-1"></a>            result[<span class="st">'llm_error_type'</span>] <span class="op">=</span> judge_result.error_type</span>
+<span id="cb16-57"><a href="#cb16-57" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb16-58"><a href="#cb16-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"LLM Judge: extracted=</span><span class="sc">{</span>result[<span class="st">'llm_extracted'</span>]<span class="sc">}</span><span class="ss">, correct=</span><span class="sc">{</span>result[<span class="st">'llm_correct'</span>]<span class="sc">}</span><span class="ss">, confidence=</span><span class="sc">{</span>result[<span class="st">'llm_confidence'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-59"><a href="#cb16-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Explanation: </span><span class="sc">{</span>result[<span class="st">'llm_explanation'</span>][:<span class="dv">100</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb16-60"><a href="#cb16-60" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb16-61"><a href="#cb16-61" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb16-62"><a href="#cb16-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"LLM Judge Error: </span><span class="sc">{</span><span class="bu">str</span>(e)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb16-63"><a href="#cb16-63" aria-hidden="true" tabindex="-1"></a>        result[<span class="st">'llm_extracted'</span>] <span class="op">=</span> <span class="st">"ERROR"</span></span>
+<span id="cb16-64"><a href="#cb16-64" aria-hidden="true" tabindex="-1"></a>        result[<span class="st">'llm_correct'</span>] <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb16-65"><a href="#cb16-65" aria-hidden="true" tabindex="-1"></a>        result[<span class="st">'llm_confidence'</span>] <span class="op">=</span> <span class="st">"low"</span></span>
+<span id="cb16-66"><a href="#cb16-66" aria-hidden="true" tabindex="-1"></a>        result[<span class="st">'llm_explanation'</span>] <span class="op">=</span> <span class="bu">str</span>(e)</span>
+<span id="cb16-67"><a href="#cb16-67" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb16-68"><a href="#cb16-68" aria-hidden="true" tabindex="-1"></a>    comparison_results.append(result)</span>
+<span id="cb16-69"><a href="#cb16-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-70"><a href="#cb16-70" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb16-71"><a href="#cb16-71" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Evaluation complete!"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>COMPLETE EVALUATION: Regex vs LLM Judge
+================================================================================
+
+[people_001] people_count
+Ground Truth: 2
+Regex: extracted=9, correct=False
+LLM Judge: extracted=9, correct=False, confidence=high
+Explanation: The VLM clearly stated '9 people' in its response, while the ground truth is 2. This is an unambiguo...
+
+[people_002] people_count
+Ground Truth: 4
+Regex: extracted=4, correct=True
+LLM Judge: extracted=4, correct=True, confidence=high
+Explanation: The VLM response clearly states 'This image shows 4 people' at the beginning of its description, and...
+
+[people_003] people_count
+Ground Truth: 3
+Regex: extracted=None, correct=False
+LLM Judge: extracted=4, correct=False, confidence=high
+Explanation: The VLM clearly states 'four people' in its response while the ground truth indicates there are 3 pe...
+
+[scene_001] scene_classification
+Ground Truth: restaurant
+LLM Judge: extracted=café, correct=False, confidence=high
+Explanation: The VLM identifies the space primarily as a 'café or coffee shop', while the ground truth label is '...
+
+[scene_002] scene_classification
+Ground Truth: office
+LLM Judge: extracted=office, correct=True, confidence=high
+Explanation: The VLM response clearly identifies the space as an office environment, describing typical office fe...
+
+[scene_003] scene_classification
+Ground Truth: beach
+LLM Judge: extracted=outdoor workspace/café patio, correct=False, confidence=high
+Explanation: The VLM described the scene as an outdoor workspace or café patio with tables, laptops, and greenery...
+
+[object_001] object_detection
+Ground Truth: ['cat']
+LLM Judge: extracted=cat, correct=True, confidence=high
+Explanation: The VLM correctly identified the cat in the image. The response provided detailed description of the...
+
+[object_002] object_detection
+Ground Truth: ['laptop', 'phone', 'coffee']
+LLM Judge: extracted=notebook, correct=False, confidence=high
+Explanation: The VLM completely missed all three ground truth objects (laptop, phone, coffee) and instead detecte...
+
+================================================================================
+Evaluation complete!</code></pre>
+</div>
+</div>
+</section>
+<section id="part-6-analysis-and-metrics" class="level2">
+<h2 class="anchored" data-anchor-id="part-6-analysis-and-metrics">Part 6: Analysis and Metrics</h2>
+<div id="cell-24" class="cell" data-execution_count="34">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create DataFrame</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>df_results <span class="op">=</span> pd.DataFrame(comparison_results)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Display summary</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">RESULTS SUMMARY"</span>)</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>display_cols <span class="op">=</span> [<span class="st">'id'</span>, <span class="st">'task'</span>, <span class="st">'ground_truth'</span>, <span class="st">'llm_extracted'</span>, <span class="st">'llm_correct'</span>, <span class="st">'llm_confidence'</span>]</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">'regex_extracted'</span> <span class="kw">in</span> df_results.columns:</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    display_cols.insert(<span class="dv">4</span>, <span class="st">'regex_extracted'</span>)</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>    display_cols.insert(<span class="dv">5</span>, <span class="st">'regex_correct'</span>)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(df_results[display_cols].to_string(index<span class="op">=</span><span class="va">False</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+RESULTS SUMMARY
+================================================================================
+        id                 task            ground_truth                llm_extracted  regex_extracted regex_correct  llm_correct llm_confidence
+people_001         people_count                       2                            9              9.0         False        False           high
+people_002         people_count                       4                            4              4.0          True         True           high
+people_003         people_count                       3                            4              NaN         False        False           high
+ scene_001 scene_classification              restaurant                         café              NaN           NaN        False           high
+ scene_002 scene_classification                  office                       office              NaN           NaN         True           high
+ scene_003 scene_classification                   beach outdoor workspace/café patio              NaN           NaN        False           high
+object_001     object_detection                   [cat]                          cat              NaN           NaN         True           high
+object_002     object_detection [laptop, phone, coffee]                     notebook              NaN           NaN        False           high</code></pre>
+</div>
+</div>
+<div id="cell-25" class="cell" data-execution_count="35">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate metrics</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"ACCURACY METRICS"</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Overall accuracy</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>llm_accuracy <span class="op">=</span> df_results[<span class="st">'llm_correct'</span>].mean()</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">LLM Judge Overall Accuracy: </span><span class="sc">{</span>llm_accuracy<span class="sc">:.1%}</span><span class="ss">"</span>)</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Per-task accuracy</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Accuracy by Task:"</span>)</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> task <span class="kw">in</span> df_results[<span class="st">'task'</span>].unique():</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>    task_df <span class="op">=</span> df_results[df_results[<span class="st">'task'</span>] <span class="op">==</span> task]</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>    task_acc <span class="op">=</span> task_df[<span class="st">'llm_correct'</span>].mean()</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>task<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>task_acc<span class="sc">:.1%}</span><span class="ss"> (</span><span class="sc">{</span>task_df[<span class="st">'llm_correct'</span>]<span class="sc">.</span><span class="bu">sum</span>()<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(task_df)<span class="sc">}</span><span class="ss"> correct)"</span>)</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Regex accuracy (where applicable)</span></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">'regex_correct'</span> <span class="kw">in</span> df_results.columns:</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>    regex_df <span class="op">=</span> df_results[df_results[<span class="st">'regex_extracted'</span>].notna()]</span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(regex_df) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>        regex_accuracy <span class="op">=</span> regex_df[<span class="st">'regex_correct'</span>].mean()</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Regex Extraction Accuracy: </span><span class="sc">{</span>regex_accuracy<span class="sc">:.1%}</span><span class="ss">"</span>)</span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Successful extractions: </span><span class="sc">{</span>regex_df[<span class="st">'regex_extracted'</span>]<span class="sc">.</span>notna()<span class="sc">.</span><span class="bu">sum</span>()<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(df_results)<span class="sc">}</span><span class="ss"> attempts"</span>)</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Confidence distribution</span></span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">LLM Judge Confidence Distribution:"</span>)</span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a>conf_dist <span class="op">=</span> df_results[<span class="st">'llm_confidence'</span>].value_counts()</span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> conf, count <span class="kw">in</span> conf_dist.items():</span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>conf<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>count<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>count<span class="op">/</span><span class="bu">len</span>(df_results)<span class="op">*</span><span class="dv">100</span><span class="sc">:.1f}</span><span class="ss">%)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+================================================================================
+ACCURACY METRICS
+================================================================================
+
+LLM Judge Overall Accuracy: 37.5%
+
+Accuracy by Task:
+  people_count: 33.3% (1/3 correct)
+  scene_classification: 33.3% (1/3 correct)
+  object_detection: 50.0% (1/2 correct)
+
+Regex Extraction Accuracy: 50.0%
+  Successful extractions: 2/8 attempts
+
+LLM Judge Confidence Distribution:
+  high: 8 (100.0%)</code></pre>
+</div>
+</div>
+<div id="cell-26" class="cell" data-execution_count="36">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualizations</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure(figsize<span class="op">=</span>(<span class="dv">15</span>, <span class="dv">5</span>))</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 1: Accuracy comparison</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">'regex_correct'</span> <span class="kw">in</span> df_results.columns <span class="kw">and</span> <span class="bu">len</span>(df_results[df_results[<span class="st">'regex_extracted'</span>].notna()]) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    ax1 <span class="op">=</span> plt.subplot(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">1</span>)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>    methods <span class="op">=</span> [<span class="st">'Regex</span><span class="ch">\n</span><span class="st">(counting only)'</span>, <span class="st">'LLM Judge</span><span class="ch">\n</span><span class="st">(all tasks)'</span>]</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>    accuracies <span class="op">=</span> [</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>        df_results[df_results[<span class="st">'regex_extracted'</span>].notna()][<span class="st">'regex_correct'</span>].mean(),</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>        llm_accuracy</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>    colors <span class="op">=</span> [<span class="st">'#FF6B6B'</span>, <span class="st">'#4ECDC4'</span>]</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>    bars <span class="op">=</span> ax1.bar(methods, accuracies, color<span class="op">=</span>colors, alpha<span class="op">=</span><span class="fl">0.7</span>, edgecolor<span class="op">=</span><span class="st">'black'</span>)</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>    ax1.set_ylabel(<span class="st">'Accuracy'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>    ax1.set_title(<span class="st">'Extraction Method Comparison'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>    ax1.set_ylim([<span class="dv">0</span>, <span class="fl">1.1</span>])</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>    ax1.axhline(y<span class="op">=</span><span class="fl">1.0</span>, color<span class="op">=</span><span class="st">'gray'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>)</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> bar, acc <span class="kw">in</span> <span class="bu">zip</span>(bars, accuracies):</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>        height <span class="op">=</span> bar.get_height()</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>        ax1.text(bar.get_x() <span class="op">+</span> bar.get_width()<span class="op">/</span><span class="fl">2.</span>, height <span class="op">+</span> <span class="fl">0.02</span>,</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f'</span><span class="sc">{</span>acc<span class="sc">:.1%}</span><span class="ss">'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'bottom'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Plot 2: Confidence distribution</span></span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>    ax2 <span class="op">=</span> plt.subplot(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">2</span>)</span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a>    ax2 <span class="op">=</span> plt.subplot(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">1</span>)</span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a>conf_counts <span class="op">=</span> df_results[<span class="st">'llm_confidence'</span>].value_counts()</span>
+<span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a>ax2.bar(conf_counts.index, conf_counts.values, color<span class="op">=</span><span class="st">'#95E1D3'</span>, alpha<span class="op">=</span><span class="fl">0.7</span>, edgecolor<span class="op">=</span><span class="st">'black'</span>)</span>
+<span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a>ax2.set_xlabel(<span class="st">'Confidence Level'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="st">'Count'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="st">'LLM Judge Confidence'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-36"><a href="#cb22-36" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 3: Accuracy by task</span></span>
+<span id="cb22-37"><a href="#cb22-37" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">'regex_correct'</span> <span class="kw">in</span> df_results.columns <span class="kw">and</span> <span class="bu">len</span>(df_results[df_results[<span class="st">'regex_extracted'</span>].notna()]) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb22-38"><a href="#cb22-38" aria-hidden="true" tabindex="-1"></a>    ax3 <span class="op">=</span> plt.subplot(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">3</span>)</span>
+<span id="cb22-39"><a href="#cb22-39" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb22-40"><a href="#cb22-40" aria-hidden="true" tabindex="-1"></a>    ax3 <span class="op">=</span> plt.subplot(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb22-41"><a href="#cb22-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-42"><a href="#cb22-42" aria-hidden="true" tabindex="-1"></a>task_accuracies <span class="op">=</span> []</span>
+<span id="cb22-43"><a href="#cb22-43" aria-hidden="true" tabindex="-1"></a>task_names <span class="op">=</span> []</span>
+<span id="cb22-44"><a href="#cb22-44" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> task <span class="kw">in</span> df_results[<span class="st">'task'</span>].unique():</span>
+<span id="cb22-45"><a href="#cb22-45" aria-hidden="true" tabindex="-1"></a>    task_df <span class="op">=</span> df_results[df_results[<span class="st">'task'</span>] <span class="op">==</span> task]</span>
+<span id="cb22-46"><a href="#cb22-46" aria-hidden="true" tabindex="-1"></a>    task_accuracies.append(task_df[<span class="st">'llm_correct'</span>].mean())</span>
+<span id="cb22-47"><a href="#cb22-47" aria-hidden="true" tabindex="-1"></a>    task_names.append(task.replace(<span class="st">'_'</span>, <span class="st">'</span><span class="ch">\n</span><span class="st">'</span>))</span>
+<span id="cb22-48"><a href="#cb22-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-49"><a href="#cb22-49" aria-hidden="true" tabindex="-1"></a>bars <span class="op">=</span> ax3.bar(task_names, task_accuracies, color<span class="op">=</span><span class="st">'#F38181'</span>, alpha<span class="op">=</span><span class="fl">0.7</span>, edgecolor<span class="op">=</span><span class="st">'black'</span>)</span>
+<span id="cb22-50"><a href="#cb22-50" aria-hidden="true" tabindex="-1"></a>ax3.set_ylabel(<span class="st">'Accuracy'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb22-51"><a href="#cb22-51" aria-hidden="true" tabindex="-1"></a>ax3.set_title(<span class="st">'LLM Judge Accuracy by Task'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb22-52"><a href="#cb22-52" aria-hidden="true" tabindex="-1"></a>ax3.set_ylim([<span class="dv">0</span>, <span class="fl">1.1</span>])</span>
+<span id="cb22-53"><a href="#cb22-53" aria-hidden="true" tabindex="-1"></a>ax3.axhline(y<span class="op">=</span><span class="fl">1.0</span>, color<span class="op">=</span><span class="st">'gray'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>)</span>
+<span id="cb22-54"><a href="#cb22-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-55"><a href="#cb22-55" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> bar, acc <span class="kw">in</span> <span class="bu">zip</span>(bars, task_accuracies):</span>
+<span id="cb22-56"><a href="#cb22-56" aria-hidden="true" tabindex="-1"></a>    height <span class="op">=</span> bar.get_height()</span>
+<span id="cb22-57"><a href="#cb22-57" aria-hidden="true" tabindex="-1"></a>    ax3.text(bar.get_x() <span class="op">+</span> bar.get_width()<span class="op">/</span><span class="fl">2.</span>, height <span class="op">+</span> <span class="fl">0.02</span>,</span>
+<span id="cb22-58"><a href="#cb22-58" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'</span><span class="sc">{</span>acc<span class="sc">:.1%}</span><span class="ss">'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'bottom'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>, fontsize<span class="op">=</span><span class="dv">10</span>)</span>
+<span id="cb22-59"><a href="#cb22-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-60"><a href="#cb22-60" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb22-61"><a href="#cb22-61" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2025-11-17-llm-as-judge-vlm-evaluation_files/figure-html/cell-15-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="detailed-error-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="detailed-error-analysis">Detailed Error Analysis</h2>
+<div id="cell-28" class="cell" data-execution_count="37">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">DETAILED ERROR ANALYSIS"</span>)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>incorrect_items <span class="op">=</span> df_results[<span class="op">~</span>df_results[<span class="st">'llm_correct'</span>]]</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="bu">len</span>(incorrect_items) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Found </span><span class="sc">{</span><span class="bu">len</span>(incorrect_items)<span class="sc">}</span><span class="ss"> incorrect evaluations:</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _, item <span class="kw">in</span> incorrect_items.iterrows():</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"ID: </span><span class="sc">{</span>item[<span class="st">'id'</span>]<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>item[<span class="st">'task'</span>]<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Description: </span><span class="sc">{</span>item[<span class="st">'description'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Ground Truth: </span><span class="sc">{</span>item[<span class="st">'ground_truth'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"LLM Extracted: </span><span class="sc">{</span>item[<span class="st">'llm_extracted'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="st">'llm_error_type'</span> <span class="kw">in</span> item <span class="kw">and</span> item[<span class="st">'llm_error_type'</span>]:</span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Error Type: </span><span class="sc">{</span>item[<span class="st">'llm_error_type'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Explanation: </span><span class="sc">{</span>item[<span class="st">'llm_explanation'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"VLM Response: </span><span class="sc">{</span>item[<span class="st">'vlm_response'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">80</span>)</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">All evaluations were correct!"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+DETAILED ERROR ANALYSIS
+================================================================================
+
+Found 5 incorrect evaluations:
+
+ID: people_001 (people_count)
+Description: Gym scene with people exercising
+Ground Truth: 2
+LLM Extracted: 9
+Error Type: overcount
+Explanation: The VLM clearly stated '9 people' in its response, while the ground truth is 2. This is an unambiguous difference between the extracted count and the ground truth.
+VLM Response: This is a heartwarming scene showing a group of 9 people sitting in a row with their arms around each other's shoulders, facing a scenic view. They appear to be sitting along what might be a waterfron
+--------------------------------------------------------------------------------
+ID: people_003 (people_count)
+Description: Small group photo
+Ground Truth: 3
+LLM Extracted: 4
+Error Type: overcount
+Explanation: The VLM clearly states 'four people' in its response while the ground truth indicates there are 3 people. The response is unambiguous in its count but incorrect.
+VLM Response: This photo shows four people standing together in a row, arms around each other's shoulders, as they watch a sunset or sunrise from what appears to be a hilltop or mountain viewpoint. The image has a 
+--------------------------------------------------------------------------------
+ID: scene_001 (scene_classification)
+Description: Restaurant interior
+Ground Truth: restaurant
+LLM Extracted: café
+Error Type: misclassification
+Explanation: The VLM identifies the space primarily as a 'café or coffee shop', while the ground truth label is 'restaurant'. While these establishments can be similar, they are distinct categories. The VLM's response emphasizes coffee shop characteristics like casual atmosphere and coffee service counter.
+VLM Response: This appears to be a modern café or coffee shop with an industrial-chic aesthetic. The space features exposed ceiling elements, industrial pendant lighting, and geometric decorative elements hanging f
+--------------------------------------------------------------------------------
+ID: scene_003 (scene_classification)
+Description: Beach scene
+Ground Truth: beach
+LLM Extracted: outdoor workspace/café patio
+Error Type: misclassification
+Explanation: The VLM described the scene as an outdoor workspace or café patio with tables, laptops, and greenery, which is completely different from the ground truth of 'beach'. The response contains no mention of beach elements like sand, water, or shoreline.
+VLM Response: This appears to be an outdoor workspace or meeting area, likely at a café or restaurant with a patio setting. There's a wooden table where people are working on laptops, suggesting it's being used as 
+--------------------------------------------------------------------------------
+ID: object_002 (object_detection)
+Description: Workspace with laptop
+Ground Truth: ['laptop', 'phone', 'coffee']
+LLM Extracted: notebook
+Error Type: nan
+Explanation: The VLM completely missed all three ground truth objects (laptop, phone, coffee) and instead detected a notebook with grid pattern. The VLM's response appears to be describing a completely different image than what the ground truth suggests.
+VLM Response: In this image, there's a notebook or notepad with a grid pattern visible. Someone is holding a pen or pencil and appears to be writing or marking items on what looks like a checklist or to-do list. Th
+--------------------------------------------------------------------------------</code></pre>
+</div>
+</div>
+</section>
+<section id="key-takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="key-takeaways">Key Takeaways</h2>
+<section id="why-llm-as-judge-with-structured-outputs-is-superior" class="level3">
+<h3 class="anchored" data-anchor-id="why-llm-as-judge-with-structured-outputs-is-superior">Why LLM-as-Judge with Structured Outputs is Superior:</h3>
+<section id="type-safety" class="level4">
+<h4 class="anchored" data-anchor-id="type-safety">1. <strong>Type Safety</strong> 🎯</h4>
+<ul>
+<li>Pydantic models enforce types: <code>int</code> for counts, <code>List[str]</code> for objects, <code>Literal["high", "medium", "low"]</code> for confidence</li>
+<li>Regex gives you strings—no type guarantees, no validation</li>
+<li>Example: LLM judge ensures <code>confidence</code> is ONLY “high”, “medium”, or “low”, not “very confident” or typos</li>
+</ul>
+</section>
+<section id="structural-validation" class="level4">
+<h4 class="anchored" data-anchor-id="structural-validation">2. <strong>Structural Validation</strong> 🏗️</h4>
+<ul>
+<li>Complex nested structures are validated automatically</li>
+<li>Object detection returns <code>detected_objects</code>, <code>missing_objects</code>, <code>extra_objects</code> as separate typed fields</li>
+<li>Regex can’t handle nested or multi-field outputs without becoming unmaintainable</li>
+</ul>
+</section>
+<section id="rich-metadata" class="level4">
+<h4 class="anchored" data-anchor-id="rich-metadata">3. <strong>Rich Metadata</strong> 📊</h4>
+<ul>
+<li>Every response includes confidence levels, explanations, and error categorization</li>
+<li>These aren’t optional—they’re enforced by the schema</li>
+<li>Impossible to achieve with regex without writing hundreds of patterns</li>
+</ul>
+</section>
+<section id="semantic-understanding" class="level4">
+<h4 class="anchored" data-anchor-id="semantic-understanding">4. <strong>Semantic Understanding</strong> 🧠</h4>
+<ul>
+<li>LLM judge understands context: “coffee shop” vs “restaurant” are both food establishments</li>
+<li>Can categorize errors: “overcount” vs “undercount” vs “misclassification”</li>
+<li>Regex has zero semantic understanding</li>
+</ul>
+</section>
+<section id="maintainability" class="level4">
+<h4 class="anchored" data-anchor-id="maintainability">5. <strong>Maintainability</strong> 🔧</h4>
+<ul>
+<li>Add new fields to Pydantic model → automatic validation</li>
+<li>Regex: add new pattern → debug interactions with existing patterns → hope it works</li>
+</ul>
+</section>
+<section id="explainability" class="level4">
+<h4 class="anchored" data-anchor-id="explainability">6. <strong>Explainability</strong> 💡</h4>
+<ul>
+<li>Every evaluation includes human-readable explanations</li>
+<li>Critical for debugging, auditing, and improving your system</li>
+<li>Regex: you get a match or no match, good luck figuring out why</li>
+</ul>
+</section>
+</section>
+<section id="the-real-power-guaranteed-structure" class="level3">
+<h3 class="anchored" data-anchor-id="the-real-power-guaranteed-structure">The Real Power: Guaranteed Structure</h3>
+<p>The game-changer isn’t just “better parsing”—it’s <strong>compile-time guarantees</strong> about your data structure:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># With Pydantic/LLM Judge:</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>result: ComprehensiveEvaluation <span class="op">=</span> llm_judge_structured(...)</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="co"># TypeScript/IDE knows:</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="co"># - result.confidence is Literal["high", "medium", "low"]</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="co"># - result.is_correct is bool</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="co"># - result.explanation is str</span></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="co"># - ALL fields are present and correctly typed</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a><span class="co"># With Regex:</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>count: Optional[<span class="bu">int</span>] <span class="op">=</span> regex_extract_count(...)</span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a><span class="co"># You get:</span></span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a><span class="co"># - Maybe an int, maybe None, maybe wrong</span></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a><span class="co"># - No other metadata</span></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a><span class="co"># - No guarantees</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="when-to-use-each-approach" class="level3">
+<h3 class="anchored" data-anchor-id="when-to-use-each-approach">When to Use Each Approach:</h3>
+<ul>
+<li><strong>Regex</strong>: ❌ Almost never for production VLM evaluation
+<ul>
+<li>Only if: responses are guaranteed single-format (rare) AND you don’t need metadata AND you don’t care about type safety</li>
+</ul></li>
+<li><strong>LLM Judge</strong>: ✅ Always for serious VLM evaluation
+<ul>
+<li>When you need: reliability, explainability, type safety, complex structures, or any real-world use case</li>
+</ul></li>
+</ul>
+</section>
+<section id="best-practices" class="level3">
+<h3 class="anchored" data-anchor-id="best-practices">Best Practices:</h3>
+<ol type="1">
+<li><strong>Define schemas first</strong>: Start with Pydantic models before writing any extraction code</li>
+<li><strong>Use <code>Literal</code> types</strong>: For enums like confidence levels, task types, error categories</li>
+<li><strong>Require explanations</strong>: Make <code>explanation</code> a required field for debuggability</li>
+<li><strong>Type all fields</strong>: <code>List[str]</code> not <code>list</code>, <code>Optional[str]</code> not <code>str</code> with None handling</li>
+<li><strong>Version your schemas</strong>: As requirements change, version your Pydantic models</li>
+<li><strong>Test with real data</strong>: Your schema is your contract—test it validates correctly</li>
+</ol>
+</section>
+</section>
+<section id="export-results" class="level2">
+<h2 class="anchored" data-anchor-id="export-results">Export Results</h2>
+<div id="cell-31" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save results</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>output_csv <span class="op">=</span> <span class="st">"vlm_evaluation_results.csv"</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>output_json <span class="op">=</span> <span class="st">"vlm_evaluation_detailed.json"</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>df_results.to_csv(output_csv, index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Results saved to </span><span class="sc">{</span>output_csv<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(output_json, <span class="st">'w'</span>) <span class="im">as</span> f:</span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>    json.dump(comparison_results, f, indent<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Detailed results saved to </span><span class="sc">{</span>output_json<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/nipunbatra\.github\.io\/blog\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
