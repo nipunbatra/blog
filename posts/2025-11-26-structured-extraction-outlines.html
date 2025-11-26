@@ -357,7 +357,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="introduction" class="level1">
 <h1>Introduction</h1>
 <p>In this post, we compare different approaches for extracting structured information from text. Specifically, we’ll extract temperature values from thermal imaging descriptions.</p>
-<p>We’ll test six approaches: 1. <strong>Gemma-2B + Outlines</strong> (baseline structured generation) 2. <strong>Gemma-2B + Plain LLM</strong> (baseline without constraints) 3. <strong>Gemma-2B + Few-shot + Outlines</strong> 4. <strong>Gemma-2B + Few-shot + Plain LLM</strong> 5. <strong>Qwen-7B + Outlines</strong> (better model) 6. <strong>Qwen-7B + Plain LLM</strong> (better model without constraints)</p>
+<p>We’ll test six approaches:</p>
+<ol type="1">
+<li><strong>Gemma-2B + Outlines</strong> (baseline structured generation)</li>
+<li><strong>Gemma-2B + Plain LLM</strong> (baseline without constraints)</li>
+<li><strong>Gemma-2B + Few-shot + Outlines</strong></li>
+<li><strong>Gemma-2B + Few-shot + Plain LLM</strong></li>
+<li><strong>Qwen-7B + Outlines</strong> (better model)</li>
+<li><strong>Qwen-7B + Plain LLM</strong> (better model without constraints)</li>
+</ol>
 <p>This comparison will show whether constrained generation (Outlines) actually helps, or if plain LLM parsing is sufficient.</p>
 <section id="setup-and-imports" class="level2">
 <h2 class="anchored" data-anchor-id="setup-and-imports">Setup and Imports</h2>
@@ -433,8 +441,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="parsing-philosophy-the-key-difference" class="level2">
 <h2 class="anchored" data-anchor-id="parsing-philosophy-the-key-difference">Parsing Philosophy: The Key Difference</h2>
-<p><strong>Outlines approach</strong>: - Prompt: “Return JSON with temperature” - Model generates: <code>{"temperature": 31.2}</code> (constrained) - Parse: <code>json.loads()</code> - always valid!</p>
-<p><strong>Plain LLM approach</strong>: - Prompt: “What’s the temperature? Reply with just the number or ‘null’” - Model generates: <code>31.2</code> or <code>null</code> - Parse: <code>float()</code> or detect null - <strong>We</strong> create the JSON structure if needed</p>
+<p><strong>Outlines approach</strong>:</p>
+<ul>
+<li>Prompt: “Return JSON with temperature”</li>
+<li>Model generates: <code>{"temperature": 31.2}</code> (constrained)</li>
+<li>Parse: <code>json.loads()</code> - always valid!</li>
+</ul>
+<p><strong>Plain LLM approach</strong>:</p>
+<ul>
+<li>Prompt: “What’s the temperature? Reply with just the number or ‘null’”</li>
+<li>Model generates: <code>31.2</code> or <code>null</code></li>
+<li>Parse: <code>float()</code> or detect null</li>
+<li><strong>We</strong> create the JSON structure if needed</li>
+</ul>
 <p><strong>The key difference</strong>: Plain LLM extracts the VALUE, Outlines extracts AND formats as JSON.</p>
 <div id="cell-10" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> unload_model(model, tokenizer<span class="op">=</span><span class="va">None</span>):</span>
