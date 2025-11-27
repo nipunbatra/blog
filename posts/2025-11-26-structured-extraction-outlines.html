@@ -354,9 +354,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<p>—title: “Structured Outputs: Extraction vs Classification with LLMs”author: “Nipun Batra”date: “2025-11-26”categories: [LLM, structured-generation, evaluation]format: html: code-fold: false—</p>
-<section id="introductionin-this-post-we-compare-different-approaches-for-extracting-structured-information-from-text-using-two-real-world-tasks1.-extraction-temperature-values-from-thermal-imaging-descriptions2.-classification-left-vs-right-comparisons-e.g.-which-number-is-biggerthese-tasks-demonstrate-the-full-spectrum-of-structured-output-use-cases-from-simple-value-extraction-to-complex-classification-with-reasoning.well-test-seven-approaches1.-gemma-2b-outlines-baseline-structured-generation2.-gemma-2b-plain-llm-baseline-without-constraints3.-gemma-2b-few-shot-outlines4.-gemma-2b-few-shot-plain-llm5.-qwen-7b-outlines-better-model6.-qwen-7b-plain-llm-better-model-without-constraints7.-gemini-api-instructor-api-based-structured-output---most-reliablethis-comparison-will-show-whether-constrained-generation-outlines-actually-helps-or-if-plain-llm-parsing-is-sufficient.the-post-is-organized-in-two-parts--part-1-temperature-extraction-7-approaches--part-2-classification-task-with-openrouter-showing-multi-provider-flexibility" class="level1">
-<h1>IntroductionIn this post, we compare different approaches for extracting structured information from text using two real-world tasks:1. <strong>Extraction</strong>: Temperature values from thermal imaging descriptions2. <strong>Classification</strong>: Left vs Right comparisons (e.g., “Which number is bigger?”)These tasks demonstrate the full spectrum of structured output use cases: from simple value extraction to complex classification with reasoning.We’ll test seven approaches:1. <strong>Gemma-2B + Outlines</strong> (baseline structured generation)2. <strong>Gemma-2B + Plain LLM</strong> (baseline without constraints)3. <strong>Gemma-2B + Few-shot + Outlines</strong>4. <strong>Gemma-2B + Few-shot + Plain LLM</strong>5. <strong>Qwen-7B + Outlines</strong> (better model)6. <strong>Qwen-7B + Plain LLM</strong> (better model without constraints)7. <strong>Gemini API + Instructor</strong> (API-based structured output - most reliable)This comparison will show whether constrained generation (Outlines) actually helps, or if plain LLM parsing is sufficient.<strong>The post is organized in two parts:</strong>- <strong>Part 1</strong>: Temperature extraction (7 approaches)- <strong>Part 2</strong>: Classification task with OpenRouter (showing multi-provider flexibility)</h1>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>In this post, we compare different approaches for extracting structured information from text using two real-world tasks:</p>
+<ol type="1">
+<li><strong>Extraction</strong>: Temperature values from thermal imaging descriptions</li>
+<li><strong>Classification</strong>: Left vs Right comparisons (e.g., “Which number is bigger?”)</li>
+</ol>
+<p>These tasks demonstrate the full spectrum of structured output use cases: from simple value extraction to complex classification with reasoning.</p>
+<p>We’ll test seven approaches:</p>
+<ol type="1">
+<li><strong>Gemma-2B + Outlines</strong> (baseline structured generation)</li>
+<li><strong>Gemma-2B + Plain LLM</strong> (baseline without constraints)</li>
+<li><strong>Gemma-2B + Few-shot + Outlines</strong></li>
+<li><strong>Gemma-2B + Few-shot + Plain LLM</strong></li>
+<li><strong>Qwen-7B + Outlines</strong> (better model)</li>
+<li><strong>Qwen-7B + Plain LLM</strong> (better model without constraints)</li>
+<li><strong>Gemini API + Instructor</strong> (API-based structured output - most reliable)</li>
+</ol>
+<p>This comparison will show whether constrained generation (Outlines) actually helps, or if plain LLM parsing is sufficient.</p>
+<p><strong>The post is organized in two parts:</strong> - <strong>Part 1</strong>: Temperature extraction (7 approaches) - <strong>Part 2</strong>: Classification task with OpenRouter (showing multi-provider flexibility)</p>
 <section id="setup-and-imports" class="level2">
 <h2 class="anchored" data-anchor-id="setup-and-imports">Setup and Imports</h2>
 <div id="cell-3" class="cell" data-execution_count="1">
@@ -450,6 +467,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="helper-functions" class="level2">
 <h2 class="anchored" data-anchor-id="helper-functions">Helper Functions</h2>
 </section>
+<section id="results-caching" class="level2">
+<h2 class="anchored" data-anchor-id="results-caching">Results Caching</h2>
+<p><strong>Important</strong>: This notebook uses a caching system to store API results.</p>
+<ul>
+<li>Results are saved in <code>./results_cache/</code> directory</li>
+<li>Each test + approach combination is cached by hash</li>
+<li>Subsequent runs use cached results (fast + free!)</li>
+<li>To force re-run: delete the cache directory or set <code>use_cache=False</code></li>
+</ul>
+<p><strong>Why cache?</strong> - API calls are expensive ($$) - Running all tests takes 5-10 minutes - Cached runs complete in seconds - Reproducibility: consistent results across notebook runs</p>
+<p><strong>Cache location</strong>: <code>./results_cache/[hash].json</code></p>
+</section>
 <section id="parsing-philosophy-the-key-difference" class="level2">
 <h2 class="anchored" data-anchor-id="parsing-philosophy-the-key-difference">Parsing Philosophy: The Key Difference</h2>
 <p><strong>Outlines approach</strong>:</p>
@@ -466,7 +495,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>We</strong> create the JSON structure if needed</li>
 </ul>
 <p><strong>The key difference</strong>: Plain LLM extracts the VALUE, Outlines extracts AND formats as JSON.</p>
-<div id="cell-10" class="cell" data-execution_count="4">
+<div id="cell-11" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> unload_model(model, tokenizer<span class="op">=</span><span class="va">None</span>):</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Unload model from memory to free up RAM."""</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">del</span> model</span>
@@ -548,34 +577,123 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> result[<span class="bu">len</span>(prompt):].strip()</span>
 <span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result</span>
 <span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_tests(generator_fn, test_cases, parse_fn):</span>
-<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run all test cases and return results."""</span></span>
-<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> []</span>
-<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>    correct <span class="op">=</span> <span class="dv">0</span></span>
-<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> test <span class="kw">in</span> test_cases:</span>
-<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>        result <span class="op">=</span> generator_fn(test[<span class="st">'text'</span>])</span>
-<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>        extracted <span class="op">=</span> parse_fn(result)</span>
-<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a>        is_correct <span class="op">=</span> extracted <span class="op">==</span> test[<span class="st">'expected'</span>]</span>
-<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> is_correct:</span>
-<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>            correct <span class="op">+=</span> <span class="dv">1</span></span>
-<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>        results.append({</span>
-<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Test'</span>: test[<span class="st">'name'</span>],</span>
-<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Expected'</span>: test[<span class="st">'expected'</span>],</span>
-<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Got'</span>: extracted,</span>
-<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Correct'</span>: <span class="st">'PASS'</span> <span class="cf">if</span> is_correct <span class="cf">else</span> <span class="st">'FAIL'</span></span>
-<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>        })</span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================</span></span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a><span class="co"># CACHING SYSTEM - Save results to avoid expensive re-runs</span></span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================</span></span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> hashlib</span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>CACHE_DIR <span class="op">=</span> Path(<span class="st">"./results_cache"</span>)</span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a>CACHE_DIR.mkdir(exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_cache_key(approach_name: <span class="bu">str</span>, test_text: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Generate unique cache key for approach + test combination."""</span></span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>    combined <span class="op">=</span> <span class="ss">f"</span><span class="sc">{</span>approach_name<span class="sc">}</span><span class="ss">::</span><span class="sc">{</span>test_text<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> hashlib.md5(combined.encode()).hexdigest()</span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> load_cached_result(approach_name: <span class="bu">str</span>, test_text: <span class="bu">str</span>):</span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Load cached result if available."""</span></span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a>    cache_key <span class="op">=</span> get_cache_key(approach_name, test_text)</span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>    cache_file <span class="op">=</span> CACHE_DIR <span class="op">/</span> <span class="ss">f"</span><span class="sc">{</span>cache_key<span class="sc">}</span><span class="ss">.json"</span></span>
 <span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a>    accuracy <span class="op">=</span> <span class="dv">100</span> <span class="op">*</span> correct <span class="op">/</span> <span class="bu">len</span>(test_cases)</span>
-<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results, accuracy</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cache_file.exists():</span>
+<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>:</span>
+<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>            <span class="cf">with</span> <span class="bu">open</span>(cache_file, <span class="st">'r'</span>) <span class="im">as</span> f:</span>
+<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a>                cached <span class="op">=</span> json.load(f)</span>
+<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> cached[<span class="st">'result'</span>]</span>
+<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span>:</span>
+<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a>            <span class="cf">pass</span></span>
+<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> save_cached_result(approach_name: <span class="bu">str</span>, test_text: <span class="bu">str</span>, result):</span>
+<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Save result to cache."""</span></span>
+<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a>    cache_key <span class="op">=</span> get_cache_key(approach_name, test_text)</span>
+<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a>    cache_file <span class="op">=</span> CACHE_DIR <span class="op">/</span> <span class="ss">f"</span><span class="sc">{</span>cache_key<span class="sc">}</span><span class="ss">.json"</span></span>
+<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Convert result to JSON-serializable format</span></span>
+<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">hasattr</span>(result, <span class="st">'model_dump'</span>):</span>
+<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a>        result_data <span class="op">=</span> result.model_dump()</span>
+<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="bu">hasattr</span>(result, <span class="st">'dict'</span>):</span>
+<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a>        result_data <span class="op">=</span> result.<span class="bu">dict</span>()</span>
+<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a>        result_data <span class="op">=</span> result</span>
+<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> <span class="bu">open</span>(cache_file, <span class="st">'w'</span>) <span class="im">as</span> f:</span>
+<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a>        json.dump({</span>
+<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>            <span class="st">'approach'</span>: approach_name,</span>
+<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a>            <span class="st">'test_text'</span>: test_text,</span>
+<span id="cb5-128"><a href="#cb5-128" aria-hidden="true" tabindex="-1"></a>            <span class="st">'result'</span>: result_data</span>
+<span id="cb5-129"><a href="#cb5-129" aria-hidden="true" tabindex="-1"></a>        }, f, indent<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb5-130"><a href="#cb5-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-131"><a href="#cb5-131" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_tests_cached(generator_fn, test_cases, parse_fn, approach_name: <span class="bu">str</span>, use_cache: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span>):</span>
+<span id="cb5-132"><a href="#cb5-132" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run tests with caching support."""</span></span>
+<span id="cb5-133"><a href="#cb5-133" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> []</span>
+<span id="cb5-134"><a href="#cb5-134" aria-hidden="true" tabindex="-1"></a>    correct <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb5-135"><a href="#cb5-135" aria-hidden="true" tabindex="-1"></a>    cached_count <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb5-136"><a href="#cb5-136" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-137"><a href="#cb5-137" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> test <span class="kw">in</span> test_cases:</span>
+<span id="cb5-138"><a href="#cb5-138" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Try to load from cache</span></span>
+<span id="cb5-139"><a href="#cb5-139" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> use_cache:</span>
+<span id="cb5-140"><a href="#cb5-140" aria-hidden="true" tabindex="-1"></a>            cached_result <span class="op">=</span> load_cached_result(approach_name, test[<span class="st">'text'</span>])</span>
+<span id="cb5-141"><a href="#cb5-141" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> cached_result <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb5-142"><a href="#cb5-142" aria-hidden="true" tabindex="-1"></a>                result <span class="op">=</span> cached_result</span>
+<span id="cb5-143"><a href="#cb5-143" aria-hidden="true" tabindex="-1"></a>                cached_count <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb5-144"><a href="#cb5-144" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb5-145"><a href="#cb5-145" aria-hidden="true" tabindex="-1"></a>                result <span class="op">=</span> generator_fn(test[<span class="st">'text'</span>])</span>
+<span id="cb5-146"><a href="#cb5-146" aria-hidden="true" tabindex="-1"></a>                save_cached_result(approach_name, test[<span class="st">'text'</span>], result)</span>
+<span id="cb5-147"><a href="#cb5-147" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb5-148"><a href="#cb5-148" aria-hidden="true" tabindex="-1"></a>            result <span class="op">=</span> generator_fn(test[<span class="st">'text'</span>])</span>
+<span id="cb5-149"><a href="#cb5-149" aria-hidden="true" tabindex="-1"></a>            save_cached_result(approach_name, test[<span class="st">'text'</span>], result)</span>
+<span id="cb5-150"><a href="#cb5-150" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-151"><a href="#cb5-151" aria-hidden="true" tabindex="-1"></a>        extracted <span class="op">=</span> parse_fn(result)</span>
+<span id="cb5-152"><a href="#cb5-152" aria-hidden="true" tabindex="-1"></a>        is_correct <span class="op">=</span> extracted <span class="op">==</span> test[<span class="st">'expected'</span>]</span>
+<span id="cb5-153"><a href="#cb5-153" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-154"><a href="#cb5-154" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> is_correct:</span>
+<span id="cb5-155"><a href="#cb5-155" aria-hidden="true" tabindex="-1"></a>            correct <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb5-156"><a href="#cb5-156" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-157"><a href="#cb5-157" aria-hidden="true" tabindex="-1"></a>        results.append({</span>
+<span id="cb5-158"><a href="#cb5-158" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Test'</span>: test[<span class="st">'name'</span>],</span>
+<span id="cb5-159"><a href="#cb5-159" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Expected'</span>: test[<span class="st">'expected'</span>],</span>
+<span id="cb5-160"><a href="#cb5-160" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Got'</span>: extracted,</span>
+<span id="cb5-161"><a href="#cb5-161" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Correct'</span>: <span class="st">'PASS'</span> <span class="cf">if</span> is_correct <span class="cf">else</span> <span class="st">'FAIL'</span></span>
+<span id="cb5-162"><a href="#cb5-162" aria-hidden="true" tabindex="-1"></a>        })</span>
+<span id="cb5-163"><a href="#cb5-163" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-164"><a href="#cb5-164" aria-hidden="true" tabindex="-1"></a>    accuracy <span class="op">=</span> <span class="dv">100</span> <span class="op">*</span> correct <span class="op">/</span> <span class="bu">len</span>(test_cases)</span>
+<span id="cb5-165"><a href="#cb5-165" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-166"><a href="#cb5-166" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> use_cache <span class="kw">and</span> cached_count <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb5-167"><a href="#cb5-167" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"📦 Used </span><span class="sc">{</span>cached_count<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(test_cases)<span class="sc">}</span><span class="ss"> cached results"</span>)</span>
+<span id="cb5-168"><a href="#cb5-168" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-169"><a href="#cb5-169" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results, accuracy</span>
+<span id="cb5-170"><a href="#cb5-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-171"><a href="#cb5-171" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_tests(generator_fn, test_cases, parse_fn):</span>
+<span id="cb5-172"><a href="#cb5-172" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run all test cases and return results (legacy version without caching)."""</span></span>
+<span id="cb5-173"><a href="#cb5-173" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> []</span>
+<span id="cb5-174"><a href="#cb5-174" aria-hidden="true" tabindex="-1"></a>    correct <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb5-175"><a href="#cb5-175" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-176"><a href="#cb5-176" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> test <span class="kw">in</span> test_cases:</span>
+<span id="cb5-177"><a href="#cb5-177" aria-hidden="true" tabindex="-1"></a>        result <span class="op">=</span> generator_fn(test[<span class="st">'text'</span>])</span>
+<span id="cb5-178"><a href="#cb5-178" aria-hidden="true" tabindex="-1"></a>        extracted <span class="op">=</span> parse_fn(result)</span>
+<span id="cb5-179"><a href="#cb5-179" aria-hidden="true" tabindex="-1"></a>        is_correct <span class="op">=</span> extracted <span class="op">==</span> test[<span class="st">'expected'</span>]</span>
+<span id="cb5-180"><a href="#cb5-180" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-181"><a href="#cb5-181" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> is_correct:</span>
+<span id="cb5-182"><a href="#cb5-182" aria-hidden="true" tabindex="-1"></a>            correct <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb5-183"><a href="#cb5-183" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb5-184"><a href="#cb5-184" aria-hidden="true" tabindex="-1"></a>        results.append({</span>
+<span id="cb5-185"><a href="#cb5-185" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Test'</span>: test[<span class="st">'name'</span>],</span>
+<span id="cb5-186"><a href="#cb5-186" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Expected'</span>: test[<span class="st">'expected'</span>],</span>
+<span id="cb5-187"><a href="#cb5-187" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Got'</span>: extracted,</span>
+<span id="cb5-188"><a href="#cb5-188" aria-hidden="true" tabindex="-1"></a>            <span class="st">'Correct'</span>: <span class="st">'PASS'</span> <span class="cf">if</span> is_correct <span class="cf">else</span> <span class="st">'FAIL'</span></span>
+<span id="cb5-189"><a href="#cb5-189" aria-hidden="true" tabindex="-1"></a>        })</span>
+<span id="cb5-190"><a href="#cb5-190" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-191"><a href="#cb5-191" aria-hidden="true" tabindex="-1"></a>    accuracy <span class="op">=</span> <span class="dv">100</span> <span class="op">*</span> correct <span class="op">/</span> <span class="bu">len</span>(test_cases)</span>
+<span id="cb5-192"><a href="#cb5-192" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-193"><a href="#cb5-193" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results, accuracy</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="prompt-templates" class="level2">
 <h2 class="anchored" data-anchor-id="prompt-templates">Prompt Templates</h2>
-<div id="cell-12" class="cell" data-execution_count="5">
+<div id="cell-13" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_baseline_prompt_plain(text: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Plain LLM: Ask for just the VALUE, we'll create JSON ourselves."""</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="ss">f"""Extract the estimated temperature ONLY if explicitly provided.</span></span>
@@ -658,7 +776,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="load-gemma-2b-models" class="level1">
 <h1>Load Gemma-2B Models</h1>
 <p>We’ll load Gemma models for both Outlines and plain LLM variants:</p>
-<div id="cell-14" class="cell" data-execution_count="6">
+<div id="cell-15" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load Gemma-2B for Outlines</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>model_gemma_outlines <span class="op">=</span> load_model_for_outlines(<span class="st">"google/gemma-2b-it"</span>)</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>generator_gemma_outlines <span class="op">=</span> outlines.Generator(model_gemma_outlines, TemperatureExtraction)</span>
@@ -685,7 +803,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="approach-1-gemma-2b-outlines-baseline" class="level1">
 <h1>Approach 1: Gemma-2B + Outlines (Baseline)</h1>
-<div id="cell-16" class="cell" data-execution_count="7">
+<div id="cell-17" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gemma_outlines_baseline(text):</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> generator_gemma_outlines(create_baseline_prompt_outlines(text))</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -1292,7 +1410,7 @@ Accuracy: 83.3%</code></pre>
 </section>
 <section id="approach-2-gemma-2b-plain-llm-baseline" class="level1">
 <h1>Approach 2: Gemma-2B + Plain LLM (Baseline)</h1>
-<div id="cell-18" class="cell" data-execution_count="8">
+<div id="cell-19" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gemma_plain_baseline(text):</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> create_baseline_prompt_plain(text)</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> plain_llm_generate(model_gemma_plain, tokenizer_gemma, prompt)</span>
@@ -1382,7 +1500,7 @@ Difference vs Outlines: -50.0%</code></pre>
 </section>
 <section id="approach-3-gemma-2b-outlines-few-shot" class="level1">
 <h1>Approach 3: Gemma-2B + Outlines + Few-shot</h1>
-<div id="cell-20" class="cell" data-execution_count="9">
+<div id="cell-21" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gemma_outlines_fewshot(text):</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> generator_gemma_outlines(create_fewshot_prompt_outlines(text))</span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -1471,7 +1589,7 @@ Improvement vs baseline: +16.7%</code></pre>
 </section>
 <section id="approach-4-gemma-2b-plain-llm-few-shot" class="level1">
 <h1>Approach 4: Gemma-2B + Plain LLM + Few-shot</h1>
-<div id="cell-22" class="cell" data-execution_count="10">
+<div id="cell-23" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gemma_plain_fewshot(text):</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> create_fewshot_prompt_plain(text)</span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> plain_llm_generate(model_gemma_plain, tokenizer_gemma, prompt)</span>
@@ -1561,7 +1679,7 @@ Improvement vs baseline: +0.0%</code></pre>
 <section id="unload-gemma-models" class="level2">
 <h2 class="anchored" data-anchor-id="unload-gemma-models">Unload Gemma Models</h2>
 <p>Free up memory before loading larger models:</p>
-<div id="cell-24" class="cell" data-execution_count="11">
+<div id="cell-25" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Unload Gemma models to free memory</span></span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>unload_model(model_gemma_outlines)</span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>unload_model(model_gemma_plain, tokenizer_gemma)</span>
@@ -1579,7 +1697,7 @@ Memory cleared. Ready to load Qwen models.</code></pre>
 </section>
 <section id="load-qwen-7b-models" class="level1">
 <h1>Load Qwen-7B Models</h1>
-<div id="cell-26" class="cell" data-execution_count="12">
+<div id="cell-27" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load Qwen model for Outlines</span></span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>model_qwen_outlines <span class="op">=</span> load_model_for_outlines(<span class="st">"Qwen/Qwen2.5-7B-Instruct"</span>)</span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>generator_qwen_outlines <span class="op">=</span> outlines.Generator(model_qwen_outlines, TemperatureExtraction)</span>
@@ -1606,7 +1724,7 @@ Memory cleared. Ready to load Qwen models.</code></pre>
 </section>
 <section id="approach-5-qwen-7b-outlines" class="level1">
 <h1>Approach 5: Qwen-7B + Outlines</h1>
-<div id="cell-28" class="cell" data-execution_count="13">
+<div id="cell-29" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> qwen_outlines_baseline(text):</span>
 <span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> generator_qwen_outlines(create_baseline_prompt_outlines(text))</span>
 <span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -1695,7 +1813,7 @@ Improvement vs Gemma+Outlines: +16.7%</code></pre>
 </section>
 <section id="approach-6-qwen-7b-plain-llm" class="level1">
 <h1>Approach 6: Qwen-7B + Plain LLM</h1>
-<div id="cell-30" class="cell" data-execution_count="14">
+<div id="cell-31" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> qwen_plain_baseline(text):</span>
 <span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> create_baseline_prompt_plain(text)</span>
 <span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> plain_llm_generate(model_qwen_plain, tokenizer_qwen, prompt)</span>
@@ -1788,7 +1906,7 @@ Improvement vs Gemma+Plain: +0.0%</code></pre>
 <section id="unload-qwen-models" class="level2">
 <h2 class="anchored" data-anchor-id="unload-qwen-models">Unload Qwen Models</h2>
 <p>Free up memory before testing API-based approach:</p>
-<div id="cell-32" class="cell" data-execution_count="15">
+<div id="cell-33" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Unload Qwen models to free memory</span></span>
 <span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>unload_model(model_qwen_outlines)</span>
 <span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>unload_model(model_qwen_plain, tokenizer_qwen)</span>
@@ -1827,7 +1945,7 @@ Memory cleared. Ready for API-based approach.</code></pre>
 <li>Fallback to prompting when needed</li>
 </ul>
 <p>Let’s test Gemini’s structured output capability:</p>
-<div id="cell-34" class="cell" data-execution_count="18">
+<div id="cell-35" class="cell" data-execution_count="18">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Install instructor if needed (uncomment to install)</span></span>
 <span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="co"># !pip install "instructor[google-genai]"</span></span>
 <span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -1853,7 +1971,7 @@ Memory cleared. Ready for API-based approach.</code></pre>
 Using: gemini-2.0-flash-exp (latest experimental model)</code></pre>
 </div>
 </div>
-<div id="cell-35" class="cell" data-execution_count="19">
+<div id="cell-36" class="cell" data-execution_count="19">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gemini_instructor_extraction(text):</span>
 <span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Use Gemini API + Instructor for structured extraction."""</span></span>
 <span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> create_baseline_prompt_outlines(text)</span>
@@ -1869,14 +1987,21 @@ Using: gemini-2.0-flash-exp (latest experimental model)</code></pre>
 <span id="cb39-13"><a href="#cb39-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> response</span>
 <span id="cb39-14"><a href="#cb39-14" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb39-15"><a href="#cb39-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Test on all cases</span></span>
-<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a>results_7, accuracy_7 <span class="op">=</span> run_tests(gemini_instructor_extraction, test_cases, parse_outlines_result)</span>
-<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb39-18"><a href="#cb39-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb39-19"><a href="#cb39-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"APPROACH 7: Gemini API + Instructor"</span>)</span>
-<span id="cb39-20"><a href="#cb39-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb39-21"><a href="#cb39-21" aria-hidden="true" tabindex="-1"></a>display(pd.DataFrame(results_7))</span>
-<span id="cb39-22"><a href="#cb39-22" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Accuracy: </span><span class="sc">{</span>accuracy_7<span class="sc">:.1f}</span><span class="ss">%"</span>)</span>
-<span id="cb39-23"><a href="#cb39-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss"> Key Benefit: **Deterministic &amp; reliable** - same input → same output every time"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Use cached version to avoid expensive API calls</span></span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a>results_7, accuracy_7 <span class="op">=</span> run_tests_cached(</span>
+<span id="cb39-18"><a href="#cb39-18" aria-hidden="true" tabindex="-1"></a>    gemini_instructor_extraction, </span>
+<span id="cb39-19"><a href="#cb39-19" aria-hidden="true" tabindex="-1"></a>    test_cases, </span>
+<span id="cb39-20"><a href="#cb39-20" aria-hidden="true" tabindex="-1"></a>    parse_outlines_result,</span>
+<span id="cb39-21"><a href="#cb39-21" aria-hidden="true" tabindex="-1"></a>    approach_name<span class="op">=</span><span class="st">"gemini_api_instructor"</span>,</span>
+<span id="cb39-22"><a href="#cb39-22" aria-hidden="true" tabindex="-1"></a>    use_cache<span class="op">=</span><span class="va">True</span></span>
+<span id="cb39-23"><a href="#cb39-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb39-24"><a href="#cb39-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-25"><a href="#cb39-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb39-26"><a href="#cb39-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"APPROACH 7: Gemini API + Instructor"</span>)</span>
+<span id="cb39-27"><a href="#cb39-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb39-28"><a href="#cb39-28" aria-hidden="true" tabindex="-1"></a>display(pd.DataFrame(results_7))</span>
+<span id="cb39-29"><a href="#cb39-29" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Accuracy: </span><span class="sc">{</span>accuracy_7<span class="sc">:.1f}</span><span class="ss">%"</span>)</span>
+<span id="cb39-30"><a href="#cb39-30" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss"> Key Benefit: **Deterministic &amp; reliable** - same input → same output every time"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ======================================================================
@@ -1956,7 +2081,7 @@ Accuracy: 100.0%
 <section id="repeatability-test" class="level2">
 <h2 class="anchored" data-anchor-id="repeatability-test">Repeatability Test</h2>
 <p>Let’s verify that Gemini gives <strong>consistent results</strong> unlike local models:</p>
-<div id="cell-37" class="cell" data-execution_count="20">
+<div id="cell-38" class="cell" data-execution_count="20">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb42"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run Test 1 five times to check for variability</span></span>
 <span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>test_text <span class="op">=</span> test_cases[<span class="dv">0</span>][<span class="st">'text'</span>]</span>
 <span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Test: </span><span class="sc">{</span>test_text<span class="sc">}</span><span class="ss">"</span>)</span>
@@ -1985,101 +2110,360 @@ All runs produce identical results (deterministic with temperature=0)</code></pr
 </div>
 </section>
 </section>
-<section id="part-2-classification-task---left-vs-right-beyond-extraction-classification-with-vlmswhile-weve-focused-on-numerical-extraction-structured-outputs-are-equally-valuable-for-classification-tasks.-consider-a-visual-language-model-vlm-analyzing-an-image-with-two-numbers-and-answering-which-number-is-bigger---left-or-rightthis-demonstrates--enum-based-classification-not-just-free-text--structured-reasoning-with-confidence-scores--multi-provider-support-via-openrouter-using-openrouter-for-model-accessopenrouter-provides-unified-api-access-to-multiple-llm-providers.-benefits--single-api-key-for-dozens-of-models--automatic-fallback-and-load-balancing--pay-per-use-pricing-across-providers--access-to-latest-models-without-multiple-api-accountswell-use-gemini-through-openrouter-to-show-provider-flexibility." class="level1">
-<h1>Part 2: Classification Task - Left vs Right## Beyond Extraction: Classification with VLMsWhile we’ve focused on numerical extraction, structured outputs are equally valuable for <strong>classification tasks</strong>. Consider a Visual Language Model (VLM) analyzing an image with two numbers and answering: “Which number is bigger - left or right?”This demonstrates:- <strong>Enum-based classification</strong> (not just free text)- <strong>Structured reasoning</strong> with confidence scores- <strong>Multi-provider support</strong> via OpenRouter## Using OpenRouter for Model Access<a href="https://openrouter.ai/">OpenRouter</a> provides unified API access to multiple LLM providers. Benefits:- Single API key for dozens of models- Automatic fallback and load balancing- Pay-per-use pricing across providers- Access to latest models without multiple API accountsWe’ll use Gemini through OpenRouter to show provider flexibility.</h1>
-<section id="setup-openrouter-clientopenrouter-uses-the-openai-compatible-api-format.-set-your-api-keybash-in-your-.zshrc-or-.bashrcexport-openrouter_api_keysk-or-v1-...-then-reloadsource-.zshrcinstructor-will-automatically-detect-the-key-from-environment-variables." class="level2">
-<h2 class="anchored" data-anchor-id="setup-openrouter-clientopenrouter-uses-the-openai-compatible-api-format.-set-your-api-keybash-in-your-.zshrc-or-.bashrcexport-openrouter_api_keysk-or-v1-...-then-reloadsource-.zshrcinstructor-will-automatically-detect-the-key-from-environment-variables.">Setup OpenRouter ClientOpenRouter uses the OpenAI-compatible API format. Set your API key:<code>bash# In your ~/.zshrc or ~/.bashrc:export OPENROUTER_API_KEY='sk-or-v1-...'# Then reload:source ~/.zshrc</code>Instructor will automatically detect the key from environment variables.</h2>
-<div id="cell-40" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb44"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> osfrom enum <span class="im">import</span> Enumfrom pydantic <span class="im">import</span> BaseModel, Field<span class="co"># Check for OpenRouter API keyif 'OPENROUTER_API_KEY' not in os.environ:    print("⚠️  OPENROUTER_API_KEY not found in environment")    print("Please set it with: export OPENROUTER_API_KEY='sk-or-v1-...'")    print("Add to ~/.zshrc for persistence")    raise ValueError("OPENROUTER_API_KEY required")# Initialize OpenRouter client for Geminiimport instructorfrom openai import OpenAI# Set the API key for OpenAI clientos.environ['OPENAI_API_KEY'] = os.environ['OPENROUTER_API_KEY']client_or = instructor.from_openai(    OpenAI(        base_url="https://openrouter.ai/api/v1",        api_key=os.environ['OPENROUTER_API_KEY'],    ))print("✓ OpenRouter client initialized")print("Using: google/gemini-2.0-flash-exp via OpenRouter")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="part-2-classification-task---left-vs-right" class="level1">
+<h1>Part 2: Classification Task - Left vs Right</h1>
+<section id="beyond-extraction-classification-with-vlms" class="level2">
+<h2 class="anchored" data-anchor-id="beyond-extraction-classification-with-vlms">Beyond Extraction: Classification with VLMs</h2>
+<p>While we’ve focused on numerical extraction, structured outputs are equally valuable for <strong>classification tasks</strong>. Consider a Visual Language Model (VLM) analyzing an image with two numbers and answering: “Which number is bigger - left or right?”</p>
+<p>This demonstrates: - <strong>Enum-based classification</strong> (not just free text) - <strong>Structured reasoning</strong> with confidence scores - <strong>Multi-provider support</strong> via OpenRouter</p>
+</section>
+<section id="using-openrouter-for-model-access" class="level2">
+<h2 class="anchored" data-anchor-id="using-openrouter-for-model-access">Using OpenRouter for Model Access</h2>
+<p><a href="https://openrouter.ai/">OpenRouter</a> provides unified API access to multiple LLM providers. Benefits:</p>
+<ul>
+<li>Single API key for dozens of models</li>
+<li>Automatic fallback and load balancing</li>
+<li>Pay-per-use pricing across providers</li>
+<li>Access to latest models without multiple API accounts</li>
+</ul>
+<p>We’ll use Gemini through OpenRouter to show provider flexibility.</p>
+</section>
+<section id="setup-openrouter-client" class="level2">
+<h2 class="anchored" data-anchor-id="setup-openrouter-client">Setup OpenRouter Client</h2>
+<p>OpenRouter uses the OpenAI-compatible API format. Set your API key:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb44"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="co"># In your ~/.zshrc or ~/.bashrc:</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">OPENROUTER_API_KEY</span><span class="op">=</span><span class="st">'sk-or-v1-...'</span></span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Then reload:</span></span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a><span class="bu">source</span> ~/.zshrc</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Instructor will automatically detect the key from environment variables.</p>
+<div id="cell-41" class="cell" data-execution_count="23">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb45"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> enum <span class="im">import</span> Enum</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pydantic <span class="im">import</span> BaseModel, Field</span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Check for OpenRouter API key</span></span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">'OPENROUTER_API_KEY'</span> <span class="kw">not</span> <span class="kw">in</span> os.environ:</span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"OPENROUTER_API_KEY not found in environment"</span>)</span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Please set it with: export OPENROUTER_API_KEY='sk-or-v1-...'"</span>)</span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Add to ~/.zshrc for persistence"</span>)</span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">ValueError</span>(<span class="st">"OPENROUTER_API_KEY required"</span>)</span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-12"><a href="#cb45-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize OpenRouter client for Gemini</span></span>
+<span id="cb45-13"><a href="#cb45-13" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> instructor</span>
+<span id="cb45-14"><a href="#cb45-14" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> openai <span class="im">import</span> OpenAI</span>
+<span id="cb45-15"><a href="#cb45-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-16"><a href="#cb45-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Set the API key for OpenAI client</span></span>
+<span id="cb45-17"><a href="#cb45-17" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">'OPENAI_API_KEY'</span>] <span class="op">=</span> os.environ[<span class="st">'OPENROUTER_API_KEY'</span>]</span>
+<span id="cb45-18"><a href="#cb45-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-19"><a href="#cb45-19" aria-hidden="true" tabindex="-1"></a>client_or <span class="op">=</span> instructor.from_openai(</span>
+<span id="cb45-20"><a href="#cb45-20" aria-hidden="true" tabindex="-1"></a>    OpenAI(</span>
+<span id="cb45-21"><a href="#cb45-21" aria-hidden="true" tabindex="-1"></a>        base_url<span class="op">=</span><span class="st">"https://openrouter.ai/api/v1"</span>,</span>
+<span id="cb45-22"><a href="#cb45-22" aria-hidden="true" tabindex="-1"></a>        api_key<span class="op">=</span>os.environ[<span class="st">'OPENROUTER_API_KEY'</span>],</span>
+<span id="cb45-23"><a href="#cb45-23" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb45-24"><a href="#cb45-24" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb45-25"><a href="#cb45-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-26"><a href="#cb45-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"OpenRouter client initialized"</span>)</span>
+<span id="cb45-27"><a href="#cb45-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Using: google/gemini-2.0-flash-exp via OpenRouter"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>OPENROUTER_API_KEY not found in environment
+Please set it with: export OPENROUTER_API_KEY='sk-or-v1-...'
+Add to ~/.zshrc for persistence</code></pre>
+</div>
+<div class="cell-output cell-output-error">
+<div class="ansi-escaped-output">
+<pre><span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">ValueError</span>                                Traceback (most recent call last)
+<span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[23]</span><span class="ansi-green-fg">, line 10</span>
+<span class="ansi-green-fg">      8</span>     <span style="color:rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">"</span><span class="ansi-yellow-fg">Please set it with: export OPENROUTER_API_KEY=</span><span class="ansi-yellow-fg">'</span><span class="ansi-yellow-fg">sk-or-v1-...</span><span class="ansi-yellow-fg">'</span><span class="ansi-yellow-fg">"</span>)
+<span class="ansi-green-fg">      9</span>     <span style="color:rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">"</span><span class="ansi-yellow-fg">Add to ~/.zshrc for persistence</span><span class="ansi-yellow-fg">"</span>)
+<span class="ansi-green-fg">---&gt; </span><span class="ansi-green-fg">10</span>     <span style="font-weight:bold;color:rgb(0,135,0)">raise</span> <span style="font-weight:bold;color:rgb(215,95,95)">ValueError</span>(<span class="ansi-yellow-fg">"</span><span class="ansi-yellow-fg">OPENROUTER_API_KEY required</span><span class="ansi-yellow-fg">"</span>)
+<span class="ansi-green-fg">     12</span> <span style="font-style:italic;color:rgb(95,135,135)"># Initialize OpenRouter client for Gemini</span>
+<span class="ansi-green-fg">     13</span> <span style="font-weight:bold;color:rgb(0,135,0)">import</span><span style="color:rgb(188,188,188)"> </span><span class="ansi-blue-fg ansi-bold">instructor</span>
+
+<span class="ansi-red-fg">ValueError</span>: OPENROUTER_API_KEY required</pre>
+</div>
+</div>
 </div>
 </section>
-<section id="define-classification-schemafor-the-which-side-is-bigger-task-we-use-an-enum-to-enforce-valid-classifications" class="level2">
-<h2 class="anchored" data-anchor-id="define-classification-schemafor-the-which-side-is-bigger-task-we-use-an-enum-to-enforce-valid-classifications">Define Classification SchemaFor the “which side is bigger” task, we use an Enum to enforce valid classifications:</h2>
-<div id="cell-42" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb45"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Side(<span class="bu">str</span>, Enum):    LEFT <span class="op">=</span> <span class="st">"left"</span>    RIGHT <span class="op">=</span> <span class="st">"right"</span>    EQUAL <span class="op">=</span> <span class="st">"equal"</span>    UNCLEAR <span class="op">=</span> <span class="st">"unclear"</span>class ComparisonResult(BaseModel):    <span class="st">"""Classification result for comparing two values."""</span>    answer: Side <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Which side has the larger value"</span>)    left_value: <span class="bu">float</span> <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Value on the left (if extractable)"</span>)    right_value: <span class="bu">float</span> <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Value on the right (if extractable)"</span>)    confidence: <span class="bu">float</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Confidence score 0-1"</span>, ge<span class="op">=</span><span class="fl">0.0</span>, le<span class="op">=</span><span class="fl">1.0</span>)    reasoning: <span class="bu">str</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Brief explanation of the answer"</span>)<span class="bu">print</span>(<span class="st">"✓ Classification schema defined"</span>)<span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Schema fields:"</span>)<span class="cf">for</span> field_name, field_info <span class="kw">in</span> ComparisonResult.model_fields.items():    <span class="bu">print</span>(<span class="ss">f"  - </span><span class="sc">{</span>field_name<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>field_info<span class="sc">.</span>annotation<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="define-classification-schema" class="level2">
+<h2 class="anchored" data-anchor-id="define-classification-schema">Define Classification Schema</h2>
+<p>For the “which side is bigger” task, we use an Enum to enforce valid classifications:</p>
+<div id="cell-43" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb47"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Side(<span class="bu">str</span>, Enum):</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>    LEFT <span class="op">=</span> <span class="st">"left"</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>    RIGHT <span class="op">=</span> <span class="st">"right"</span></span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>    EQUAL <span class="op">=</span> <span class="st">"equal"</span></span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>    UNCLEAR <span class="op">=</span> <span class="st">"unclear"</span></span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ComparisonResult(BaseModel):</span>
+<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Classification result for comparing two values."""</span></span>
+<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a>    answer: Side <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Which side has the larger value"</span>)</span>
+<span id="cb47-10"><a href="#cb47-10" aria-hidden="true" tabindex="-1"></a>    left_value: <span class="bu">float</span> <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Value on the left (if extractable)"</span>)</span>
+<span id="cb47-11"><a href="#cb47-11" aria-hidden="true" tabindex="-1"></a>    right_value: <span class="bu">float</span> <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Value on the right (if extractable)"</span>)</span>
+<span id="cb47-12"><a href="#cb47-12" aria-hidden="true" tabindex="-1"></a>    confidence: <span class="bu">float</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Confidence score 0-1"</span>, ge<span class="op">=</span><span class="fl">0.0</span>, le<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb47-13"><a href="#cb47-13" aria-hidden="true" tabindex="-1"></a>    reasoning: <span class="bu">str</span> <span class="op">=</span> Field(description<span class="op">=</span><span class="st">"Brief explanation of the answer"</span>)</span>
+<span id="cb47-14"><a href="#cb47-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-15"><a href="#cb47-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Classification schema defined"</span>)</span>
+<span id="cb47-16"><a href="#cb47-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Schema fields:"</span>)</span>
+<span id="cb47-17"><a href="#cb47-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> field_name, field_info <span class="kw">in</span> ComparisonResult.model_fields.items():</span>
+<span id="cb47-18"><a href="#cb47-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  - </span><span class="sc">{</span>field_name<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>field_info<span class="sc">.</span>annotation<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="test-cases-for-classificationcreate-diverse-test-cases-for-the-comparison-task" class="level2">
-<h2 class="anchored" data-anchor-id="test-cases-for-classificationcreate-diverse-test-cases-for-the-comparison-task">Test Cases for ClassificationCreate diverse test cases for the comparison task:</h2>
-<div id="cell-44" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb46"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a>classification_tests <span class="op">=</span> [    {        <span class="st">"name"</span>: <span class="st">"Clear comparison"</span>,        <span class="st">"text"</span>: <span class="st">"Left side shows 42, right side shows 37. Which number is bigger?"</span>,        <span class="st">"expected_answer"</span>: Side.LEFT,        <span class="st">"expected_left"</span>: <span class="fl">42.0</span>,        <span class="st">"expected_right"</span>: <span class="fl">37.0</span>    },    {        <span class="st">"name"</span>: <span class="st">"Decimal comparison"</span>,        <span class="st">"text"</span>: <span class="st">"The left value is 3.14 and the right value is 3.142. Which is larger?"</span>,        <span class="st">"expected_answer"</span>: Side.RIGHT,        <span class="st">"expected_left"</span>: <span class="fl">3.14</span>,        <span class="st">"expected_right"</span>: <span class="fl">3.142</span>    },    {        <span class="st">"name"</span>: <span class="st">"Equal values"</span>,        <span class="st">"text"</span>: <span class="st">"Left number: 100, Right number: 100. Which side is bigger?"</span>,        <span class="st">"expected_answer"</span>: Side.EQUAL,        <span class="st">"expected_left"</span>: <span class="fl">100.0</span>,        <span class="st">"expected_right"</span>: <span class="fl">100.0</span>    },    {        <span class="st">"name"</span>: <span class="st">"Negative numbers"</span>,        <span class="st">"text"</span>: <span class="st">"On the left we have -5, on the right we have -12. Which is greater?"</span>,        <span class="st">"expected_answer"</span>: Side.LEFT,        <span class="st">"expected_left"</span>: <span class="op">-</span><span class="fl">5.0</span>,        <span class="st">"expected_right"</span>: <span class="op">-</span><span class="fl">12.0</span>    },    {        <span class="st">"name"</span>: <span class="st">"Missing information"</span>,        <span class="st">"text"</span>: <span class="st">"The left side has a value, but the right side is not visible."</span>,        <span class="st">"expected_answer"</span>: Side.UNCLEAR,        <span class="st">"expected_left"</span>: <span class="va">None</span>,        <span class="st">"expected_right"</span>: <span class="va">None</span>    },]<span class="bu">print</span>(<span class="ss">f"Created </span><span class="sc">{</span><span class="bu">len</span>(classification_tests)<span class="sc">}</span><span class="ss"> classification test cases"</span>)<span class="cf">for</span> test <span class="kw">in</span> classification_tests:    <span class="bu">print</span>(<span class="ss">f"  - </span><span class="sc">{</span>test[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">: expect </span><span class="sc">{</span>test[<span class="st">'expected_answer'</span>]<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="test-cases-for-classification" class="level2">
+<h2 class="anchored" data-anchor-id="test-cases-for-classification">Test Cases for Classification</h2>
+<p>Create diverse test cases for the comparison task:</p>
+<div id="cell-45" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb48"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>classification_tests <span class="op">=</span> [</span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">"name"</span>: <span class="st">"Clear comparison"</span>,</span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">"text"</span>: <span class="st">"Left side shows 42, right side shows 37. Which number is bigger?"</span>,</span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_answer"</span>: Side.LEFT,</span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_left"</span>: <span class="fl">42.0</span>,</span>
+<span id="cb48-7"><a href="#cb48-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_right"</span>: <span class="fl">37.0</span></span>
+<span id="cb48-8"><a href="#cb48-8" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb48-9"><a href="#cb48-9" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb48-10"><a href="#cb48-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">"name"</span>: <span class="st">"Decimal comparison"</span>,</span>
+<span id="cb48-11"><a href="#cb48-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"text"</span>: <span class="st">"The left value is 3.14 and the right value is 3.142. Which is larger?"</span>,</span>
+<span id="cb48-12"><a href="#cb48-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_answer"</span>: Side.RIGHT,</span>
+<span id="cb48-13"><a href="#cb48-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_left"</span>: <span class="fl">3.14</span>,</span>
+<span id="cb48-14"><a href="#cb48-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_right"</span>: <span class="fl">3.142</span></span>
+<span id="cb48-15"><a href="#cb48-15" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb48-16"><a href="#cb48-16" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb48-17"><a href="#cb48-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">"name"</span>: <span class="st">"Equal values"</span>,</span>
+<span id="cb48-18"><a href="#cb48-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">"text"</span>: <span class="st">"Left number: 100, Right number: 100. Which side is bigger?"</span>,</span>
+<span id="cb48-19"><a href="#cb48-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_answer"</span>: Side.EQUAL,</span>
+<span id="cb48-20"><a href="#cb48-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_left"</span>: <span class="fl">100.0</span>,</span>
+<span id="cb48-21"><a href="#cb48-21" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_right"</span>: <span class="fl">100.0</span></span>
+<span id="cb48-22"><a href="#cb48-22" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb48-23"><a href="#cb48-23" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb48-24"><a href="#cb48-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">"name"</span>: <span class="st">"Negative numbers"</span>,</span>
+<span id="cb48-25"><a href="#cb48-25" aria-hidden="true" tabindex="-1"></a>        <span class="st">"text"</span>: <span class="st">"On the left we have -5, on the right we have -12. Which is greater?"</span>,</span>
+<span id="cb48-26"><a href="#cb48-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_answer"</span>: Side.LEFT,</span>
+<span id="cb48-27"><a href="#cb48-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_left"</span>: <span class="op">-</span><span class="fl">5.0</span>,</span>
+<span id="cb48-28"><a href="#cb48-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_right"</span>: <span class="op">-</span><span class="fl">12.0</span></span>
+<span id="cb48-29"><a href="#cb48-29" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb48-30"><a href="#cb48-30" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb48-31"><a href="#cb48-31" aria-hidden="true" tabindex="-1"></a>        <span class="st">"name"</span>: <span class="st">"Missing information"</span>,</span>
+<span id="cb48-32"><a href="#cb48-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">"text"</span>: <span class="st">"The left side has a value, but the right side is not visible."</span>,</span>
+<span id="cb48-33"><a href="#cb48-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_answer"</span>: Side.UNCLEAR,</span>
+<span id="cb48-34"><a href="#cb48-34" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_left"</span>: <span class="va">None</span>,</span>
+<span id="cb48-35"><a href="#cb48-35" aria-hidden="true" tabindex="-1"></a>        <span class="st">"expected_right"</span>: <span class="va">None</span></span>
+<span id="cb48-36"><a href="#cb48-36" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb48-37"><a href="#cb48-37" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb48-38"><a href="#cb48-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-39"><a href="#cb48-39" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Created </span><span class="sc">{</span><span class="bu">len</span>(classification_tests)<span class="sc">}</span><span class="ss"> classification test cases"</span>)</span>
+<span id="cb48-40"><a href="#cb48-40" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> test <span class="kw">in</span> classification_tests:</span>
+<span id="cb48-41"><a href="#cb48-41" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  - </span><span class="sc">{</span>test[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">: expect </span><span class="sc">{</span>test[<span class="st">'expected_answer'</span>]<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="run-classification-tests" class="level2">
 <h2 class="anchored" data-anchor-id="run-classification-tests">Run Classification Tests</h2>
-<div id="cell-46" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb47"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> classify_comparison(text: <span class="bu">str</span>) <span class="op">-&gt;</span> ComparisonResult:    <span class="st">"""Use OpenRouter + Gemini to classify comparison."""</span>    response <span class="op">=</span> client_or.chat.completions.create(        model<span class="op">=</span><span class="st">"google/gemini-2.0-flash-exp"</span>,        messages<span class="op">=</span>[            {                <span class="st">"role"</span>: <span class="st">"user"</span>,                <span class="st">"content"</span>: <span class="ss">f"""Analyze this comparison question and provide a structured answer.Question: </span><span class="sc">{</span>text<span class="sc">}</span><span class="ss">Extract the left and right values if mentioned, determine which is bigger,and provide your confidence and reasoning."""</span>            }        ],        response_model<span class="op">=</span>ComparisonResult,        temperature<span class="op">=</span><span class="fl">0.0</span>,    )    <span class="cf">return</span> response<span class="co"># Run all testsclassification_results = []correct = 0for test in classification_tests:    result = classify_comparison(test['text'])        is_correct = result.answer == test['expected_answer']    if is_correct:        correct += 1        classification_results.append({        'Test': test['name'],        'Expected': test['expected_answer'].value,        'Got': result.answer.value,        'Left': result.left_value,        'Right': result.right_value,        'Confidence': f"{result.confidence:.2f}",        'Correct': '✓' if is_correct else '✗'    })accuracy_classification = 100 * correct / len(classification_tests)print(f"\n{'='*70}")print(f"CLASSIFICATION RESULTS: OpenRouter + Gemini")print(f"{'='*70}")display(pd.DataFrame(classification_results))print(f"\nAccuracy: {accuracy_classification:.1f}%")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-47" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb49"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> classify_comparison(text: <span class="bu">str</span>) <span class="op">-&gt;</span> ComparisonResult:</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Use OpenRouter + Gemini to classify comparison."""</span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> client_or.chat.completions.create(</span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>        model<span class="op">=</span><span class="st">"google/gemini-2.0-flash-exp"</span>,</span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>        messages<span class="op">=</span>[</span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>                <span class="st">"role"</span>: <span class="st">"user"</span>,</span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>                <span class="st">"content"</span>: <span class="ss">f"""Analyze this comparison question and provide a structured answer.</span></span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a><span class="ss">Question: </span><span class="sc">{</span>text<span class="sc">}</span></span>
+<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a><span class="ss">Extract the left and right values if mentioned, determine which is bigger,</span></span>
+<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a><span class="ss">and provide your confidence and reasoning."""</span></span>
+<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>        ],</span>
+<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>        response_model<span class="op">=</span>ComparisonResult,</span>
+<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>        temperature<span class="op">=</span><span class="fl">0.0</span>,</span>
+<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> response</span>
+<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-21"><a href="#cb49-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Run all tests with caching</span></span>
+<span id="cb49-22"><a href="#cb49-22" aria-hidden="true" tabindex="-1"></a>classification_results <span class="op">=</span> []</span>
+<span id="cb49-23"><a href="#cb49-23" aria-hidden="true" tabindex="-1"></a>correct <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb49-24"><a href="#cb49-24" aria-hidden="true" tabindex="-1"></a>cached_count <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb49-25"><a href="#cb49-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-26"><a href="#cb49-26" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> test <span class="kw">in</span> classification_tests:</span>
+<span id="cb49-27"><a href="#cb49-27" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Try cache first</span></span>
+<span id="cb49-28"><a href="#cb49-28" aria-hidden="true" tabindex="-1"></a>    cached <span class="op">=</span> load_cached_result(<span class="st">"openrouter_classification"</span>, test[<span class="st">'text'</span>])</span>
+<span id="cb49-29"><a href="#cb49-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cached <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb49-30"><a href="#cb49-30" aria-hidden="true" tabindex="-1"></a>        result <span class="op">=</span> ComparisonResult(<span class="op">**</span>cached)</span>
+<span id="cb49-31"><a href="#cb49-31" aria-hidden="true" tabindex="-1"></a>        cached_count <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb49-32"><a href="#cb49-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb49-33"><a href="#cb49-33" aria-hidden="true" tabindex="-1"></a>        result <span class="op">=</span> classify_comparison(test[<span class="st">'text'</span>])</span>
+<span id="cb49-34"><a href="#cb49-34" aria-hidden="true" tabindex="-1"></a>        save_cached_result(<span class="st">"openrouter_classification"</span>, test[<span class="st">'text'</span>], result)</span>
+<span id="cb49-35"><a href="#cb49-35" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb49-36"><a href="#cb49-36" aria-hidden="true" tabindex="-1"></a>    is_correct <span class="op">=</span> result.answer <span class="op">==</span> test[<span class="st">'expected_answer'</span>]</span>
+<span id="cb49-37"><a href="#cb49-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> is_correct:</span>
+<span id="cb49-38"><a href="#cb49-38" aria-hidden="true" tabindex="-1"></a>        correct <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb49-39"><a href="#cb49-39" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb49-40"><a href="#cb49-40" aria-hidden="true" tabindex="-1"></a>    classification_results.append({</span>
+<span id="cb49-41"><a href="#cb49-41" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Test'</span>: test[<span class="st">'name'</span>],</span>
+<span id="cb49-42"><a href="#cb49-42" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Expected'</span>: test[<span class="st">'expected_answer'</span>].value,</span>
+<span id="cb49-43"><a href="#cb49-43" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Got'</span>: result.answer.value,</span>
+<span id="cb49-44"><a href="#cb49-44" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Left'</span>: result.left_value,</span>
+<span id="cb49-45"><a href="#cb49-45" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Right'</span>: result.right_value,</span>
+<span id="cb49-46"><a href="#cb49-46" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Confidence'</span>: <span class="ss">f"</span><span class="sc">{</span>result<span class="sc">.</span>confidence<span class="sc">:.2f}</span><span class="ss">"</span>,</span>
+<span id="cb49-47"><a href="#cb49-47" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Correct'</span>: <span class="st">'✓'</span> <span class="cf">if</span> is_correct <span class="cf">else</span> <span class="st">'✗'</span></span>
+<span id="cb49-48"><a href="#cb49-48" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb49-49"><a href="#cb49-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-50"><a href="#cb49-50" aria-hidden="true" tabindex="-1"></a>accuracy_classification <span class="op">=</span> <span class="dv">100</span> <span class="op">*</span> correct <span class="op">/</span> <span class="bu">len</span>(classification_tests)</span>
+<span id="cb49-51"><a href="#cb49-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-52"><a href="#cb49-52" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb49-53"><a href="#cb49-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"CLASSIFICATION RESULTS: OpenRouter + Gemini"</span>)</span>
+<span id="cb49-54"><a href="#cb49-54" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb49-55"><a href="#cb49-55" aria-hidden="true" tabindex="-1"></a>display(pd.DataFrame(classification_results))</span>
+<span id="cb49-56"><a href="#cb49-56" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Accuracy: </span><span class="sc">{</span>accuracy_classification<span class="sc">:.1f}</span><span class="ss">%"</span>)</span>
+<span id="cb49-57"><a href="#cb49-57" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> cached_count <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb49-58"><a href="#cb49-58" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Used </span><span class="sc">{</span>cached_count<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(classification_tests)<span class="sc">}</span><span class="ss"> cached results"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="show-detailed-reasoninglets-examine-the-models-reasoning-for-each-classification" class="level2">
-<h2 class="anchored" data-anchor-id="show-detailed-reasoninglets-examine-the-models-reasoning-for-each-classification">Show Detailed ReasoningLet’s examine the model’s reasoning for each classification:</h2>
-<div id="cell-48" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb48"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Detailed Reasoning for Each Classification:</span><span class="ch">\n</span><span class="st">"</span>)<span class="cf">for</span> i, test <span class="kw">in</span> <span class="bu">enumerate</span>(classification_tests):    result <span class="op">=</span> classify_comparison(test[<span class="st">'text'</span>])        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">. </span><span class="sc">{</span>test[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">"</span>)    <span class="bu">print</span>(<span class="ss">f"   Question: </span><span class="sc">{</span>test[<span class="st">'text'</span>]<span class="sc">}</span><span class="ss">"</span>)    <span class="bu">print</span>(<span class="ss">f"   Answer: </span><span class="sc">{</span>result<span class="sc">.</span>answer<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)    <span class="bu">print</span>(<span class="ss">f"   Extracted: Left=</span><span class="sc">{</span>result<span class="sc">.</span>left_value<span class="sc">}</span><span class="ss">, Right=</span><span class="sc">{</span>result<span class="sc">.</span>right_value<span class="sc">}</span><span class="ss">"</span>)    <span class="bu">print</span>(<span class="ss">f"   Confidence: </span><span class="sc">{</span>result<span class="sc">.</span>confidence<span class="sc">:.2%}</span><span class="ss">"</span>)    <span class="bu">print</span>(<span class="ss">f"   Reasoning: </span><span class="sc">{</span>result<span class="sc">.</span>reasoning<span class="sc">}</span><span class="ss">"</span>)    <span class="bu">print</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="show-detailed-reasoning" class="level2">
+<h2 class="anchored" data-anchor-id="show-detailed-reasoning">Show Detailed Reasoning</h2>
+<p>Let’s examine the model’s reasoning for each classification:</p>
+<div id="cell-49" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb50"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Detailed Reasoning for Each Classification:</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, test <span class="kw">in</span> <span class="bu">enumerate</span>(classification_tests):</span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> classify_comparison(test[<span class="st">'text'</span>])</span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">. </span><span class="sc">{</span>test[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"   Question: </span><span class="sc">{</span>test[<span class="st">'text'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"   Answer: </span><span class="sc">{</span>result<span class="sc">.</span>answer<span class="sc">.</span>value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"   Extracted: Left=</span><span class="sc">{</span>result<span class="sc">.</span>left_value<span class="sc">}</span><span class="ss">, Right=</span><span class="sc">{</span>result<span class="sc">.</span>right_value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"   Confidence: </span><span class="sc">{</span>result<span class="sc">.</span>confidence<span class="sc">:.2%}</span><span class="ss">"</span>)</span>
+<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"   Reasoning: </span><span class="sc">{</span>result<span class="sc">.</span>reasoning<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="key-insights-classification-vs-extraction-structured-classification-benefits1.-type-safety-enum-ensures-only-valid-categories-leftrightequalunclear2.-rich-context-can-include-extracted-values-confidence-and-reasoning3.-validation-pydantic-validates-confidence-is-0-1-automatically4.-multi-field-single-api-call-returns-classification-supporting-data-comparison-with-extraction-aspect-temperature-extraction-leftright-classification---output-type-optionalfloat-enum-metadata-validation-value-or-null-category-confidence-reasoning-not-captured-included-in-response-use-case-structured-data-decision-making-openrouter-advantages--model-flexibility-switch-providers-without-code-changes--cost-optimization-route-to-cheapest-capable-model--fallback-automatic-retry-with-different-models--single-api-key-access-200-models-with-one-key-production-considerationsfor-classification-tasks-in-production1.-use-structured-outputs-not-string-parsing2.-include-confidence-scores-for-threshold-based-filtering3.-capture-reasoning-for-debugging-and-audit-trails4.-set-temperature0-for-deterministic-classifications5.-use-enums-to-prevent-hallucinated-categories" class="level2">
-<h2 class="anchored" data-anchor-id="key-insights-classification-vs-extraction-structured-classification-benefits1.-type-safety-enum-ensures-only-valid-categories-leftrightequalunclear2.-rich-context-can-include-extracted-values-confidence-and-reasoning3.-validation-pydantic-validates-confidence-is-0-1-automatically4.-multi-field-single-api-call-returns-classification-supporting-data-comparison-with-extraction-aspect-temperature-extraction-leftright-classification---output-type-optionalfloat-enum-metadata-validation-value-or-null-category-confidence-reasoning-not-captured-included-in-response-use-case-structured-data-decision-making-openrouter-advantages--model-flexibility-switch-providers-without-code-changes--cost-optimization-route-to-cheapest-capable-model--fallback-automatic-retry-with-different-models--single-api-key-access-200-models-with-one-key-production-considerationsfor-classification-tasks-in-production1.-use-structured-outputs-not-string-parsing2.-include-confidence-scores-for-threshold-based-filtering3.-capture-reasoning-for-debugging-and-audit-trails4.-set-temperature0-for-deterministic-classifications5.-use-enums-to-prevent-hallucinated-categories">Key Insights: Classification vs Extraction### Structured Classification Benefits1. <strong>Type Safety</strong>: Enum ensures only valid categories (LEFT/RIGHT/EQUAL/UNCLEAR)2. <strong>Rich Context</strong>: Can include extracted values, confidence, and reasoning3. <strong>Validation</strong>: Pydantic validates confidence is 0-1 automatically4. <strong>Multi-field</strong>: Single API call returns classification + supporting data### Comparison with Extraction| Aspect | Temperature Extraction | Left/Right Classification ||——–|———————-|—————————|| Output Type | Optional[float] | Enum + metadata || Validation | Value or null | Category + confidence || Reasoning | Not captured | Included in response || Use Case | Structured data | Decision making |### OpenRouter Advantages- <strong>Model Flexibility</strong>: Switch providers without code changes- <strong>Cost Optimization</strong>: Route to cheapest capable model- <strong>Fallback</strong>: Automatic retry with different models- <strong>Single API Key</strong>: Access 200+ models with one key### Production ConsiderationsFor classification tasks in production:1. <strong>Use structured outputs</strong> (not string parsing)2. <strong>Include confidence scores</strong> for threshold-based filtering3. <strong>Capture reasoning</strong> for debugging and audit trails4. <strong>Set temperature=0</strong> for deterministic classifications5. <strong>Use enums</strong> to prevent hallucinated categories</h2>
+<section id="key-insights-classification-vs-extraction" class="level2">
+<h2 class="anchored" data-anchor-id="key-insights-classification-vs-extraction">Key Insights: Classification vs Extraction</h2>
+<section id="structured-classification-benefits" class="level3">
+<h3 class="anchored" data-anchor-id="structured-classification-benefits">Structured Classification Benefits</h3>
+<ol type="1">
+<li><strong>Type Safety</strong>: Enum ensures only valid categories (LEFT/RIGHT/EQUAL/UNCLEAR)</li>
+<li><strong>Rich Context</strong>: Can include extracted values, confidence, and reasoning</li>
+<li><strong>Validation</strong>: Pydantic validates confidence is 0-1 automatically</li>
+<li><strong>Multi-field</strong>: Single API call returns classification + supporting data</li>
+</ol>
+</section>
+<section id="comparison-with-extraction" class="level3">
+<h3 class="anchored" data-anchor-id="comparison-with-extraction">Comparison with Extraction</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Aspect</th>
+<th>Temperature Extraction</th>
+<th>Left/Right Classification</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Output Type</td>
+<td>Optional[float]</td>
+<td>Enum + metadata</td>
+</tr>
+<tr class="even">
+<td>Validation</td>
+<td>Value or null</td>
+<td>Category + confidence</td>
+</tr>
+<tr class="odd">
+<td>Reasoning</td>
+<td>Not captured</td>
+<td>Included in response</td>
+</tr>
+<tr class="even">
+<td>Use Case</td>
+<td>Structured data</td>
+<td>Decision making</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="openrouter-advantages" class="level3">
+<h3 class="anchored" data-anchor-id="openrouter-advantages">OpenRouter Advantages</h3>
+<ul>
+<li><strong>Model Flexibility</strong>: Switch providers without code changes</li>
+<li><strong>Cost Optimization</strong>: Route to cheapest capable model</li>
+<li><strong>Fallback</strong>: Automatic retry with different models</li>
+<li><strong>Single API Key</strong>: Access 200+ models with one key</li>
+</ul>
+</section>
+<section id="production-considerations" class="level3">
+<h3 class="anchored" data-anchor-id="production-considerations">Production Considerations</h3>
+<p>For classification tasks in production:</p>
+<ol type="1">
+<li><strong>Use structured outputs</strong> (not string parsing)</li>
+<li><strong>Include confidence scores</strong> for threshold-based filtering</li>
+<li><strong>Capture reasoning</strong> for debugging and audit trails</li>
+<li><strong>Set temperature=0</strong> for deterministic classifications</li>
+<li><strong>Use enums</strong> to prevent hallucinated categories</li>
+</ol>
+</section>
 </section>
 </section>
 <section id="final-comparison" class="level1">
 <h1>Final Comparison</h1>
-<div id="cell-51" class="cell" data-execution_count="21">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb49"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>comparison <span class="op">=</span> pd.DataFrame([</span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines'</span>,</span>
-<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_1<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
-<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM'</span>,</span>
-<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_2<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
-<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines + Few-shot'</span>,</span>
-<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_3<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
-<span id="cb49-21"><a href="#cb49-21" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span></span>
-<span id="cb49-22"><a href="#cb49-22" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb49-23"><a href="#cb49-23" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb49-24"><a href="#cb49-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM + Few-shot'</span>,</span>
-<span id="cb49-25"><a href="#cb49-25" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_4<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb49-26"><a href="#cb49-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb49-27"><a href="#cb49-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
-<span id="cb49-28"><a href="#cb49-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span></span>
-<span id="cb49-29"><a href="#cb49-29" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb49-30"><a href="#cb49-30" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb49-31"><a href="#cb49-31" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Outlines'</span>,</span>
-<span id="cb49-32"><a href="#cb49-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_5<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb49-33"><a href="#cb49-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,</span>
-<span id="cb49-34"><a href="#cb49-34" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
-<span id="cb49-35"><a href="#cb49-35" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb49-36"><a href="#cb49-36" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb49-37"><a href="#cb49-37" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb49-38"><a href="#cb49-38" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Plain LLM'</span>,</span>
-<span id="cb49-39"><a href="#cb49-39" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_6<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb49-40"><a href="#cb49-40" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,</span>
-<span id="cb49-41"><a href="#cb49-41" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
-<span id="cb49-42"><a href="#cb49-42" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb49-43"><a href="#cb49-43" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb49-44"><a href="#cb49-44" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb49-45"><a href="#cb49-45" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemini API + Instructor'</span>,</span>
-<span id="cb49-46"><a href="#cb49-46" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_7<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb49-47"><a href="#cb49-47" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemini-2.0'</span>,</span>
-<span id="cb49-48"><a href="#cb49-48" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'API (Instructor)'</span>,</span>
-<span id="cb49-49"><a href="#cb49-49" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb49-50"><a href="#cb49-50" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb49-51"><a href="#cb49-51" aria-hidden="true" tabindex="-1"></a>])</span>
-<span id="cb49-52"><a href="#cb49-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb49-53"><a href="#cb49-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb49-54"><a href="#cb49-54" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"FINAL COMPARISON - ALL APPROACHES"</span>)</span>
-<span id="cb49-55"><a href="#cb49-55" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb49-56"><a href="#cb49-56" aria-hidden="true" tabindex="-1"></a>display(comparison)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-52" class="cell" data-execution_count="21">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb51"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>comparison <span class="op">=</span> pd.DataFrame([</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines'</span>,</span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_1<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM'</span>,</span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_2<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
+<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
+<span id="cb51-14"><a href="#cb51-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
+<span id="cb51-15"><a href="#cb51-15" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb51-16"><a href="#cb51-16" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb51-17"><a href="#cb51-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines + Few-shot'</span>,</span>
+<span id="cb51-18"><a href="#cb51-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_3<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
+<span id="cb51-19"><a href="#cb51-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
+<span id="cb51-20"><a href="#cb51-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
+<span id="cb51-21"><a href="#cb51-21" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span></span>
+<span id="cb51-22"><a href="#cb51-22" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb51-23"><a href="#cb51-23" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb51-24"><a href="#cb51-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM + Few-shot'</span>,</span>
+<span id="cb51-25"><a href="#cb51-25" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_4<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
+<span id="cb51-26"><a href="#cb51-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
+<span id="cb51-27"><a href="#cb51-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
+<span id="cb51-28"><a href="#cb51-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span></span>
+<span id="cb51-29"><a href="#cb51-29" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb51-30"><a href="#cb51-30" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb51-31"><a href="#cb51-31" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Outlines'</span>,</span>
+<span id="cb51-32"><a href="#cb51-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_5<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
+<span id="cb51-33"><a href="#cb51-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,</span>
+<span id="cb51-34"><a href="#cb51-34" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
+<span id="cb51-35"><a href="#cb51-35" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
+<span id="cb51-36"><a href="#cb51-36" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb51-37"><a href="#cb51-37" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb51-38"><a href="#cb51-38" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Plain LLM'</span>,</span>
+<span id="cb51-39"><a href="#cb51-39" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_6<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
+<span id="cb51-40"><a href="#cb51-40" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,</span>
+<span id="cb51-41"><a href="#cb51-41" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
+<span id="cb51-42"><a href="#cb51-42" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
+<span id="cb51-43"><a href="#cb51-43" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb51-44"><a href="#cb51-44" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb51-45"><a href="#cb51-45" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemini API + Instructor'</span>,</span>
+<span id="cb51-46"><a href="#cb51-46" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_7<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
+<span id="cb51-47"><a href="#cb51-47" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemini-2.0'</span>,</span>
+<span id="cb51-48"><a href="#cb51-48" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'API (Instructor)'</span>,</span>
+<span id="cb51-49"><a href="#cb51-49" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
+<span id="cb51-50"><a href="#cb51-50" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb51-51"><a href="#cb51-51" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb51-52"><a href="#cb51-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb51-53"><a href="#cb51-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb51-54"><a href="#cb51-54" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"FINAL COMPARISON - ALL APPROACHES"</span>)</span>
+<span id="cb51-55"><a href="#cb51-55" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb51-56"><a href="#cb51-56" aria-hidden="true" tabindex="-1"></a>display(comparison)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ======================================================================
@@ -2168,25 +2552,25 @@ FINAL COMPARISON - ALL APPROACHES
 <section id="detailed-error-analysis" class="level1">
 <h1>Detailed Error Analysis</h1>
 <p>Let’s examine where each approach succeeds and fails:</p>
-<div id="cell-53" class="cell" data-execution_count="22">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb51"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine all results for comparison</span></span>
-<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>error_analysis <span class="op">=</span> []</span>
-<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, test <span class="kw">in</span> <span class="bu">enumerate</span>(test_cases):</span>
-<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>    error_analysis.append({</span>
-<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Test'</span>: test[<span class="st">'name'</span>].replace(<span class="st">'Test '</span>, <span class="st">'T'</span>),</span>
-<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Expected'</span>: test[<span class="st">'expected'</span>],</span>
-<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Out'</span>: results_1[i][<span class="st">'Got'</span>],</span>
-<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Plain'</span>: results_2[i][<span class="st">'Got'</span>],</span>
-<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Out+FS'</span>: results_3[i][<span class="st">'Got'</span>],</span>
-<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Plain+FS'</span>: results_4[i][<span class="st">'Got'</span>],</span>
-<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Qwen+Out'</span>: results_5[i][<span class="st">'Got'</span>],</span>
-<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Qwen+Plain'</span>: results_6[i][<span class="st">'Got'</span>],</span>
-<span id="cb51-14"><a href="#cb51-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemini+API'</span>: results_7[i][<span class="st">'Got'</span>]</span>
-<span id="cb51-15"><a href="#cb51-15" aria-hidden="true" tabindex="-1"></a>    })</span>
-<span id="cb51-16"><a href="#cb51-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb51-17"><a href="#cb51-17" aria-hidden="true" tabindex="-1"></a>df_errors <span class="op">=</span> pd.DataFrame(error_analysis)</span>
-<span id="cb51-18"><a href="#cb51-18" aria-hidden="true" tabindex="-1"></a>display(df_errors)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-54" class="cell" data-execution_count="22">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb53"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine all results for comparison</span></span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>error_analysis <span class="op">=</span> []</span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, test <span class="kw">in</span> <span class="bu">enumerate</span>(test_cases):</span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>    error_analysis.append({</span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Test'</span>: test[<span class="st">'name'</span>].replace(<span class="st">'Test '</span>, <span class="st">'T'</span>),</span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Expected'</span>: test[<span class="st">'expected'</span>],</span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Out'</span>: results_1[i][<span class="st">'Got'</span>],</span>
+<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Plain'</span>: results_2[i][<span class="st">'Got'</span>],</span>
+<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Out+FS'</span>: results_3[i][<span class="st">'Got'</span>],</span>
+<span id="cb53-11"><a href="#cb53-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Plain+FS'</span>: results_4[i][<span class="st">'Got'</span>],</span>
+<span id="cb53-12"><a href="#cb53-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Qwen+Out'</span>: results_5[i][<span class="st">'Got'</span>],</span>
+<span id="cb53-13"><a href="#cb53-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Qwen+Plain'</span>: results_6[i][<span class="st">'Got'</span>],</span>
+<span id="cb53-14"><a href="#cb53-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemini+API'</span>: results_7[i][<span class="st">'Got'</span>]</span>
+<span id="cb53-15"><a href="#cb53-15" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb53-16"><a href="#cb53-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-17"><a href="#cb53-17" aria-hidden="true" tabindex="-1"></a>df_errors <span class="op">=</span> pd.DataFrame(error_analysis)</span>
+<span id="cb53-18"><a href="#cb53-18" aria-hidden="true" tabindex="-1"></a>display(df_errors)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display">
 <div>
 
