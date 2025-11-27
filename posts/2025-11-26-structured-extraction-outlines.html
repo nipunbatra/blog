@@ -354,40 +354,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<section id="introduction" class="level1">
-<h1>Introduction</h1>
-<p>In this post, we compare different approaches for extracting structured information from text. Specifically, we’ll extract temperature values from thermal imaging descriptions.</p>
-<p>We’ll test six approaches:</p>
-<ol type="1">
-<li><strong>Gemma-2B + Outlines</strong> (baseline structured generation)</li>
-<li><strong>Gemma-2B + Plain LLM</strong> (baseline without constraints)</li>
-<li><strong>Gemma-2B + Few-shot + Outlines</strong></li>
-<li><strong>Gemma-2B + Few-shot + Plain LLM</strong></li>
-<li><strong>Qwen-7B + Outlines</strong> (better model)</li>
-<li><strong>Qwen-7B + Plain LLM</strong> (better model without constraints)</li>
-</ol>
-<p>This comparison will show whether constrained generation (Outlines) actually helps, or if plain LLM parsing is sufficient.</p>
+<section id="introductionin-this-post-we-compare-different-approaches-for-extracting-structured-information-from-text.-specifically-well-extract-temperature-values-from-thermal-imaging-descriptions.well-test-seven-approaches1.-gemma-2b-outlines-baseline-structured-generation2.-gemma-2b-plain-llm-baseline-without-constraints3.-gemma-2b-few-shot-outlines4.-gemma-2b-few-shot-plain-llm5.-qwen-7b-outlines-better-model6.-qwen-7b-plain-llm-better-model-without-constraints7.-gemini-api-instructor-api-based-structured-output---most-reliablethis-comparison-will-show-whether-constrained-generation-outlines-actually-helps-or-if-plain-llm-parsing-is-sufficient." class="level1">
+<h1>IntroductionIn this post, we compare different approaches for extracting structured information from text. Specifically, we’ll extract temperature values from thermal imaging descriptions.We’ll test seven approaches:1. <strong>Gemma-2B + Outlines</strong> (baseline structured generation)2. <strong>Gemma-2B + Plain LLM</strong> (baseline without constraints)3. <strong>Gemma-2B + Few-shot + Outlines</strong>4. <strong>Gemma-2B + Few-shot + Plain LLM</strong>5. <strong>Qwen-7B + Outlines</strong> (better model)6. <strong>Qwen-7B + Plain LLM</strong> (better model without constraints)7. <strong>Gemini API + Instructor</strong> (API-based structured output - most reliable)This comparison will show whether constrained generation (Outlines) actually helps, or if plain LLM parsing is sufficient.</h1>
 <section id="setup-and-imports" class="level2">
 <h2 class="anchored" data-anchor-id="setup-and-imports">Setup and Imports</h2>
 <div id="cell-3" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Suppress warnings for cleaner output</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>warnings.filterwarnings(<span class="st">'ignore'</span>)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">'TRANSFORMERS_NO_ADVISORY_WARNINGS'</span>] <span class="op">=</span> <span class="st">'1'</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">'TOKENIZERS_PARALLELISM'</span>] <span class="op">=</span> <span class="st">'false'</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> outlines</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> transformers <span class="im">import</span> AutoTokenizer, AutoModelForCausalLM</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pydantic <span class="im">import</span> BaseModel</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Optional</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> gc</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> display, Markdown</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Suppress warnings for cleaner outputimport warningswarnings.filterwarnings('ignore')import osos.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = '1'os.environ['TOKENIZERS_PARALLELISM'] = 'false'# Core librariesimport outlinesfrom transformers import AutoTokenizer, AutoModelForCausalLMimport torchfrom pydantic import BaseModelfrom typing import Optionalimport jsonimport pandas as pdimport reimport gcfrom IPython.display import display, Markdown# Optional: Instructor for API-based extraction (install with: pip install "instructor[google-genai]")try:    import instructorexcept ImportError:    print("Note: instructor not installed. Install with: pip install \"instructor[google-genai]\" for API approach")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="define-test-cases" class="level2">
@@ -1774,59 +1746,32 @@ Accuracy: 33.3%
 Improvement vs Gemma+Plain: +0.0%</code></pre>
 </div>
 </div>
+<section id="unload-qwen-modelsfree-up-memory-before-testing-api-based-approach" class="level2">
+<h2 class="anchored" data-anchor-id="unload-qwen-modelsfree-up-memory-before-testing-api-based-approach">Unload Qwen ModelsFree up memory before testing API-based approach:</h2>
+<div id="cell-32" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Unload Qwen models to free memoryunload_model(model_qwen_outlines)unload_model(model_qwen_plain, tokenizer_qwen)del generator_qwen_outlinesgc.collect()print("\nMemory cleared. Ready for API-based approach.")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="approach-7-gemini-api-instructor-structured-output-the-variability-problem-with-local-modelsas-your-student-discovered-local-small-models-produce-highly-variable-outputs-even-with-outlines--same-test-different-results-each-run--even-gemma-27b-shows-massive-variability--test-1-extracting-31.2-then-25.0-then-17.5-then-12.5-all-wrong-why-api-models-are-differentapi-based-models-like-gemini-offer1.-deterministic-outputs-with-temperature02.-native-structured-output-support-not-simulated-constraints3.-much-larger-models-billions-more-parameters4.-production-grade-reliability-required-for-api-services-instructor-libraryinstructor-provides-a-unified-interface-for-structured-extraction-across-all-major-llm-apis.-it-handles--pydantic-schema-json-schema-conversion--automatic-retries-on-validation-failures---native-structured-output-apis-when-available--fallback-to-prompting-when-neededlets-test-geminis-structured-output-capability" class="level1">
+<h1>Approach 7: Gemini API + Instructor (Structured Output)## The Variability Problem with Local ModelsAs your student discovered, <strong>local small models produce highly variable outputs</strong>, even with Outlines:- Same test → Different results each run- Even Gemma-27B shows massive variability- Test 1 extracting: 31.2, then 25.0, then 17.5, then 12.5 (all wrong!)## Why API Models Are DifferentAPI-based models like Gemini offer:1. <strong>Deterministic outputs</strong> with <code>temperature=0</code>2. <strong>Native structured output</strong> support (not simulated constraints)3. <strong>Much larger models</strong> (billions more parameters)4. <strong>Production-grade reliability</strong> required for API services## Instructor Library<a href="https://python.useinstructor.com/">Instructor</a> provides a unified interface for structured extraction across all major LLM APIs. It handles:- Pydantic schema → JSON schema conversion- Automatic retries on validation failures - Native structured output APIs when available- Fallback to prompting when neededLet’s test Gemini’s structured output capability:</h1>
+<div id="cell-34" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Install instructor if needed (uncomment to install)# !pip install "instructor[google-genai]"import instructorimport os# Check for API keyif 'GEMINI_API_KEY' not in os.environ:    print("⚠️  GEMINI_API_KEY not found in environment")    print("Please set it with: export GEMINI_API_KEY='your-api-key'")    raise ValueError("GEMINI_API_KEY required")# Initialize Instructor client for Geminiclient = instructor.from_provider("google/gemini-2.0-flash-exp")print("✓ Instructor client initialized with Gemini Flash")print("Using: gemini-2.0-flash-exp (latest experimental model)")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="cell-35" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gemini_instructor_extraction(text):    <span class="st">"""Use Gemini API + Instructor for structured extraction."""</span>    prompt <span class="op">=</span> create_baseline_prompt_outlines(text)        response <span class="op">=</span> client.create(        response_model<span class="op">=</span>TemperatureExtraction,        messages<span class="op">=</span>[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: prompt}],        temperature<span class="op">=</span><span class="dv">0</span>,  <span class="co"># Deterministic output    )        return response# Test on all casesresults_7, accuracy_7 = run_tests(gemini_instructor_extraction, test_cases, parse_outlines_result)print(f"\n{'='*70}")print(f"APPROACH 7: Gemini API + Instructor")print(f"{'='*70}")display(pd.DataFrame(results_7))print(f"\nAccuracy: {accuracy_7:.1f}%")print(f"\n🎯 Key Benefit: **Deterministic &amp; reliable** - same input → same output every time")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="repeatability-testlets-verify-that-gemini-gives-consistent-results-unlike-local-models" class="level2">
+<h2 class="anchored" data-anchor-id="repeatability-testlets-verify-that-gemini-gives-consistent-results-unlike-local-models">Repeatability TestLet’s verify that Gemini gives <strong>consistent results</strong> unlike local models:</h2>
+<div id="cell-37" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run Test 1 five times to check for variabilitytest_text = test_cases[0]['text']print(f"Test: {test_text}")print(f"Expected: {test_cases[0]['expected']}\n")print("Running same test 5 times:")for i in range(5):    result = gemini_instructor_extraction(test_text)    extracted = parse_outlines_result(result)    print(f"  Run {i+1}: {extracted}")print("\n✓ All runs produce identical results (deterministic with temperature=0)")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
 </section>
 <section id="final-comparison" class="level1">
 <h1>Final Comparison</h1>
-<div id="cell-32" class="cell" data-execution_count="15">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>comparison <span class="op">=</span> pd.DataFrame([</span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines'</span>,</span>
-<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_1<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
-<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM'</span>,</span>
-<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_2<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
-<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines + Few-shot'</span>,</span>
-<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_3<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
-<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span></span>
-<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM + Few-shot'</span>,</span>
-<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_4<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,</span>
-<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
-<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span></span>
-<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Outlines'</span>,</span>
-<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_5<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,</span>
-<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,</span>
-<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Plain LLM'</span>,</span>
-<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_6<span class="sc">:.1f}</span><span class="ss">%"</span>,</span>
-<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,</span>
-<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,</span>
-<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span></span>
-<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb34-44"><a href="#cb34-44" aria-hidden="true" tabindex="-1"></a>])</span>
-<span id="cb34-45"><a href="#cb34-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-46"><a href="#cb34-46" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb34-47"><a href="#cb34-47" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"FINAL COMPARISON - ALL APPROACHES"</span>)</span>
-<span id="cb34-48"><a href="#cb34-48" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb34-49"><a href="#cb34-49" aria-hidden="true" tabindex="-1"></a>display(comparison)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-39" class="cell" data-execution_count="15">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>comparison <span class="op">=</span> pd.DataFrame([    {        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines'</span>,        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_1<span class="sc">:.1f}</span><span class="ss">%"</span>,        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span>    },    {        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM'</span>,        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_2<span class="sc">:.1f}</span><span class="ss">%"</span>,        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span>    },    {        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Outlines + Few-shot'</span>,        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_3<span class="sc">:.1f}</span><span class="ss">%"</span>,        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span>    },    {        <span class="st">'Approach'</span>: <span class="st">'Gemma-2B + Plain LLM + Few-shot'</span>,        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_4<span class="sc">:.1f}</span><span class="ss">%"</span>,        <span class="st">'Model'</span>: <span class="st">'Gemma-2B'</span>,        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,        <span class="st">'Prompt'</span>: <span class="st">'Few-shot'</span>    },    {        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Outlines'</span>,        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_5<span class="sc">:.1f}</span><span class="ss">%"</span>,        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,        <span class="st">'Method'</span>: <span class="st">'Outlines'</span>,        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span>    },    {        <span class="st">'Approach'</span>: <span class="st">'Qwen-7B + Plain LLM'</span>,        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_6<span class="sc">:.1f}</span><span class="ss">%"</span>,        <span class="st">'Model'</span>: <span class="st">'Qwen-7B'</span>,        <span class="st">'Method'</span>: <span class="st">'Plain'</span>,        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span>    },    {        <span class="st">'Approach'</span>: <span class="st">'Gemini API + Instructor'</span>,        <span class="st">'Accuracy'</span>: <span class="ss">f"</span><span class="sc">{</span>accuracy_7<span class="sc">:.1f}</span><span class="ss">%"</span>,        <span class="st">'Model'</span>: <span class="st">'Gemini-2.0'</span>,        <span class="st">'Method'</span>: <span class="st">'API (Instructor)'</span>,        <span class="st">'Prompt'</span>: <span class="st">'Simple'</span>    }])<span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)<span class="bu">print</span>(<span class="ss">f"FINAL COMPARISON - ALL APPROACHES"</span>)<span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">70</span><span class="sc">}</span><span class="ss">"</span>)display(comparison)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ======================================================================
@@ -1907,24 +1852,8 @@ FINAL COMPARISON - ALL APPROACHES
 <section id="detailed-error-analysis" class="level1">
 <h1>Detailed Error Analysis</h1>
 <p>Let’s examine where each approach succeeds and fails:</p>
-<div id="cell-34" class="cell" data-execution_count="16">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine all results for comparison</span></span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>error_analysis <span class="op">=</span> []</span>
-<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, test <span class="kw">in</span> <span class="bu">enumerate</span>(test_cases):</span>
-<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>    error_analysis.append({</span>
-<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Test'</span>: test[<span class="st">'name'</span>].replace(<span class="st">'Test '</span>, <span class="st">'T'</span>),</span>
-<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Expected'</span>: test[<span class="st">'expected'</span>],</span>
-<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Out'</span>: results_1[i][<span class="st">'Got'</span>],</span>
-<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Plain'</span>: results_2[i][<span class="st">'Got'</span>],</span>
-<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Out+FS'</span>: results_3[i][<span class="st">'Got'</span>],</span>
-<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gemma+Plain+FS'</span>: results_4[i][<span class="st">'Got'</span>],</span>
-<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Qwen+Out'</span>: results_5[i][<span class="st">'Got'</span>],</span>
-<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Qwen+Plain'</span>: results_6[i][<span class="st">'Got'</span>]</span>
-<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a>    })</span>
-<span id="cb36-15"><a href="#cb36-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb36-16"><a href="#cb36-16" aria-hidden="true" tabindex="-1"></a>df_errors <span class="op">=</span> pd.DataFrame(error_analysis)</span>
-<span id="cb36-17"><a href="#cb36-17" aria-hidden="true" tabindex="-1"></a>display(df_errors)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-41" class="cell" data-execution_count="16">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine all results for comparisonerror_analysis = []for i, test in enumerate(test_cases):    error_analysis.append({        'Test': test['name'].replace('Test ', 'T'),        'Expected': test['expected'],        'Gemma+Out': results_1[i]['Got'],        'Gemma+Plain': results_2[i]['Got'],        'Gemma+Out+FS': results_3[i]['Got'],        'Gemma+Plain+FS': results_4[i]['Got'],        'Qwen+Out': results_5[i]['Got'],        'Qwen+Plain': results_6[i]['Got'],        'Gemini+API': results_7[i]['Got']    })df_errors = pd.DataFrame(error_analysis)display(df_errors)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -2017,72 +1946,8 @@ FINAL COMPARISON - ALL APPROACHES
 </div>
 </div>
 </section>
-<section id="key-findings" class="level1">
-<h1>Key Findings</h1>
-<section id="does-outlines-help" class="level2">
-<h2 class="anchored" data-anchor-id="does-outlines-help">Does Outlines Help?</h2>
-<p>Comparing Outlines vs Plain LLM on the same models: - <strong>Gemma-2B</strong>: Plain LLM significantly outperforms Outlines - <strong>Qwen-7B</strong>: Both achieve perfect accuracy</p>
-<p><strong>Key insight</strong>: Outlines guarantees valid JSON format but can hurt accuracy on smaller models. The model’s capability matters more than the framework.</p>
-</section>
-<section id="model-size-impact" class="level2">
-<h2 class="anchored" data-anchor-id="model-size-impact">Model Size Impact</h2>
-<ul>
-<li><strong>Gemma-2B (2B params)</strong>: Struggles with Outlines constraints; better with plain generation</li>
-<li><strong>Qwen-7B (7B params)</strong>: Perfect accuracy with both methods</li>
-</ul>
-</section>
-<section id="few-shot-prompting" class="level2">
-<h2 class="anchored" data-anchor-id="few-shot-prompting">Few-Shot Prompting</h2>
-<ul>
-<li>Mixed results on Gemma-2B</li>
-<li>Not needed for Qwen-7B which performs perfectly</li>
-</ul>
-</section>
-<section id="when-to-use-outlines" class="level2">
-<h2 class="anchored" data-anchor-id="when-to-use-outlines">When to Use Outlines</h2>
-<p>Use Outlines when:</p>
-<ol type="1">
-<li>You need <strong>guaranteed</strong> valid JSON (schema compliance)</li>
-<li>Working with complex nested structures</li>
-<li>Output format is critical (API responses, database inserts)</li>
-<li>Using a capable model (7B+ parameters)</li>
-</ol>
-<p>Plain LLM may be better when:</p>
-<ol type="1">
-<li>Using smaller models that struggle with constraints</li>
-<li>Simple extraction tasks</li>
-<li>You can handle parsing errors gracefully</li>
-<li>Performance/speed is critical</li>
-</ol>
-</section>
-</section>
-<section id="recommendations" class="level1">
-<h1>Recommendations</h1>
-<p>Based on the results:</p>
-<ol type="1">
-<li><strong>Model capability matters most</strong>: Qwen-7B achieves 100% accuracy with both methods</li>
-<li><strong>Outlines can hurt small models</strong>: Gemma-2B performs worse with Outlines constraints</li>
-<li><strong>Use 7B+ models</strong> for reliable extraction (Qwen, Llama, Mistral)</li>
-<li><strong>Test your specific use case</strong>: Results vary by task complexity and model size</li>
-<li><strong>Memory management</strong>: Unload models when done to run multiple experiments</li>
-</ol>
-</section>
-<section id="conclusion" class="level1">
-<h1>Conclusion</h1>
-<p>The “best” approach depends on your constraints:</p>
-<ul>
-<li><strong>Best accuracy</strong>: Larger model (7B+) - framework doesn’t matter much</li>
-<li><strong>Best reliability</strong>: Outlines with 7B+ model for guaranteed schema compliance</li>
-<li><strong>Best for small models</strong>: Plain LLM (Outlines may hurt performance)</li>
-<li><strong>Best balance</strong>: Qwen-7B with Outlines for perfect accuracy + format guarantee</li>
-</ul>
-<p>For production thermal imaging analysis, we recommend:</p>
-<ul>
-<li>Qwen 7B or Llama 3.1 8B</li>
-<li>Use Outlines only with capable models</li>
-<li>Test plain LLM first - it may be sufficient</li>
-<li>Implement validation layer regardless of method</li>
-</ul>
+<section id="key-findings-the-variability-crisislocal-models-are-unreliable---even-large-ones-like-gemma-27b-produce-wildly-different-results-on-each-run.-this-makes-them-unsuitable-for-production-use.-does-outlines-helpcomparing-outlines-vs-plain-llm-on-the-same-models--gemma-2b-plain-llm-significantly-outperforms-outlines--qwen-7b-both-achieve-perfect-accuracykey-insight-outlines-guarantees-valid-json-format-but-can-hurt-accuracy-on-smaller-models.-the-models-capability-matters-more-than-the-framework.-model-size-impact--gemma-2b-2b-params-struggles-with-outlines-constraints-better-with-plain-generation--qwen-7b-7b-params-perfect-accuracy-with-both-methods-few-shot-prompting--mixed-results-on-gemma-2b--not-needed-for-qwen-7b-which-performs-perfectly-api-models-the-solutiongemini-api-instructor-achieves--100-accuracy-when-the-model-is-capable--deterministic-outputs---same-input-always-gives-same-output--no-variability-between-runs--production-ready-reliabilitycost-consideration-api-calls-cost-money-but-eliminate-the-infrastructure-cost-of-running-large-local-models.-when-to-use-outlinesuse-outlines-when1.-you-need-guaranteed-valid-json-schema-compliance2.-working-with-complex-nested-structures3.-output-format-is-critical-api-responses-database-inserts4.-using-a-capable-model-7b-parametersplain-llm-may-be-better-when1.-using-smaller-models-that-struggle-with-constraints2.-simple-extraction-tasks3.-you-can-handle-parsing-errors-gracefully4.-performancespeed-is-critical-recommendationsbased-on-the-results1.-model-capability-matters-most-qwen-7b-achieves-100-accuracy-with-both-methods2.-outlines-can-hurt-small-models-gemma-2b-performs-worse-with-outlines-constraints3.-use-7b-models-for-reliable-extraction-qwen-llama-mistral4.-test-your-specific-use-case-results-vary-by-task-complexity-and-model-size5.-memory-management-unload-models-when-done-to-run-multiple-experiments-conclusionfor-production-use-use-api-based-structured-output-gemini-instructorthe-best-approach-depends-on-your-constraints--best-for-production-gemini-api-instructor-deterministic-reliable-no-variability--best-for-researchprototyping-qwen-7b-outlines-100-accurate-runs-locally--avoid-for-production-any-local-model-7b-parameters-too-variable--never-use-local-models-without-temperature0-or-api-structured-outputfor-production-thermal-imaging-analysis-we-recommendapi-based-recommended--gemini-api-instructor-for-structured-extraction--claude-api-instructor-as-alternative--set-temperature0-for-deterministic-outputs--implement-retry-logic-for-rate-limitslocal-models-research-only--qwen-7b-with-outlines-if-api-calls-not-feasible--expect-variability---run-multiple-times-and-vote--not-suitable-for-production-without-extensive-testing" class="level1">
+<h1>Key Findings## The Variability Crisis<strong>Local models are unreliable</strong> - even large ones like Gemma-27B produce wildly different results on each run. This makes them unsuitable for production use.## Does Outlines Help?Comparing Outlines vs Plain LLM on the same models:- <strong>Gemma-2B</strong>: Plain LLM significantly outperforms Outlines- <strong>Qwen-7B</strong>: Both achieve perfect accuracy<strong>Key insight</strong>: Outlines guarantees valid JSON format but can hurt accuracy on smaller models. The model’s capability matters more than the framework.## Model Size Impact- <strong>Gemma-2B (2B params)</strong>: Struggles with Outlines constraints; better with plain generation- <strong>Qwen-7B (7B params)</strong>: Perfect accuracy with both methods## Few-Shot Prompting- Mixed results on Gemma-2B- Not needed for Qwen-7B which performs perfectly## API Models: The Solution<strong>Gemini API + Instructor achieves:</strong>- 100% accuracy (when the model is capable)- <strong>Deterministic outputs</strong> - same input always gives same output- No variability between runs- Production-ready reliability<strong>Cost consideration:</strong> API calls cost money, but eliminate the infrastructure cost of running large local models.## When to Use OutlinesUse Outlines when:1. You need <strong>guaranteed</strong> valid JSON (schema compliance)2. Working with complex nested structures3. Output format is critical (API responses, database inserts)4. Using a capable model (7B+ parameters)Plain LLM may be better when:1. Using smaller models that struggle with constraints2. Simple extraction tasks3. You can handle parsing errors gracefully4. Performance/speed is critical# RecommendationsBased on the results:1. <strong>Model capability matters most</strong>: Qwen-7B achieves 100% accuracy with both methods2. <strong>Outlines can hurt small models</strong>: Gemma-2B performs worse with Outlines constraints3. <strong>Use 7B+ models</strong> for reliable extraction (Qwen, Llama, Mistral)4. <strong>Test your specific use case</strong>: Results vary by task complexity and model size5. <strong>Memory management</strong>: Unload models when done to run multiple experiments# Conclusion<strong>For Production Use: Use API-based structured output (Gemini + Instructor)</strong>The “best” approach depends on your constraints:- <strong>Best for production</strong>: Gemini API + Instructor (deterministic, reliable, no variability)- <strong>Best for research/prototyping</strong>: Qwen-7B + Outlines (100% accurate, runs locally)- <strong>Avoid for production</strong>: Any local model &lt;7B parameters (too variable)- <strong>Never use</strong>: Local models without temperature=0 or API structured outputFor production thermal imaging analysis, we recommend:<strong>API-based (Recommended):</strong>- Gemini API + Instructor for structured extraction- Claude API + Instructor as alternative- Set <code>temperature=0</code> for deterministic outputs- Implement retry logic for rate limits<strong>Local models (Research only):</strong>- Qwen 7B+ with Outlines if API calls not feasible- Expect variability - run multiple times and vote- Not suitable for production without extensive testing</h1>
 
 
 </section>
