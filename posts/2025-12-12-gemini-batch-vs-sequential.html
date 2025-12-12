@@ -7,10 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Nipun Batra">
-<meta name="dcterms.date" content="2025-06-30">
-<meta name="description" content="Exploring Marimo’s reactive notebook capabilities integrated with Quarto">
+<meta name="dcterms.date" content="2025-12-12">
 
-<title>Interactive Data Science with Marimo – Nipun Batra Blog</title>
+<title>Sequential vs Batch Processing with Gemini API – Nipun Batra Blog</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -22,6 +21,41 @@ ul.task-list li input[type="checkbox"] {
   width: 0.8em;
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -75,13 +109,11 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
-<script type="module" src="https://cdn.jsdelivr.net/npm/@marimo-team/islands@0.18.4/dist/main.js"></script>
-<link href="https://cdn.jsdelivr.net/npm/@marimo-team/islands@0.18.4/dist/style.css" rel="stylesheet" crossorigin="anonymous">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&amp;family=Lora&amp;family=PT+Sans:wght@400;700&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" integrity="sha384-wcIxkf4k558AjM3Yz3BBFQUbk/zgIYC2R0QpeeYb+TwlBVMrlgLqwRjRtGZiK7ww" crossorigin="anonymous">
-</head><body class="nav-fixed fullcontent quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+
+
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
     const toggleBodyColorMode = (bsSheetEl) => {
       const mode = bsSheetEl.getAttribute("data-mode");
       const bodyEl = window.document.querySelector("body");
@@ -243,12 +275,7 @@ ul.task-list li input[type="checkbox"] {
     } else {
       toggleColorMode(false);
     }
-  </script><marimo-filename hidden=""></marimo-filename>
-
-
-
-
-
+  </script>
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top quarto-banner">
@@ -281,17 +308,13 @@ ul.task-list li input[type="checkbox"] {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Interactive Data Science with Marimo</h1>
-                  <div>
-        <div class="description">
-          Exploring Marimo’s reactive notebook capabilities integrated with Quarto
-        </div>
-      </div>
-                          <div class="quarto-categories">
-                <div class="quarto-category">python</div>
-                <div class="quarto-category">interactive</div>
-                <div class="quarto-category">data-science</div>
-                <div class="quarto-category">marimo</div>
+      <h1 class="title">Sequential vs Batch Processing with Gemini API</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">LLM</div>
+                <div class="quarto-category">Gemini</div>
+                <div class="quarto-category">Performance</div>
+                <div class="quarto-category">Batching</div>
+                <div class="quarto-category">Python</div>
               </div>
                   </div>
   </div>
@@ -309,7 +332,7 @@ ul.task-list li input[type="checkbox"] {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">June 30, 2025</p>
+        <p class="date">December 12, 2025</p>
       </div>
     </div>
     
@@ -320,7 +343,21 @@ ul.task-list li input[type="checkbox"] {
   </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#load-the-images" id="toc-load-the-images" class="nav-link" data-scroll-target="#load-the-images">Load the Images</a>
+  <ul class="collapse">
+  <li><a href="#sequential-processing" id="toc-sequential-processing" class="nav-link" data-scroll-target="#sequential-processing">Sequential Processing</a></li>
+  <li><a href="#batch-concurrent-processing" id="toc-batch-concurrent-processing" class="nav-link" data-scroll-target="#batch-concurrent-processing">Batch (Concurrent) Processing</a></li>
+  <li><a href="#comparison-and-verification" id="toc-comparison-and-verification" class="nav-link" data-scroll-target="#comparison-and-verification">Comparison and Verification</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
 
@@ -329,98 +366,195 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<section id="introduction" class="level2">
-<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<p>This post demonstrates the power of <a href="https://marimo.io/">Marimo</a>, a reactive Python notebook that integrates beautifully with Quarto. Unlike traditional notebooks, Marimo automatically updates cells when their dependencies change, creating a truly interactive experience.</p>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>When processing large datasets of images with Multimodal LLMs, latency can become a bottleneck. In this post, we explore the performance difference between <strong>sequential</strong> processing (one image at a time) and <strong>concurrent/batch</strong> processing (multiple images in parallel) using the Gemini API.</p>
+<p>We will use a realistic scenario: counting the number of people in 4 different images representing various crowd densities.</p>
+<div id="8aead076" class="cell" data-execution_count="19">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> google <span class="im">import</span> genai</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> io</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Setup the client</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Ensure GEMINI_API_KEY is set in your environment</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> genai.Client(api_key<span class="op">=</span>os.environ.get(<span class="st">"GEMINI_API_KEY"</span>))</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>MODEL_ID <span class="op">=</span> <span class="st">"models/gemini-3-pro-preview"</span> <span class="co"># Or gemini-1.5-flash</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co"># retina backend</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>config InlineBackend.figure_format <span class="op">=</span> <span class="st">'retina'</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
 </section>
-<section id="what-makes-marimo-special" class="level2">
-<h2 class="anchored" data-anchor-id="what-makes-marimo-special">What Makes Marimo Special?</h2>
-<p>Marimo brings several advantages over traditional notebooks:</p>
-<ul>
-<li><strong>Reactive execution</strong>: Cells automatically re-run when their inputs change</li>
-<li><strong>No hidden state</strong>: Clean execution model prevents common notebook pitfalls<br>
-</li>
-<li><strong>Interactive UI elements</strong>: Built-in widgets for creating interactive experiences</li>
-<li><strong>Reproducible</strong>: Deterministic execution order ensures reproducibility</li>
-<li><strong>Pythonic</strong>: Notebooks are valid Python scripts</li>
-</ul>
+<section id="load-the-images" class="level1">
+<h1>Load the Images</h1>
+<p>We will use 4 different images: 1. A bus scene (<code>bus.jpg</code>) 2. A dense crowd (<code>crowd1.jpg</code>) 3. Times Square (<code>crowd2.jpg</code>) 4. A classroom (<code>classroom.jpg</code>)</p>
+<div id="8df375b9" class="cell" data-execution_count="20">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>image_paths <span class="op">=</span> [<span class="st">"bus.jpg"</span>, <span class="st">"crowd1.jpg"</span>, <span class="st">"crowd2.jpg"</span>, <span class="st">"classroom.jpg"</span>]</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> [Image.<span class="bu">open</span>(p) <span class="cf">for</span> p <span class="kw">in</span> image_paths]</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"Count the number of people in this image. Return just the integer number."</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Display images in a grid</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">4</span>, figsize<span class="op">=</span>(<span class="dv">20</span>, <span class="dv">5</span>))</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, img, name <span class="kw">in</span> <span class="bu">zip</span>(axes, images, image_paths):</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    ax.imshow(img)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    ax.set_title(name)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    ax.axis(<span class="st">'off'</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Benchmarking with </span><span class="sc">{</span><span class="bu">len</span>(images)<span class="sc">}</span><span class="ss"> images."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2025-12-12-gemini-batch-vs-sequential_files/figure-html/cell-3-output-1.png" width="1545" height="426" class="figure-img"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Benchmarking with 4 images.</code></pre>
+</div>
+</div>
+<section id="sequential-processing" class="level2">
+<h2 class="anchored" data-anchor-id="sequential-processing">Sequential Processing</h2>
+<p>First, let’s process the images one by one in a simple loop.</p>
+<div id="07661e4d" class="cell" data-execution_count="15">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_sequential(images, prompt):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> []</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    start_time <span class="op">=</span> time.time()</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(images):</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Processing image </span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(images)<span class="sc">}</span><span class="ss">..."</span>, end<span class="op">=</span><span class="st">"</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        response <span class="op">=</span> client.models.generate_content(</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>            model<span class="op">=</span>MODEL_ID,</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>            contents<span class="op">=</span>[img, prompt]</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        results.append(response.text)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    end_time <span class="op">=</span> time.time()</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> end_time <span class="op">-</span> start_time, results</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Starting sequential processing..."</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>seq_time, seq_results <span class="op">=</span> run_sequential(images, prompt)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Sequential processing took: </span><span class="sc">{</span>seq_time<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Average time per image: </span><span class="sc">{</span>seq_time<span class="op">/</span><span class="bu">len</span>(images)<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Print results</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, res <span class="kw">in</span> <span class="bu">zip</span>(image_paths, seq_results):</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>res<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Starting sequential processing...
+Processing image 1/4...
+Processing image 2/4...
+Processing image 3/4...
+Processing image 4/4...
+Sequential processing took: 97.71 seconds
+Average time per image: 24.43 seconds
+bus.jpg: 6
+crowd1.jpg: 102
+crowd2.jpg: 144
+classroom.jpg: 11</code></pre>
+</div>
+</div>
 </section>
-<section id="interactive-demo" class="level2">
-<h2 class="anchored" data-anchor-id="interactive-demo">Interactive Demo</h2>
-<p><strong>Try these live interactive examples!</strong> Adjust the sliders and dropdowns to see the content update in real-time:</p>
-<section id="example-1-simple-interactive-slider" class="level3">
-<h3 class="anchored" data-anchor-id="example-1-simple-interactive-slider">Example 1: Simple Interactive Slider</h3>
-<marimo-island data-app-id="main" data-cell-id="Hbol" data-reactive="true">
-    <marimo-cell-output>
-    <marimo-ui-element object-id="Hbol-0" random-id="c721be1e-968a-8bbf-4040-37aae3a5da41"><marimo-slider data-initial-value="1" data-label="&quot;<span class=\&quot;markdown prose dark:prose-invert contents\&quot;><span class=\&quot;paragraph\&quot;>Look, a slider!</span></span>&quot;" data-start="1" data-stop="10" data-step="1" data-steps="[]" data-debounce="false" data-disabled="false" data-orientation="&quot;horizontal&quot;" data-show-value="false" data-include-input="false" data-full-width="false"></marimo-slider></marimo-ui-element>
-    </marimo-cell-output>
-    <marimo-ui-element object-id="c721be1e-968a-8bbf-4040-37aae3a5da41" random-id="c721be1e-968a-8bbf-4040-37aae3a5da41"><marimo-code-editor data-initial-value="&quot;import marimo as mo\nslider = mo.ui.slider(1, 10, 1, label=\&quot;Look, a slider!\&quot;)\nslider&quot;" data-label="null" data-language="&quot;python&quot;" data-placeholder="&quot;&quot;" data-disabled="false" data-show-copy-button="true" data-debounce="false"></marimo-code-editor></marimo-ui-element>
-</marimo-island>
-<marimo-island data-app-id="main" data-cell-id="MJUe" data-reactive="true">
-    <marimo-cell-output>
-    <marimo-mime-renderer data-mime="&quot;text/markdown&quot;" data-data="&quot;<span class=\&quot;markdown prose dark:prose-invert contents\&quot;><span class=\&quot;paragraph\&quot;>NaN Batman!</span></span>&quot;"></marimo-mime-renderer>
-    </marimo-cell-output>
-    <marimo-cell-code hidden="">mo.md(%22NaN%22%20*%20slider.value%20%2B%20%22%20Batman!%22)</marimo-cell-code>
-</marimo-island>
+<section id="batch-concurrent-processing" class="level2">
+<h2 class="anchored" data-anchor-id="batch-concurrent-processing">Batch (Concurrent) Processing</h2>
+<p>Now, let’s use Python’s <code>asyncio</code> to send multiple requests at the same time.</p>
+<div id="7b8208c1" class="cell" data-execution_count="16">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> process_one_async(client, img, prompt):</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        model<span class="op">=</span>MODEL_ID,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        contents<span class="op">=</span>[img, prompt]</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> response.text</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> run_batch(images, prompt):</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    start_time <span class="op">=</span> time.time()</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Create tasks for all images</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    tasks <span class="op">=</span> [process_one_async(client, img, prompt) <span class="cf">for</span> img <span class="kw">in</span> images]</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Run them concurrently</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> <span class="cf">await</span> asyncio.gather(<span class="op">*</span>tasks)</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    end_time <span class="op">=</span> time.time()</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> end_time <span class="op">-</span> start_time, results</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Starting batch processing..."</span>)</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co"># In a Jupyter notebook, await works directly at the top level</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>batch_time, batch_results <span class="op">=</span> <span class="cf">await</span> run_batch(images, prompt)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Batch processing took: </span><span class="sc">{</span>batch_time<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Average time per image: </span><span class="sc">{</span>batch_time<span class="op">/</span><span class="bu">len</span>(images)<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Print results</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, res <span class="kw">in</span> <span class="bu">zip</span>(image_paths, batch_results):</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>res<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Starting batch processing...
+Batch processing took: 31.35 seconds
+Average time per image: 7.84 seconds
+bus.jpg: 5
+crowd1.jpg: 98 people are visible in the image.
+crowd2.jpg: 103
+classroom.jpg: 10</code></pre>
+</div>
+</div>
 </section>
-<section id="example-2-interactive-text-and-dropdown" class="level3">
-<h3 class="anchored" data-anchor-id="example-2-interactive-text-and-dropdown">Example 2: Interactive Text and Dropdown</h3>
-<marimo-island data-app-id="main" data-cell-id="vblA" data-reactive="true">
-    <marimo-cell-output>
-    <div style="display: flex;flex: 1;flex-direction: row;justify-content: space-between;align-items: normal;flex-wrap: nowrap;gap: 2rem"><marimo-ui-element object-id="vblA-0" random-id="d3a699a1-da29-2363-c003-c8fc7d4c280a"><marimo-slider data-initial-value="5" data-label="&quot;<span class=\&quot;markdown prose dark:prose-invert contents\&quot;><span class=\&quot;paragraph\&quot;>Word count:</span></span>&quot;" data-start="1" data-stop="20" data-step="1" data-steps="[]" data-debounce="false" data-disabled="false" data-orientation="&quot;horizontal&quot;" data-show-value="false" data-include-input="false" data-full-width="false"></marimo-slider></marimo-ui-element><marimo-ui-element object-id="vblA-1" random-id="221cfce0-2f3d-a0cc-fe2b-85cc49e594a6"><marimo-dropdown data-initial-value="[&quot;Hello&quot;]" data-label="&quot;<span class=\&quot;markdown prose dark:prose-invert contents\&quot;><span class=\&quot;paragraph\&quot;>Greeting:</span></span>&quot;" data-options="[&quot;Hello&quot;,&quot;Hi&quot;,&quot;Hey&quot;,&quot;Greetings&quot;]" data-allow-select-none="false" data-searchable="false" data-full-width="false"></marimo-dropdown></marimo-ui-element></div>
-    </marimo-cell-output>
-    <marimo-ui-element object-id="d3a699a1-da29-2363-c003-c8fc7d4c280a" random-id="d3a699a1-da29-2363-c003-c8fc7d4c280a"><marimo-code-editor data-initial-value="&quot;# Interactive controls for text generation\nword_count = mo.ui.slider(1, 20, step=1, value=5, label=\&quot;Word count:\&quot;)\ngreeting = mo.ui.dropdown([\&quot;Hello\&quot;, \&quot;Hi\&quot;, \&quot;Hey\&quot;, \&quot;Greetings\&quot;], value=\&quot;Hello\&quot;, label=\&quot;Greeting:\&quot;)\n\nmo.md(\&quot;**Text Generation Controls:**\&quot;)\nmo.hstack([word_count, greeting], justify=\&quot;space-between\&quot;, gap=2)&quot;" data-label="null" data-language="&quot;python&quot;" data-placeholder="&quot;&quot;" data-disabled="false" data-show-copy-button="true" data-debounce="false"></marimo-code-editor></marimo-ui-element>
-</marimo-island>
-<marimo-island data-app-id="main" data-cell-id="bkHC" data-reactive="true">
-    <marimo-cell-output>
-    <marimo-mime-renderer data-mime="&quot;text/markdown&quot;" data-data="&quot;<span class=\&quot;markdown prose dark:prose-invert contents\&quot;><span class=\&quot;paragraph\&quot;><strong>Generated Message:</strong></span>\n<blockquote>\n<span class=\&quot;paragraph\&quot;>Hello world there friend everyone folks!</span>\n</blockquote>\n<span class=\&quot;paragraph\&quot;><strong>Settings:</strong></span>\n<ul>\n<li>Greeting: Hello</li>\n<li>Word count: 5</li>\n<li>Words used: world, there, friend, everyone, folks</li>\n</ul></span>&quot;"></marimo-mime-renderer>
-    </marimo-cell-output>
-    <marimo-cell-code hidden="">%23%20Reactive%20text%20that%20updates%20when%20controls%20change%0Awords%20%3D%20%5B%22world%22%2C%20%22there%22%2C%20%22friend%22%2C%20%22everyone%22%2C%20%22folks%22%2C%20%22people%22%2C%20%22team%22%2C%20%22readers%22%2C%20%22visitors%22%2C%20%22audience%22%5D%20*%202%0A%0Aselected_words%20%3D%20words%5B%3Aword_count.value%5D%0Amessage%20%3D%20f%22%7Bgreeting.value%7D%20%7B'%20'.join(selected_words)%7D!%22%0A%0Amo.md(f%22%22%22%0A**Generated%20Message%3A**%0A%0A%3E%20%7Bmessage%7D%0A%0A**Settings%3A**%0A-%20Greeting%3A%20%7Bgreeting.value%7D%0A-%20Word%20count%3A%20%7Bword_count.value%7D%0A-%20Words%20used%3A%20%7B'%2C%20'.join(selected_words)%7D%0A%22%22%22)</marimo-cell-code>
-</marimo-island>
-</section>
-</section>
-<section id="key-features-demonstrated" class="level2">
-<h2 class="anchored" data-anchor-id="key-features-demonstrated">Key Features Demonstrated</h2>
-<section id="reactive-updates" class="level3">
-<h3 class="anchored" data-anchor-id="reactive-updates">1. Reactive Updates</h3>
-<p>Try adjusting the sliders in the examples above - notice how all dependent content updates automatically without manually re-running cells.</p>
-</section>
-<section id="interactive-widgets" class="level3">
-<h3 class="anchored" data-anchor-id="interactive-widgets">2. Interactive Widgets</h3>
-<p>Marimo provides a rich set of UI elements: - Sliders for numeric inputs - Dropdowns for categorical selections<br>
-- Text inputs, checkboxes, and more</p>
-</section>
-<section id="real-time-content-generation" class="level3">
-<h3 class="anchored" data-anchor-id="real-time-content-generation">3. Real-time Content Generation</h3>
-<p>The examples show how you can create interactive content that responds to user input, generating text and messages dynamically.</p>
-</section>
-</section>
-<section id="try-more-complex-examples" class="level2">
-<h2 class="anchored" data-anchor-id="try-more-complex-examples">Try More Complex Examples</h2>
-<p>The examples above demonstrate basic interactivity. For more complex scenarios, you can:</p>
-<ol type="1">
-<li><strong>Download the full notebook</strong>: Save <a href="2025-06-30-marimo-demo.py">this file</a> locally</li>
-<li><strong>Run with marimo</strong>: <code>pip install marimo &amp;&amp; marimo edit 2025-06-30-marimo-demo.py</code></li>
-<li><strong>Explore additional features</strong> like multiple linked widgets, complex layouts, data visualization, and advanced reactive patterns</li>
-</ol>
-</section>
-<section id="getting-started-with-marimo" class="level2">
-<h2 class="anchored" data-anchor-id="getting-started-with-marimo">Getting Started with Marimo</h2>
-<p>To use Marimo in your own projects:</p>
-<ol type="1">
-<li>Install marimo: <code>pip install marimo</code></li>
-<li>Create a new notebook: <code>marimo edit my_notebook.py</code></li>
-<li>For Quarto integration: <code>quarto add marimo-team/quarto-marimo</code></li>
-<li>Include your notebook in Quarto documents using the <code>{marimo}</code> code block</li>
-</ol>
-</section>
-<section id="conclusion" class="level2">
-<h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
-<p>Marimo represents an exciting evolution in computational notebooks, bringing reactive programming concepts to data science workflows. Its integration with Quarto makes it perfect for creating interactive blog posts and documentation.</p>
-<p>The combination of Marimo’s interactivity with Quarto’s publishing capabilities opens up new possibilities for sharing reproducible, engaging data science content.</p>
-<p>Try experimenting with the interactive elements above to get a feel for Marimo’s reactive nature!</p>
+<section id="comparison-and-verification" class="level2">
+<h2 class="anchored" data-anchor-id="comparison-and-verification">Comparison and Verification</h2>
+<p>Let’s compare the performance and verify that the results are consistent.</p>
+<div id="3069ea53" class="cell" data-execution_count="21">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>speedup <span class="op">=</span> seq_time <span class="op">/</span> batch_time</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Speedup: </span><span class="sc">{</span>speedup<span class="sc">:.2f}</span><span class="ss">x"</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualization of speedup</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">5</span>))</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>plt.bar([<span class="st">'Sequential'</span>, <span class="st">'Batch (Async)'</span>], [seq_time, batch_time], color<span class="op">=</span>[<span class="st">'orange'</span>, <span class="st">'skyblue'</span>])</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">'Total Time (seconds)'</span>)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="ss">f'Processing </span><span class="sc">{</span><span class="bu">len</span>(images)<span class="sc">}</span><span class="ss"> Images: Sequential vs Batch'</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Speedup: 3.12x</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2025-12-12-gemini-batch-vs-sequential_files/figure-html/cell-6-output-2.png" width="695" height="450" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div id="0a4ebbe8" class="cell" data-execution_count="22">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify consistency</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Verifying results consistency:"</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>consistent <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, (s, b) <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="bu">zip</span>(seq_results, batch_results)):</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simple check if strings are identical or close (handling potential whitespace)</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    s_clean <span class="op">=</span> s.strip()</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    b_clean <span class="op">=</span> b.strip()</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    match <span class="op">=</span> s_clean <span class="op">==</span> b_clean</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Image </span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>image_paths[i]<span class="sc">}</span><span class="ss">): Sequential='</span><span class="sc">{</span>s_clean<span class="sc">}</span><span class="ss">', Batch='</span><span class="sc">{</span>b_clean<span class="sc">}</span><span class="ss">' -&gt; Match: </span><span class="sc">{</span>match<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> match:</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>        consistent <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> consistent:</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"SUCCESS: All counts match between sequential and batch processing."</span>)</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"WARNING: Some counts differ. This might be due to LLM non-determinism."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Verifying results consistency:
+Image 1 (bus.jpg): Sequential='6', Batch='5' -&gt; Match: False
+Image 2 (crowd1.jpg): Sequential='102', Batch='98 people are visible in the image.' -&gt; Match: False
+Image 3 (crowd2.jpg): Sequential='144', Batch='103' -&gt; Match: False
+Image 4 (classroom.jpg): Sequential='11', Batch='10' -&gt; Match: False
+WARNING: Some counts differ. This might be due to LLM non-determinism.</code></pre>
+</div>
+</div>
 
 
+</section>
 </section>
 
 </main> <!-- /main -->
