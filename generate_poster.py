@@ -56,10 +56,18 @@ def generate_from_prompt_file(prompt_file, output_file=None):
     print("\nThis may take 30-60 seconds...\n")
 
     try:
-        # Generate image using Gemini 3 Pro Image
+        # Generate image using Gemini 3 Pro Image with 4K and 16:9 aspect ratio
+        from google.genai import types
+
         response = client.models.generate_content(
             model=IMAGE_MODEL,
-            contents=prompt
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                image_config=types.ImageConfig(
+                    aspect_ratio="16:9",
+                    image_size="4K"  # Must be uppercase K
+                )
+            )
         )
 
         # Extract and save the generated image
