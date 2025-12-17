@@ -353,8 +353,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
   <li><a href="#load-and-group-temporal-images-by-location" id="toc-load-and-group-temporal-images-by-location" class="nav-link" data-scroll-target="#load-and-group-temporal-images-by-location">Load and Group Temporal Images by Location</a></li>
   <li><a href="#visualize-sample-location" id="toc-visualize-sample-location" class="nav-link" data-scroll-target="#visualize-sample-location">Visualize Sample Location</a></li>
-  <li><a href="#async-multi-location-processingnow-well-process-all-10-locations-in-parallel-using-asyncio.-each-location-sends-all-its-years-in-a-single-api-call-multi-image-context-and-all-locations-are-processed-concurrently." id="toc-async-multi-location-processingnow-well-process-all-10-locations-in-parallel-using-asyncio.-each-location-sends-all-its-years-in-a-single-api-call-multi-image-context-and-all-locations-are-processed-concurrently." class="nav-link" data-scroll-target="#async-multi-location-processingnow-well-process-all-10-locations-in-parallel-using-asyncio.-each-location-sends-all-its-years-in-a-single-api-call-multi-image-context-and-all-locations-are-processed-concurrently.">Async Multi-Location ProcessingNow we’ll process all 10 locations in parallel using <code>asyncio</code>. Each location sends all its years in a single API call (multi-image context), and all locations are processed concurrently.</a></li>
+  <li><a href="#async-multi-location-processing" id="toc-async-multi-location-processing" class="nav-link" data-scroll-target="#async-multi-location-processing">Async Multi-Location Processing</a></li>
   <li><a href="#analysis-results-summary" id="toc-analysis-results-summary" class="nav-link" data-scroll-target="#analysis-results-summary">Analysis Results Summary</a></li>
+  <li><a href="#visual-results-all-locations-with-predictionslets-visualize-each-locations-temporal-sequence-with-the-predicted-kiln-type-for-each-year" id="toc-visual-results-all-locations-with-predictionslets-visualize-each-locations-temporal-sequence-with-the-predicted-kiln-type-for-each-year" class="nav-link" data-scroll-target="#visual-results-all-locations-with-predictionslets-visualize-each-locations-temporal-sequence-with-the-predicted-kiln-type-for-each-year">Visual Results: All Locations with PredictionsLet’s visualize each location’s temporal sequence with the predicted kiln type for each year:</a></li>
   <li><a href="#multi-location-visualization" id="toc-multi-location-visualization" class="nav-link" data-scroll-target="#multi-location-visualization">Multi-Location Visualization</a></li>
   <li><a href="#performance-analysis" id="toc-performance-analysis" class="nav-link" data-scroll-target="#performance-analysis">Performance Analysis</a></li>
   <li><a href="#conclusions" id="toc-conclusions" class="nav-link" data-scroll-target="#conclusions">Conclusions</a>
@@ -517,276 +518,296 @@ Found 10 unique locations:
 </div>
 </div>
 </section>
-<section id="async-multi-location-processingnow-well-process-all-10-locations-in-parallel-using-asyncio.-each-location-sends-all-its-years-in-a-single-api-call-multi-image-context-and-all-locations-are-processed-concurrently." class="level1">
-<h1>Async Multi-Location ProcessingNow we’ll process all 10 locations in parallel using <code>asyncio</code>. Each location sends all its years in a single API call (multi-image context), and all locations are processed concurrently.</h1>
-<div id="cell-9" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run async processing for all 10 locationsprint("="*80)print(f"PROCESSING {len(locations_data)} LOCATIONS IN PARALLEL")print("="*80)print("\nStarting async batch processing...\n")start_time = time.time()# Run the async processingall_results = await process_all_locations(locations_data)elapsed_time = time.time() - start_timeprint(f"\n{'='*80}")print(f"✓ All {len(all_results)} locations processed in {elapsed_time:.2f} seconds")print(f"  Average: {elapsed_time/len(all_results):.2f} seconds per location")print(f"  Speedup vs sequential (~35s each): {(35*len(all_results))/elapsed_time:.1f}x faster")print(f"{'='*80}")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="async-multi-location-processing" class="level1">
+<h1>Async Multi-Location Processing</h1>
+<p>Now we’ll process all 10 locations in parallel using <code>asyncio</code>. Each location sends all its years in a single API call (multi-image context), and all locations are processed concurrently.</p>
+<div id="cell-9" class="cell" data-execution_count="24">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run async processing for all 10 locations</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"PROCESSING </span><span class="sc">{</span><span class="bu">len</span>(locations_data)<span class="sc">}</span><span class="ss"> LOCATIONS IN PARALLEL"</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Starting async batch processing...</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>start_time <span class="op">=</span> time.time()</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Run the async processing</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>all_results <span class="op">=</span> <span class="cf">await</span> process_all_locations(locations_data)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>elapsed_time <span class="op">=</span> time.time() <span class="op">-</span> start_time</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"✓ All </span><span class="sc">{</span><span class="bu">len</span>(all_results)<span class="sc">}</span><span class="ss"> locations processed in </span><span class="sc">{</span>elapsed_time<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Average: </span><span class="sc">{</span>elapsed_time<span class="op">/</span><span class="bu">len</span>(all_results)<span class="sc">:.2f}</span><span class="ss"> seconds per location"</span>)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Speedup vs sequential (~35s each): </span><span class="sc">{</span>(<span class="dv">35</span><span class="op">*</span><span class="bu">len</span>(all_results))<span class="op">/</span>elapsed_time<span class="sc">:.1f}</span><span class="ss">x faster"</span>)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>================================================================================
+PROCESSING 10 LOCATIONS IN PARALLEL
+================================================================================
+
+Starting async batch processing...
+
+  [1] Processing 28.208668°N, 77.420208°E...
+  [2] Processing 28.212481°N, 77.401398°E...
+  [3] Processing 28.215068°N, 77.424273°E...
+  [4] Processing 28.216044°N, 77.399816°E...
+  [5] Processing 28.219114°N, 77.422602°E...
+  [6] Processing 28.219207°N, 77.393943°E...
+  [7] Processing 28.220388°N, 77.416754°E...
+  [8] Processing 28.223407°N, 77.382953°E...
+  [9] Processing 28.224213°N, 77.381653°E...
+  [10] Processing 28.225187°N, 77.548923°E...
+  [7] ✓ Completed 28.220388°N, 77.416754°E
+  [5] ✓ Completed 28.219114°N, 77.422602°E
+  [9] ✓ Completed 28.224213°N, 77.381653°E
+  [4] ✓ Completed 28.216044°N, 77.399816°E
+  [2] ✓ Completed 28.212481°N, 77.401398°E
+  [1] ✓ Completed 28.208668°N, 77.420208°E
+  [3] ✓ Completed 28.215068°N, 77.424273°E
+  [8] ✓ Completed 28.223407°N, 77.382953°E
+  [10] ✓ Completed 28.225187°N, 77.548923°E
+  [6] ✓ Completed 28.219207°N, 77.393943°E
+
+================================================================================
+✓ All 10 locations processed in 42.08 seconds
+  Average: 4.21 seconds per location
+  Speedup vs sequential (~35s each): 8.3x faster
+================================================================================</code></pre>
+</div>
 </div>
 </section>
 <section id="analysis-results-summary" class="level1">
 <h1>Analysis Results Summary</h1>
-<div id="cell-11" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Display summary of all locations</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"SUMMARY: ALL LOCATIONS"</span>)</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>successful <span class="op">=</span> <span class="bu">sum</span>(<span class="dv">1</span> <span class="cf">for</span> r <span class="kw">in</span> all_results <span class="cf">if</span> r[<span class="st">'analysis'</span>] <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>)</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">✓ Successfully parsed: </span><span class="sc">{</span>successful<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(all_results)<span class="sc">}</span><span class="ss"> locations</span><span class="ch">\n</span><span class="ss">"</span>)</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, result <span class="kw">in</span> <span class="bu">enumerate</span>(all_results, <span class="dv">1</span>):</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Location </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>result[<span class="st">'location_str'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">60</span>)</span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> result[<span class="st">'analysis'</span>]:</span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        analysis <span class="op">=</span> result[<span class="st">'analysis'</span>]</span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        first_year <span class="op">=</span> analysis.get(<span class="st">'first_year'</span>, <span class="st">'Unknown'</span>)</span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        evolution <span class="op">=</span> analysis.get(<span class="st">'evolution'</span>, <span class="st">'N/A'</span>)</span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  First Appearance: </span><span class="sc">{</span>first_year<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Evolution: </span><span class="sc">{</span>evolution[:<span class="dv">100</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Show type changes</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        year_data <span class="op">=</span> analysis.get(<span class="st">'years'</span>, [])</span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> year_data:</span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>            types_seen <span class="op">=</span> [y.get(<span class="st">'type'</span>, <span class="st">'None'</span>) <span class="cf">for</span> y <span class="kw">in</span> year_data <span class="cf">if</span> y.get(<span class="st">'has_kilns'</span>)]</span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>            unique_types <span class="op">=</span> <span class="bu">list</span>(<span class="bu">dict</span>.fromkeys(types_seen))  <span class="co"># Preserve order</span></span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> unique_types:</span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>                <span class="bu">print</span>(<span class="ss">f"  Types observed: </span><span class="sc">{</span><span class="st">' → '</span><span class="sc">.</span>join(unique_types)<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  ⚠ Failed to parse analysis"</span>)</span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-11" class="cell" data-execution_count="25">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Display summary of all locations</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"SUMMARY: ALL LOCATIONS"</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>successful <span class="op">=</span> <span class="bu">sum</span>(<span class="dv">1</span> <span class="cf">for</span> r <span class="kw">in</span> all_results <span class="cf">if</span> r[<span class="st">'analysis'</span>] <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">✓ Successfully parsed: </span><span class="sc">{</span>successful<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(all_results)<span class="sc">}</span><span class="ss"> locations</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, result <span class="kw">in</span> <span class="bu">enumerate</span>(all_results, <span class="dv">1</span>):</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Location </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>result[<span class="st">'location_str'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">60</span>)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> result[<span class="st">'analysis'</span>]:</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>        analysis <span class="op">=</span> result[<span class="st">'analysis'</span>]</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        first_year <span class="op">=</span> analysis.get(<span class="st">'first_year'</span>, <span class="st">'Unknown'</span>)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        evolution <span class="op">=</span> analysis.get(<span class="st">'evolution'</span>, <span class="st">'N/A'</span>)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  First Appearance: </span><span class="sc">{</span>first_year<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Evolution: </span><span class="sc">{</span>evolution[:<span class="dv">100</span>]<span class="sc">}</span><span class="ss">..."</span>)</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Show type changes</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        year_data <span class="op">=</span> analysis.get(<span class="st">'years'</span>, [])</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> year_data:</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>            types_seen <span class="op">=</span> [y.get(<span class="st">'type'</span>, <span class="st">'None'</span>) <span class="cf">for</span> y <span class="kw">in</span> year_data <span class="cf">if</span> y.get(<span class="st">'has_kilns'</span>)]</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>            unique_types <span class="op">=</span> <span class="bu">list</span>(<span class="bu">dict</span>.fromkeys(types_seen))  <span class="co"># Preserve order</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> unique_types:</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>                <span class="bu">print</span>(<span class="ss">f"  Types observed: </span><span class="sc">{</span><span class="st">' → '</span><span class="sc">.</span>join(unique_types)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  ⚠ Failed to parse analysis"</span>)</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+================================================================================
+SUMMARY: ALL LOCATIONS
+================================================================================
+
+✓ Successfully parsed: 10/10 locations
+
+
+Location 1: 28.208668°N, 77.420208°E
+------------------------------------------------------------
+  First Appearance: 2018
+  Evolution: The site transformed from agricultural land to an oval FCBTK in 2018. Between 2020 and 2022, the kil...
+  Types observed: FCBTK → Zigzag
+
+Location 2: 28.212481°N, 77.401398°E
+------------------------------------------------------------
+  First Appearance: 2018
+  Evolution: The site transitioned from agricultural land (2014-2016) to an industrial brick kiln site in 2018. I...
+  Types observed: FCBTK → Zigzag
+
+Location 3: 28.215068°N, 77.424273°E
+------------------------------------------------------------
+  First Appearance: 2018
+  Evolution: The site began as empty agricultural land in 2014 and 2016. In 2018, an oval-shaped FCBTK was establ...
+  Types observed: FCBTK → Zigzag
+
+Location 4: 28.216044°N, 77.399816°E
+------------------------------------------------------------
+  First Appearance: 2014
+  Evolution: The site consistently hosts a single brick kiln. From 2014 to 2020, it operated as a Fixed Chimney B...
+  Types observed: FCBTK → Zigzag
+
+Location 5: 28.219114°N, 77.422602°E
+------------------------------------------------------------
+  First Appearance: 2014
+  Evolution: The site demonstrates a clear technological evolution. From 2014 to 2018, the facility operated as a...
+  Types observed: FCBTK → Zigzag
+
+Location 6: 28.219207°N, 77.393943°E
+------------------------------------------------------------
+  First Appearance: 2018
+  Evolution: A single Fixed Chimney Bull's Trench Kiln (FCBTK) was constructed between 2016 and 2018. The kiln ma...
+  Types observed: FCBTK
+
+Location 7: 28.220388°N, 77.416754°E
+------------------------------------------------------------
+  First Appearance: 2014
+  Evolution: The kiln maintained the traditional oval FCBTK shape from 2014 to 2020. Between 2020 and 2022, the s...
+  Types observed: FCBTK → Zigzag
+
+Location 8: 28.223407°N, 77.382953°E
+------------------------------------------------------------
+  First Appearance: 2018
+  Evolution: The site was agricultural land in 2014 and 2016. In 2018, a traditional oval Fixed Chimney Bull's Tr...
+  Types observed: FCBTK → Zigzag
+
+Location 9: 28.224213°N, 77.381653°E
+------------------------------------------------------------
+  First Appearance: 2018
+  Evolution: The site transitioned from agricultural land (2014-2016) to an industrial brick kiln site in 2018. I...
+  Types observed: FCBTK → Zigzag
+
+Location 10: 28.225187°N, 77.548923°E
+------------------------------------------------------------
+  First Appearance: 2014
+  Evolution: The kiln maintains its oval Fixed Chimney Bull's Trench Kiln (FCBTK) configuration throughout the en...
+  Types observed: FCBTK
+
+================================================================================</code></pre>
+</div>
 </div>
 <div id="cell-12" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Detailed view of one sample location</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>sample_result <span class="op">=</span> all_results[<span class="dv">0</span>]</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> sample_result[<span class="st">'analysis'</span>]:</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"DETAILED ANALYSIS: </span><span class="sc">{</span>sample_result[<span class="st">'location_str'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    analysis <span class="op">=</span> sample_result[<span class="st">'analysis'</span>]</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">First Appearance: </span><span class="sc">{</span>analysis<span class="sc">.</span>get(<span class="st">'first_year'</span>, <span class="st">'Unknown'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Evolution:"</span>)</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  </span><span class="sc">{</span>analysis<span class="sc">.</span>get(<span class="st">'evolution'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Year-by-Year Details:"</span>)</span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">80</span>)</span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> year_data <span class="kw">in</span> analysis.get(<span class="st">'years'</span>, []):</span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>        year <span class="op">=</span> year_data.get(<span class="st">'year'</span>)</span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        has_kilns <span class="op">=</span> year_data.get(<span class="st">'has_kilns'</span>, <span class="va">False</span>)</span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        kiln_type <span class="op">=</span> year_data.get(<span class="st">'type'</span>, <span class="st">'None'</span>)</span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        count <span class="op">=</span> year_data.get(<span class="st">'count'</span>, <span class="dv">0</span>)</span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        notes <span class="op">=</span> year_data.get(<span class="st">'notes'</span>, <span class="st">''</span>)</span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>        status <span class="op">=</span> <span class="st">"✓ Kilns present"</span> <span class="cf">if</span> has_kilns <span class="cf">else</span> <span class="st">"✗ No kilns"</span></span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span>year<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>status<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> has_kilns:</span>
-<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"  Type: </span><span class="sc">{</span>kiln_type<span class="sc">}</span><span class="ss">, Count: </span><span class="sc">{</span>count<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Notes: </span><span class="sc">{</span>notes<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a comprehensive visualization showing all locations with predictionsnum_locations = len(all_results)years = [2014, 2016, 2018, 2020, 2022]# Create a large figure with subplots for each locationfig, axes = plt.subplots(num_locations, len(years), figsize=(20, 4*num_locations))# Ensure axes is 2D array even for single locationif num_locations == 1:    axes = axes.reshape(1, -1)for loc_idx, result in enumerate(all_results):    # Load images for this location    location_data = locations_data[result['location_key']]        for year_idx, year in enumerate(years):        ax = axes[loc_idx, year_idx]                # Find the image for this year        img_data = next((img for img in location_data if img['year'] == year), None)                if img_data:            # Load and display image            img = Image.open(img_data['path'])            ax.imshow(img)                        # Get prediction for this year            kiln_type = "None"            if result['analysis']:                year_data = result['analysis'].get('years', [])                year_pred = next((y for y in year_data if y.get('year') == year), None)                if year_pred:                    kiln_type = year_pred.get('type', 'None')                        # Set title with year and predicted type            title_color = 'green' if kiln_type in ['FCBTK', 'Zigzag'] else 'gray'            ax.set_title(f"{year}\n{kiln_type}", fontsize=12, fontweight='bold', color=title_color)        else:            ax.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax.transAxes)            ax.set_title(f"{year}\nNo data", fontsize=12)                ax.axis('off')        # Add location label on the left    axes[loc_idx, 0].text(-0.15, 0.5, f"Location {loc_idx+1}\n{result['location_str']}",                           transform=axes[loc_idx, 0].transAxes,                          fontsize=10, fontweight='bold',                           ha='right', va='center', rotation=0)plt.suptitle('Temporal Analysis Results: All Locations with Predicted Kiln Types',              fontsize=18, fontweight='bold', y=0.995)plt.tight_layout()plt.show()</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
+</section>
+<section id="visual-results-all-locations-with-predictionslets-visualize-each-locations-temporal-sequence-with-the-predicted-kiln-type-for-each-year" class="level1">
+<h1>Visual Results: All Locations with PredictionsLet’s visualize each location’s temporal sequence with the predicted kiln type for each year:</h1>
 </section>
 <section id="multi-location-visualization" class="level1">
 <h1>Multi-Location Visualization</h1>
 <p>Now let’s visualize patterns across all locations:</p>
-<div id="cell-14" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare data for visualization</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>first_appearance_years <span class="op">=</span> []</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>location_labels <span class="op">=</span> []</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>kiln_evolution_types <span class="op">=</span> []</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, result <span class="kw">in</span> <span class="bu">enumerate</span>(all_results, <span class="dv">1</span>):</span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> result[<span class="st">'analysis'</span>]:</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        analysis <span class="op">=</span> result[<span class="st">'analysis'</span>]</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        first_year <span class="op">=</span> analysis.get(<span class="st">'first_year'</span>, <span class="va">None</span>)</span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        first_appearance_years.append(first_year <span class="cf">if</span> first_year <span class="cf">else</span> <span class="dv">0</span>)</span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        location_labels.append(<span class="ss">f"Loc </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Get type evolution (FCBTK → Zigzag)</span></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        year_data <span class="op">=</span> analysis.get(<span class="st">'years'</span>, [])</span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        types_seen <span class="op">=</span> [y.get(<span class="st">'type'</span>, <span class="st">'None'</span>) <span class="cf">for</span> y <span class="kw">in</span> year_data <span class="cf">if</span> y.get(<span class="st">'has_kilns'</span>)]</span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        unique_types <span class="op">=</span> <span class="bu">list</span>(<span class="bu">dict</span>.fromkeys(types_seen))</span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        kiln_evolution_types.append(<span class="st">' → '</span>.join(unique_types) <span class="cf">if</span> unique_types <span class="cf">else</span> <span class="st">'None'</span>)</span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Create multi-panel visualization</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure(figsize<span class="op">=</span>(<span class="dv">16</span>, <span class="dv">12</span>))</span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>gs <span class="op">=</span> fig.add_gridspec(<span class="dv">3</span>, <span class="dv">2</span>, hspace<span class="op">=</span><span class="fl">0.3</span>, wspace<span class="op">=</span><span class="fl">0.3</span>)</span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 1: First Appearance Year Distribution</span></span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>ax1 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">0</span>, <span class="dv">0</span>])</span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>valid_years <span class="op">=</span> [y <span class="cf">for</span> y <span class="kw">in</span> first_appearance_years <span class="cf">if</span> y <span class="op">&gt;</span> <span class="dv">0</span>]</span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> valid_years:</span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    ax1.hist(valid_years, bins<span class="op">=</span><span class="bu">range</span>(<span class="dv">2014</span>, <span class="dv">2024</span>), color<span class="op">=</span><span class="st">'steelblue'</span>, alpha<span class="op">=</span><span class="fl">0.7</span>, edgecolor<span class="op">=</span><span class="st">'black'</span>)</span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>    ax1.set_xlabel(<span class="st">'Year'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>    ax1.set_ylabel(<span class="st">'Number of Locations'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>    ax1.set_title(<span class="st">'Distribution: First Kiln Appearance Year'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>    ax1.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'y'</span>)</span>
-<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 2: First Appearance by Location</span></span>
-<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>ax2 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">0</span>, <span class="dv">1</span>])</span>
-<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>colors_map <span class="op">=</span> {<span class="dv">0</span>: <span class="st">'lightgray'</span>, <span class="dv">2014</span>: <span class="st">'#e74c3c'</span>, <span class="dv">2016</span>: <span class="st">'#e67e22'</span>, <span class="dv">2018</span>: <span class="st">'#f39c12'</span>, </span>
-<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>              <span class="dv">2020</span>: <span class="st">'#2ecc71'</span>, <span class="dv">2022</span>: <span class="st">'#3498db'</span>, <span class="dv">2024</span>: <span class="st">'#9b59b6'</span>}</span>
-<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>bar_colors <span class="op">=</span> [colors_map.get(y, <span class="st">'gray'</span>) <span class="cf">for</span> y <span class="kw">in</span> first_appearance_years]</span>
-<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>bars <span class="op">=</span> ax2.barh(location_labels, first_appearance_years, color<span class="op">=</span>bar_colors, edgecolor<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="dv">1</span>)</span>
-<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a>ax2.set_xlabel(<span class="st">'First Appearance Year'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="st">'Location'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="st">'First Kiln Appearance by Location'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a>ax2.set_xlim(<span class="dv">2012</span>, <span class="dv">2024</span>)</span>
-<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>ax2.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'x'</span>)</span>
-<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 3: Temporal Matrix - Kiln Presence Across Locations and Years</span></span>
-<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a>ax3 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">1</span>, :])</span>
-<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>years <span class="op">=</span> [<span class="dv">2014</span>, <span class="dv">2016</span>, <span class="dv">2018</span>, <span class="dv">2020</span>, <span class="dv">2022</span>]</span>
-<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>matrix_data <span class="op">=</span> []</span>
-<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> result <span class="kw">in</span> all_results:</span>
-<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> result[<span class="st">'analysis'</span>]:</span>
-<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>        row <span class="op">=</span> []</span>
-<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>        year_data_dict <span class="op">=</span> {y[<span class="st">'year'</span>]: y <span class="cf">for</span> y <span class="kw">in</span> result[<span class="st">'analysis'</span>].get(<span class="st">'years'</span>, [])}</span>
-<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> year <span class="kw">in</span> years:</span>
-<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> year <span class="kw">in</span> year_data_dict:</span>
-<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a>                has_kilns <span class="op">=</span> year_data_dict[year].get(<span class="st">'has_kilns'</span>, <span class="va">False</span>)</span>
-<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>                row.append(<span class="dv">1</span> <span class="cf">if</span> has_kilns <span class="cf">else</span> <span class="dv">0</span>)</span>
-<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
-<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>                row.append(<span class="dv">0</span>)</span>
-<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a>        matrix_data.append(row)</span>
-<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
-<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a>        matrix_data.append([<span class="dv">0</span>] <span class="op">*</span> <span class="bu">len</span>(years))</span>
-<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a>matrix_data <span class="op">=</span> np.array(matrix_data)</span>
-<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a>im <span class="op">=</span> ax3.imshow(matrix_data, cmap<span class="op">=</span><span class="st">'RdYlGn'</span>, aspect<span class="op">=</span><span class="st">'auto'</span>, vmin<span class="op">=</span><span class="dv">0</span>, vmax<span class="op">=</span><span class="dv">1</span>)</span>
-<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a>ax3.set_xticks(<span class="bu">range</span>(<span class="bu">len</span>(years)))</span>
-<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a>ax3.set_xticklabels(years)</span>
-<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>ax3.set_yticks(<span class="bu">range</span>(<span class="bu">len</span>(location_labels)))</span>
-<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>ax3.set_yticklabels(location_labels)</span>
-<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>ax3.set_xlabel(<span class="st">'Year'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>ax3.set_ylabel(<span class="st">'Location'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a>ax3.set_title(<span class="st">'Kiln Presence Matrix (Green = Present, Red = Absent)'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a><span class="co"># Add text annotations</span></span>
-<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(location_labels)):</span>
-<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(years)):</span>
-<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a>        text <span class="op">=</span> ax3.text(j, i, <span class="st">'✓'</span> <span class="cf">if</span> matrix_data[i, j] <span class="op">==</span> <span class="dv">1</span> <span class="cf">else</span> <span class="st">'✗'</span>,</span>
-<span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a>                       ha<span class="op">=</span><span class="st">"center"</span>, va<span class="op">=</span><span class="st">"center"</span>, color<span class="op">=</span><span class="st">"white"</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 4: Kiln Type Evolution</span></span>
-<span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a>ax4 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">2</span>, :])</span>
-<span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a>type_counts <span class="op">=</span> {}</span>
-<span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> evo_type <span class="kw">in</span> kiln_evolution_types:</span>
-<span id="cb9-84"><a href="#cb9-84" aria-hidden="true" tabindex="-1"></a>    type_counts[evo_type] <span class="op">=</span> type_counts.get(evo_type, <span class="dv">0</span>) <span class="op">+</span> <span class="dv">1</span></span>
-<span id="cb9-85"><a href="#cb9-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-86"><a href="#cb9-86" aria-hidden="true" tabindex="-1"></a>type_labels <span class="op">=</span> <span class="bu">list</span>(type_counts.keys())</span>
-<span id="cb9-87"><a href="#cb9-87" aria-hidden="true" tabindex="-1"></a>type_values <span class="op">=</span> <span class="bu">list</span>(type_counts.values())</span>
-<span id="cb9-88"><a href="#cb9-88" aria-hidden="true" tabindex="-1"></a>colors <span class="op">=</span> plt.cm.Set3(<span class="bu">range</span>(<span class="bu">len</span>(type_labels)))</span>
-<span id="cb9-89"><a href="#cb9-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-90"><a href="#cb9-90" aria-hidden="true" tabindex="-1"></a>bars <span class="op">=</span> ax4.bar(type_labels, type_values, color<span class="op">=</span>colors, edgecolor<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
-<span id="cb9-91"><a href="#cb9-91" aria-hidden="true" tabindex="-1"></a>ax4.set_xlabel(<span class="st">'Kiln Type Evolution'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-92"><a href="#cb9-92" aria-hidden="true" tabindex="-1"></a>ax4.set_ylabel(<span class="st">'Number of Locations'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-93"><a href="#cb9-93" aria-hidden="true" tabindex="-1"></a>ax4.set_title(<span class="st">'Kiln Type Evolution Patterns Across Locations'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-94"><a href="#cb9-94" aria-hidden="true" tabindex="-1"></a>ax4.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'y'</span>)</span>
-<span id="cb9-95"><a href="#cb9-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-96"><a href="#cb9-96" aria-hidden="true" tabindex="-1"></a><span class="co"># Add value labels on bars</span></span>
-<span id="cb9-97"><a href="#cb9-97" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> bar <span class="kw">in</span> bars:</span>
-<span id="cb9-98"><a href="#cb9-98" aria-hidden="true" tabindex="-1"></a>    height <span class="op">=</span> bar.get_height()</span>
-<span id="cb9-99"><a href="#cb9-99" aria-hidden="true" tabindex="-1"></a>    ax4.text(bar.get_x() <span class="op">+</span> bar.get_width()<span class="op">/</span><span class="fl">2.</span>, height,</span>
-<span id="cb9-100"><a href="#cb9-100" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'</span><span class="sc">{</span><span class="bu">int</span>(height)<span class="sc">}</span><span class="ss">'</span>,</span>
-<span id="cb9-101"><a href="#cb9-101" aria-hidden="true" tabindex="-1"></a>            ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'bottom'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb9-102"><a href="#cb9-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-103"><a href="#cb9-103" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">'Multi-Location Brick Kiln Temporal Analysis'</span>, fontsize<span class="op">=</span><span class="dv">18</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>, y<span class="op">=</span><span class="fl">0.995</span>)</span>
-<span id="cb9-104"><a href="#cb9-104" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-15" class="cell" data-execution_count="26">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare data for visualization</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>first_appearance_years <span class="op">=</span> []</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>location_labels <span class="op">=</span> []</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>kiln_evolution_types <span class="op">=</span> []</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, result <span class="kw">in</span> <span class="bu">enumerate</span>(all_results, <span class="dv">1</span>):</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> result[<span class="st">'analysis'</span>]:</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        analysis <span class="op">=</span> result[<span class="st">'analysis'</span>]</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>        first_year <span class="op">=</span> analysis.get(<span class="st">'first_year'</span>, <span class="va">None</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>        first_appearance_years.append(first_year <span class="cf">if</span> first_year <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        location_labels.append(<span class="ss">f"Loc </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Get type evolution (FCBTK → Zigzag)</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>        year_data <span class="op">=</span> analysis.get(<span class="st">'years'</span>, [])</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        types_seen <span class="op">=</span> [y.get(<span class="st">'type'</span>, <span class="st">'None'</span>) <span class="cf">for</span> y <span class="kw">in</span> year_data <span class="cf">if</span> y.get(<span class="st">'has_kilns'</span>)]</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        unique_types <span class="op">=</span> <span class="bu">list</span>(<span class="bu">dict</span>.fromkeys(types_seen))</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>        kiln_evolution_types.append(<span class="st">' → '</span>.join(unique_types) <span class="cf">if</span> unique_types <span class="cf">else</span> <span class="st">'None'</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Create multi-panel visualization</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure(figsize<span class="op">=</span>(<span class="dv">16</span>, <span class="dv">12</span>))</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>gs <span class="op">=</span> fig.add_gridspec(<span class="dv">3</span>, <span class="dv">2</span>, hspace<span class="op">=</span><span class="fl">0.3</span>, wspace<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 1: First Appearance Year Distribution</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>ax1 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">0</span>, <span class="dv">0</span>])</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>valid_years <span class="op">=</span> [y <span class="cf">for</span> y <span class="kw">in</span> first_appearance_years <span class="cf">if</span> y <span class="op">&gt;</span> <span class="dv">0</span>]</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> valid_years:</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>    ax1.hist(valid_years, bins<span class="op">=</span><span class="bu">range</span>(<span class="dv">2014</span>, <span class="dv">2024</span>), color<span class="op">=</span><span class="st">'steelblue'</span>, alpha<span class="op">=</span><span class="fl">0.7</span>, edgecolor<span class="op">=</span><span class="st">'black'</span>)</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>    ax1.set_xlabel(<span class="st">'Year'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>    ax1.set_ylabel(<span class="st">'Number of Locations'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>    ax1.set_title(<span class="st">'Distribution: First Kiln Appearance Year'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>    ax1.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'y'</span>)</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 2: First Appearance by Location</span></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>ax2 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">0</span>, <span class="dv">1</span>])</span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>colors_map <span class="op">=</span> {<span class="dv">0</span>: <span class="st">'lightgray'</span>, <span class="dv">2014</span>: <span class="st">'#e74c3c'</span>, <span class="dv">2016</span>: <span class="st">'#e67e22'</span>, <span class="dv">2018</span>: <span class="st">'#f39c12'</span>, </span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>              <span class="dv">2020</span>: <span class="st">'#2ecc71'</span>, <span class="dv">2022</span>: <span class="st">'#3498db'</span>, <span class="dv">2024</span>: <span class="st">'#9b59b6'</span>}</span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a>bar_colors <span class="op">=</span> [colors_map.get(y, <span class="st">'gray'</span>) <span class="cf">for</span> y <span class="kw">in</span> first_appearance_years]</span>
+<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>bars <span class="op">=</span> ax2.barh(location_labels, first_appearance_years, color<span class="op">=</span>bar_colors, edgecolor<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb11-39"><a href="#cb11-39" aria-hidden="true" tabindex="-1"></a>ax2.set_xlabel(<span class="st">'First Appearance Year'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-40"><a href="#cb11-40" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="st">'Location'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-41"><a href="#cb11-41" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="st">'First Kiln Appearance by Location'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-42"><a href="#cb11-42" aria-hidden="true" tabindex="-1"></a>ax2.set_xlim(<span class="dv">2012</span>, <span class="dv">2024</span>)</span>
+<span id="cb11-43"><a href="#cb11-43" aria-hidden="true" tabindex="-1"></a>ax2.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'x'</span>)</span>
+<span id="cb11-44"><a href="#cb11-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-45"><a href="#cb11-45" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 3: Temporal Matrix - Kiln Presence Across Locations and Years</span></span>
+<span id="cb11-46"><a href="#cb11-46" aria-hidden="true" tabindex="-1"></a>ax3 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">1</span>, :])</span>
+<span id="cb11-47"><a href="#cb11-47" aria-hidden="true" tabindex="-1"></a>years <span class="op">=</span> [<span class="dv">2014</span>, <span class="dv">2016</span>, <span class="dv">2018</span>, <span class="dv">2020</span>, <span class="dv">2022</span>]</span>
+<span id="cb11-48"><a href="#cb11-48" aria-hidden="true" tabindex="-1"></a>matrix_data <span class="op">=</span> []</span>
+<span id="cb11-49"><a href="#cb11-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-50"><a href="#cb11-50" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> result <span class="kw">in</span> all_results:</span>
+<span id="cb11-51"><a href="#cb11-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> result[<span class="st">'analysis'</span>]:</span>
+<span id="cb11-52"><a href="#cb11-52" aria-hidden="true" tabindex="-1"></a>        row <span class="op">=</span> []</span>
+<span id="cb11-53"><a href="#cb11-53" aria-hidden="true" tabindex="-1"></a>        year_data_dict <span class="op">=</span> {y[<span class="st">'year'</span>]: y <span class="cf">for</span> y <span class="kw">in</span> result[<span class="st">'analysis'</span>].get(<span class="st">'years'</span>, [])}</span>
+<span id="cb11-54"><a href="#cb11-54" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> year <span class="kw">in</span> years:</span>
+<span id="cb11-55"><a href="#cb11-55" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> year <span class="kw">in</span> year_data_dict:</span>
+<span id="cb11-56"><a href="#cb11-56" aria-hidden="true" tabindex="-1"></a>                has_kilns <span class="op">=</span> year_data_dict[year].get(<span class="st">'has_kilns'</span>, <span class="va">False</span>)</span>
+<span id="cb11-57"><a href="#cb11-57" aria-hidden="true" tabindex="-1"></a>                row.append(<span class="dv">1</span> <span class="cf">if</span> has_kilns <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb11-58"><a href="#cb11-58" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb11-59"><a href="#cb11-59" aria-hidden="true" tabindex="-1"></a>                row.append(<span class="dv">0</span>)</span>
+<span id="cb11-60"><a href="#cb11-60" aria-hidden="true" tabindex="-1"></a>        matrix_data.append(row)</span>
+<span id="cb11-61"><a href="#cb11-61" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb11-62"><a href="#cb11-62" aria-hidden="true" tabindex="-1"></a>        matrix_data.append([<span class="dv">0</span>] <span class="op">*</span> <span class="bu">len</span>(years))</span>
+<span id="cb11-63"><a href="#cb11-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-64"><a href="#cb11-64" aria-hidden="true" tabindex="-1"></a>matrix_data <span class="op">=</span> np.array(matrix_data)</span>
+<span id="cb11-65"><a href="#cb11-65" aria-hidden="true" tabindex="-1"></a>im <span class="op">=</span> ax3.imshow(matrix_data, cmap<span class="op">=</span><span class="st">'RdYlGn'</span>, aspect<span class="op">=</span><span class="st">'auto'</span>, vmin<span class="op">=</span><span class="dv">0</span>, vmax<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb11-66"><a href="#cb11-66" aria-hidden="true" tabindex="-1"></a>ax3.set_xticks(<span class="bu">range</span>(<span class="bu">len</span>(years)))</span>
+<span id="cb11-67"><a href="#cb11-67" aria-hidden="true" tabindex="-1"></a>ax3.set_xticklabels(years)</span>
+<span id="cb11-68"><a href="#cb11-68" aria-hidden="true" tabindex="-1"></a>ax3.set_yticks(<span class="bu">range</span>(<span class="bu">len</span>(location_labels)))</span>
+<span id="cb11-69"><a href="#cb11-69" aria-hidden="true" tabindex="-1"></a>ax3.set_yticklabels(location_labels)</span>
+<span id="cb11-70"><a href="#cb11-70" aria-hidden="true" tabindex="-1"></a>ax3.set_xlabel(<span class="st">'Year'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-71"><a href="#cb11-71" aria-hidden="true" tabindex="-1"></a>ax3.set_ylabel(<span class="st">'Location'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-72"><a href="#cb11-72" aria-hidden="true" tabindex="-1"></a>ax3.set_title(<span class="st">'Kiln Presence Matrix (Green = Present, Red = Absent)'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-73"><a href="#cb11-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-74"><a href="#cb11-74" aria-hidden="true" tabindex="-1"></a><span class="co"># Add text annotations</span></span>
+<span id="cb11-75"><a href="#cb11-75" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(location_labels)):</span>
+<span id="cb11-76"><a href="#cb11-76" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(years)):</span>
+<span id="cb11-77"><a href="#cb11-77" aria-hidden="true" tabindex="-1"></a>        text <span class="op">=</span> ax3.text(j, i, <span class="st">'✓'</span> <span class="cf">if</span> matrix_data[i, j] <span class="op">==</span> <span class="dv">1</span> <span class="cf">else</span> <span class="st">'✗'</span>,</span>
+<span id="cb11-78"><a href="#cb11-78" aria-hidden="true" tabindex="-1"></a>                       ha<span class="op">=</span><span class="st">"center"</span>, va<span class="op">=</span><span class="st">"center"</span>, color<span class="op">=</span><span class="st">"white"</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-79"><a href="#cb11-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-80"><a href="#cb11-80" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot 4: Kiln Type Evolution</span></span>
+<span id="cb11-81"><a href="#cb11-81" aria-hidden="true" tabindex="-1"></a>ax4 <span class="op">=</span> fig.add_subplot(gs[<span class="dv">2</span>, :])</span>
+<span id="cb11-82"><a href="#cb11-82" aria-hidden="true" tabindex="-1"></a>type_counts <span class="op">=</span> {}</span>
+<span id="cb11-83"><a href="#cb11-83" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> evo_type <span class="kw">in</span> kiln_evolution_types:</span>
+<span id="cb11-84"><a href="#cb11-84" aria-hidden="true" tabindex="-1"></a>    type_counts[evo_type] <span class="op">=</span> type_counts.get(evo_type, <span class="dv">0</span>) <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb11-85"><a href="#cb11-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-86"><a href="#cb11-86" aria-hidden="true" tabindex="-1"></a>type_labels <span class="op">=</span> <span class="bu">list</span>(type_counts.keys())</span>
+<span id="cb11-87"><a href="#cb11-87" aria-hidden="true" tabindex="-1"></a>type_values <span class="op">=</span> <span class="bu">list</span>(type_counts.values())</span>
+<span id="cb11-88"><a href="#cb11-88" aria-hidden="true" tabindex="-1"></a>colors <span class="op">=</span> plt.cm.Set3(<span class="bu">range</span>(<span class="bu">len</span>(type_labels)))</span>
+<span id="cb11-89"><a href="#cb11-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-90"><a href="#cb11-90" aria-hidden="true" tabindex="-1"></a>bars <span class="op">=</span> ax4.bar(type_labels, type_values, color<span class="op">=</span>colors, edgecolor<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb11-91"><a href="#cb11-91" aria-hidden="true" tabindex="-1"></a>ax4.set_xlabel(<span class="st">'Kiln Type Evolution'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-92"><a href="#cb11-92" aria-hidden="true" tabindex="-1"></a>ax4.set_ylabel(<span class="st">'Number of Locations'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-93"><a href="#cb11-93" aria-hidden="true" tabindex="-1"></a>ax4.set_title(<span class="st">'Kiln Type Evolution Patterns Across Locations'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-94"><a href="#cb11-94" aria-hidden="true" tabindex="-1"></a>ax4.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'y'</span>)</span>
+<span id="cb11-95"><a href="#cb11-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-96"><a href="#cb11-96" aria-hidden="true" tabindex="-1"></a><span class="co"># Add value labels on bars</span></span>
+<span id="cb11-97"><a href="#cb11-97" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> bar <span class="kw">in</span> bars:</span>
+<span id="cb11-98"><a href="#cb11-98" aria-hidden="true" tabindex="-1"></a>    height <span class="op">=</span> bar.get_height()</span>
+<span id="cb11-99"><a href="#cb11-99" aria-hidden="true" tabindex="-1"></a>    ax4.text(bar.get_x() <span class="op">+</span> bar.get_width()<span class="op">/</span><span class="fl">2.</span>, height,</span>
+<span id="cb11-100"><a href="#cb11-100" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'</span><span class="sc">{</span><span class="bu">int</span>(height)<span class="sc">}</span><span class="ss">'</span>,</span>
+<span id="cb11-101"><a href="#cb11-101" aria-hidden="true" tabindex="-1"></a>            ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'bottom'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb11-102"><a href="#cb11-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-103"><a href="#cb11-103" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">'Multi-Location Brick Kiln Temporal Analysis'</span>, fontsize<span class="op">=</span><span class="dv">18</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>, y<span class="op">=</span><span class="fl">0.995</span>)</span>
+<span id="cb11-104"><a href="#cb11-104" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2025-12-17-temporal-brick-kiln-analysis_files/figure-html/cell-8-output-1.png" width="1352" height="1125" class="figure-img"></p>
+</figure>
+</div>
+</div>
 </div>
 </section>
 <section id="performance-analysis" class="level1">
 <h1>Performance Analysis</h1>
-<div id="cell-16" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Performance comparison</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>num_locations <span class="op">=</span> <span class="bu">len</span>(all_results)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>num_years_per_location <span class="op">=</span> <span class="dv">5</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>total_images <span class="op">=</span> num_locations <span class="op">*</span> num_years_per_location</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"PERFORMANCE COMPARISON"</span>)</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Approach 1: Sequential (one image at a time)</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>seq_time_per_image <span class="op">=</span> <span class="dv">17</span>  <span class="co"># seconds (estimated from previous benchmarks)</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>sequential_time <span class="op">=</span> total_images <span class="op">*</span> seq_time_per_image</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Approach 2: Sequential locations with multi-image context per location</span></span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>seq_loc_time_per_location <span class="op">=</span> <span class="dv">35</span>  <span class="co"># seconds (measured from single location)</span></span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>sequential_location_time <span class="op">=</span> num_locations <span class="op">*</span> seq_loc_time_per_location</span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Approach 3: Async (our approach)</span></span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>async_time <span class="op">=</span> elapsed_time</span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Dataset:"</span>)</span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Locations: </span><span class="sc">{</span>num_locations<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Years per location: </span><span class="sc">{</span>num_years_per_location<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Total images: </span><span class="sc">{</span>total_images<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Approach 1: Sequential (one image at a time)"</span>)</span>
-<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Estimated time: </span><span class="sc">{</span>sequential_time<span class="sc">:.0f}</span><span class="ss"> seconds (</span><span class="sc">{</span>sequential_time<span class="op">/</span><span class="dv">60</span><span class="sc">:.1f}</span><span class="ss"> minutes)"</span>)</span>
-<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Processing rate: </span><span class="sc">{</span>total_images<span class="op">/</span>sequential_time<span class="sc">:.2f}</span><span class="ss"> images/second"</span>)</span>
-<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Approach 2: Sequential locations (multi-image per location)"</span>)</span>
-<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Estimated time: </span><span class="sc">{</span>sequential_location_time<span class="sc">:.0f}</span><span class="ss"> seconds (</span><span class="sc">{</span>sequential_location_time<span class="op">/</span><span class="dv">60</span><span class="sc">:.1f}</span><span class="ss"> minutes)"</span>)</span>
-<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Processing rate: </span><span class="sc">{</span>num_locations<span class="op">/</span>sequential_location_time<span class="sc">:.3f}</span><span class="ss"> locations/second"</span>)</span>
-<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Approach 3: Async + Multi-Image (our approach)"</span>)</span>
-<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Actual time: </span><span class="sc">{</span>async_time<span class="sc">:.0f}</span><span class="ss"> seconds (</span><span class="sc">{</span>async_time<span class="op">/</span><span class="dv">60</span><span class="sc">:.1f}</span><span class="ss"> minutes)"</span>)</span>
-<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Processing rate: </span><span class="sc">{</span>num_locations<span class="op">/</span>async_time<span class="sc">:.2f}</span><span class="ss"> locations/second"</span>)</span>
-<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  Image processing rate: </span><span class="sc">{</span>total_images<span class="op">/</span>async_time<span class="sc">:.2f}</span><span class="ss"> images/second"</span>)</span>
-<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss"> Speedup Analysis:"</span>)</span>
-<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  vs Sequential (per image): </span><span class="sc">{</span>sequential_time<span class="op">/</span>async_time<span class="sc">:.1f}</span><span class="ss">x faster"</span>)</span>
-<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  vs Sequential locations: </span><span class="sc">{</span>sequential_location_time<span class="op">/</span>async_time<span class="sc">:.1f}</span><span class="ss">x faster"</span>)</span>
-<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">80</span>)</span>
-<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualization</span></span>
-<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>fig, (ax1, ax2) <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">5</span>))</span>
-<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a><span class="co"># Bar chart comparing times</span></span>
-<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>approaches <span class="op">=</span> [<span class="st">'Sequential</span><span class="ch">\n</span><span class="st">(per image)'</span>, <span class="st">'Sequential</span><span class="ch">\n</span><span class="st">(per location)'</span>, <span class="st">'Async +</span><span class="ch">\n</span><span class="st">Multi-Image'</span>]</span>
-<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>times <span class="op">=</span> [sequential_time, sequential_location_time, async_time]</span>
-<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>colors <span class="op">=</span> [<span class="st">'#e74c3c'</span>, <span class="st">'#f39c12'</span>, <span class="st">'#2ecc71'</span>]</span>
-<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>bars <span class="op">=</span> ax1.bar(approaches, times, color<span class="op">=</span>colors, edgecolor<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
-<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="st">'Time (seconds)'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>ax1.set_title(<span class="st">'Processing Time Comparison'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>ax1.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'y'</span>)</span>
-<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a><span class="co"># Add value labels</span></span>
-<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> bar <span class="kw">in</span> bars:</span>
-<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a>    height <span class="op">=</span> bar.get_height()</span>
-<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a>    ax1.text(bar.get_x() <span class="op">+</span> bar.get_width()<span class="op">/</span><span class="fl">2.</span>, height,</span>
-<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'</span><span class="sc">{</span>height<span class="sc">:.0f}</span><span class="ss">s</span><span class="ch">\n</span><span class="ss">(</span><span class="sc">{</span>height<span class="op">/</span><span class="dv">60</span><span class="sc">:.1f}</span><span class="ss">m)'</span>,</span>
-<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a>            ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'bottom'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a><span class="co"># Speedup chart</span></span>
-<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a>speedups <span class="op">=</span> [sequential_time<span class="op">/</span>async_time, sequential_location_time<span class="op">/</span>async_time, <span class="fl">1.0</span>]</span>
-<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a>bars2 <span class="op">=</span> ax2.bar(approaches, speedups, color<span class="op">=</span>colors, edgecolor<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
-<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="st">'Speedup (x)'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb10-69"><a href="#cb10-69" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="st">'Speedup vs Async Approach'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
-<span id="cb10-70"><a href="#cb10-70" aria-hidden="true" tabindex="-1"></a>ax2.axhline(y<span class="op">=</span><span class="dv">1</span>, color<span class="op">=</span><span class="st">'red'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="st">'Baseline (1x)'</span>)</span>
-<span id="cb10-71"><a href="#cb10-71" aria-hidden="true" tabindex="-1"></a>ax2.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>, axis<span class="op">=</span><span class="st">'y'</span>)</span>
-<span id="cb10-72"><a href="#cb10-72" aria-hidden="true" tabindex="-1"></a>ax2.legend()</span>
-<span id="cb10-73"><a href="#cb10-73" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-74"><a href="#cb10-74" aria-hidden="true" tabindex="-1"></a><span class="co"># Add value labels</span></span>
-<span id="cb10-75"><a href="#cb10-75" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> bar <span class="kw">in</span> bars2:</span>
-<span id="cb10-76"><a href="#cb10-76" aria-hidden="true" tabindex="-1"></a>    height <span class="op">=</span> bar.get_height()</span>
-<span id="cb10-77"><a href="#cb10-77" aria-hidden="true" tabindex="-1"></a>    ax2.text(bar.get_x() <span class="op">+</span> bar.get_width()<span class="op">/</span><span class="fl">2.</span>, height,</span>
-<span id="cb10-78"><a href="#cb10-78" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'</span><span class="sc">{</span>height<span class="sc">:.1f}</span><span class="ss">x'</span>,</span>
-<span id="cb10-79"><a href="#cb10-79" aria-hidden="true" tabindex="-1"></a>            ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'bottom'</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
-<span id="cb10-80"><a href="#cb10-80" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-81"><a href="#cb10-81" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb10-82"><a href="#cb10-82" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
 </section>
 <section id="conclusions" class="level1">
 <h1>Conclusions</h1>
@@ -839,17 +860,17 @@ Found 10 unique locations:
 </section>
 <section id="architecture-pattern" class="level3">
 <h3 class="anchored" data-anchor-id="architecture-pattern">Architecture Pattern</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> analyze_location(images, years):</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Combine all years for one location in single API call</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    contents <span class="op">=</span> [img1, img2, img3, ..., prompt]</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cf">await</span> gemini.generate_content(contents)</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Process all locations in parallel</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> <span class="cf">await</span> asyncio.gather(<span class="op">*</span>[</span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    analyze_location(loc1_images),</span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    analyze_location(loc2_images),</span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    ...</span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> analyze_location(images, years):</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Combine all years for one location in single API call</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    contents <span class="op">=</span> [img1, img2, img3, ..., prompt]</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cf">await</span> gemini.generate_content(contents)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Process all locations in parallel</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> <span class="cf">await</span> asyncio.gather(<span class="op">*</span>[</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    analyze_location(loc1_images),</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    analyze_location(loc2_images),</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    ...</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 </section>
 <section id="limitations" class="level2">
