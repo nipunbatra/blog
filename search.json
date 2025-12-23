@@ -1138,56 +1138,56 @@
     "href": "posts/2025-12-23-sam3-video-tracking.html",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
     "section": "",
-    "text": "In the previous post, we explored SAM3’s image segmentation with text and box prompts. Now let’s use SAM3 for video tracking - following a tennis ball across frames using just a text prompt."
+    "text": "In the previous post, we explored SAM3’s image segmentation. Now let’s use SAM3 for video tracking - following a tennis ball across frames using just a text prompt."
   },
   {
     "objectID": "posts/2025-12-23-sam3-video-tracking.html#setup",
     "href": "posts/2025-12-23-sam3-video-tracking.html#setup",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
     "section": "Setup",
-    "text": "Setup\n\n# SAM3 requires transformers from source\n# !pip install -q git+https://github.com/huggingface/transformers.git\n# !pip install -q torch pillow requests matplotlib accelerate\n\n\nimport torch\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom PIL import Image\nfrom transformers import Sam3VideoModel, Sam3VideoProcessor\nfrom transformers.video_utils import load_video\n\ndevice = \"cuda\" if torch.cuda.is_available() else \"mps\" if torch.backends.mps.is_available() else \"cpu\"\ndtype = torch.float16 if device == \"cuda\" else torch.float32\n\nmodel = Sam3VideoModel.from_pretrained(\"facebook/sam3\").to(device, dtype=dtype)\nprocessor = Sam3VideoProcessor.from_pretrained(\"facebook/sam3\")\n\n%config InlineBackend.figure_format = 'retina'"
+    "text": "Setup\n\n# Install SAM3 from source\n# !git clone https://github.com/facebookresearch/sam3.git\n# !cd sam3 && pip install -e .\n# !pip install supervision\n\n\nimport os\nimport cv2\nimport torch\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom pathlib import Path\nfrom PIL import Image\nimport supervision as sv\nfrom sam3.model_builder import build_sam3_video_predictor\n\n%config InlineBackend.figure_format = 'retina'\n\n\n# Initialize SAM3 video predictor\nif torch.cuda.is_available():\n    gpus = list(range(torch.cuda.device_count()))\nelse:\n    gpus = []  # CPU\n\npredictor = build_sam3_video_predictor(gpus_to_use=gpus)"
   },
   {
     "objectID": "posts/2025-12-23-sam3-video-tracking.html#load-video",
     "href": "posts/2025-12-23-sam3-video-tracking.html#load-video",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
     "section": "Load Video",
-    "text": "Load Video\nA short tennis clip - we’ll track the ball across frames.\n\n# Download a short tennis video\nimport requests\nfrom pathlib import Path\n\nvideo_url = \"https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4\"\nvideo_path = Path(\"tennis_clip.mp4\")\n\n# Use a tennis video from Pexels (free stock)\nvideo_url = \"https://videos.pexels.com/video-files/2519660/2519660-sd_640_360_30fps.mp4\"\n\nif not video_path.exists():\n    r = requests.get(video_url)\n    video_path.write_bytes(r.content)\n    \nprint(f\"Video saved: {video_path}\")\n\n\n# Load video frames\nvideo_frames, fps = load_video(str(video_path))\nprint(f\"Loaded {len(video_frames)} frames at {fps} fps\")\n\n# Show first frame\nplt.figure(figsize=(10, 6))\nplt.imshow(video_frames[0])\nplt.title(\"First Frame\")\nplt.axis('off')\nplt.show()"
+    "text": "Load Video\n\nvideo_path = \"992695-hd_1920_1080_25fps.mp4\"\nprint(f\"Video: {video_path}\")\n\n\n# Show the original video\nfrom IPython.display import Video\nVideo(video_path, embed=True, width=640)\n\n\n# Load video frames (first 3 seconds)\ncap = cv2.VideoCapture(video_path)\nfps = cap.get(cv2.CAP_PROP_FPS)\nmax_frames = int(fps * 3)  # 3 seconds\n\nvideo_frames = []\nwhile len(video_frames) &lt; max_frames:\n    ret, frame = cap.read()\n    if not ret:\n        break\n    video_frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))\ncap.release()\n\nprint(f\"Loaded {len(video_frames)} frames ({len(video_frames)/fps:.1f}s at {fps} fps)\")"
   },
   {
     "objectID": "posts/2025-12-23-sam3-video-tracking.html#track-with-text-prompt",
     "href": "posts/2025-12-23-sam3-video-tracking.html#track-with-text-prompt",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
     "section": "Track with Text Prompt",
-    "text": "Track with Text Prompt\nUse SAM3’s video mode to track “tennis ball” across all frames.\n\n# Initialize video session\ninference_session = processor.init_video_session(\n    video=video_frames,\n    inference_device=device,\n    processing_device=\"cpu\",\n    video_storage_device=\"cpu\",\n    dtype=dtype,\n)\n\n# Add text prompt\ninference_session = processor.add_text_prompt(\n    inference_session=inference_session,\n    text=\"tennis ball\",\n)\n\nprint(\"Session initialized with prompt: 'tennis ball'\")\n\n\n# Track through all frames\noutputs_per_frame = {}\n\nfor model_outputs in model.propagate_in_video_iterator(\n    inference_session=inference_session,\n    max_frame_num_to_track=len(video_frames)\n):\n    processed = processor.postprocess_outputs(inference_session, model_outputs)\n    outputs_per_frame[model_outputs.frame_idx] = processed\n\nprint(f\"Tracked {len(outputs_per_frame)} frames\")"
+    "text": "Track with Text Prompt\nTrack “tennis ball” across all frames using just text.\n\n# Save frames temporarily for SAM3\ntemp_dir = Path(\"temp_frames\")\ntemp_dir.mkdir(exist_ok=True)\n\nfor i, frame in enumerate(video_frames):\n    Image.fromarray(frame).save(temp_dir / f\"{i:05d}.jpg\")\n\nprint(f\"Saved {len(video_frames)} frames to {temp_dir}\")\n\n\n# Start inference session\nresponse = predictor.handle_request(\n    request=dict(\n        type=\"start_session\",\n        resource_path=str(temp_dir),\n    )\n)\nsession_id = response[\"session_id\"]\nprint(f\"Session started: {session_id}\")\n\n\n# Add text prompt for \"tennis ball\"\nresponse = predictor.handle_request(\n    request=dict(\n        type=\"add_prompt\",\n        session_id=session_id,\n        frame_index=0,\n        text=\"tennis ball\",\n    )\n)\nprint(f\"Prompt added, objects detected: {len(response.get('outputs', {}))}\")\n\n\n# Propagate through video\noutputs_per_frame = {}\n\nfor response in predictor.handle_stream_request(\n    request=dict(\n        type=\"propagate_in_video\",\n        session_id=session_id,\n    )\n):\n    outputs_per_frame[response[\"frame_index\"]] = response[\"outputs\"]\n\nprint(f\"Tracked {len(outputs_per_frame)} frames\")"
   },
   {
-    "objectID": "posts/2025-12-23-sam3-video-tracking.html#visualize-tracking",
-    "href": "posts/2025-12-23-sam3-video-tracking.html#visualize-tracking",
+    "objectID": "posts/2025-12-23-sam3-video-tracking.html#visualize-with-supervision",
+    "href": "posts/2025-12-23-sam3-video-tracking.html#visualize-with-supervision",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
-    "section": "Visualize Tracking",
-    "text": "Visualize Tracking\n\ndef overlay_mask(frame, mask, color=(255, 100, 100), alpha=0.5):\n    \"\"\"Overlay mask on frame.\"\"\"\n    frame = np.array(frame).astype(float)\n    mask = mask.cpu().numpy() if torch.is_tensor(mask) else mask\n    \n    for c in range(3):\n        frame[:,:,c] = np.where(mask, frame[:,:,c]*(1-alpha) + color[c]*alpha, frame[:,:,c])\n    \n    return frame.astype(np.uint8)\n\n# Show tracking on key frames\nkey_frames = [0, len(video_frames)//4, len(video_frames)//2, 3*len(video_frames)//4, len(video_frames)-1]\nkey_frames = [f for f in key_frames if f in outputs_per_frame]\n\nfig, axes = plt.subplots(1, len(key_frames), figsize=(4*len(key_frames), 4))\n\nfor i, frame_idx in enumerate(key_frames):\n    frame = video_frames[frame_idx]\n    output = outputs_per_frame[frame_idx]\n    \n    if output['masks'] is not None and len(output['masks']) &gt; 0:\n        mask = output['masks'][0]  # First object\n        frame = overlay_mask(frame, mask)\n    \n    axes[i].imshow(frame)\n    axes[i].set_title(f\"Frame {frame_idx}\")\n    axes[i].axis('off')\n\nplt.suptitle(\"Tennis Ball Tracking with SAM3\", fontweight='bold')\nplt.tight_layout()\nplt.show()"
+    "section": "Visualize with Supervision",
+    "text": "Visualize with Supervision\n\n# Show tracking on key frames\nkey_frames = [0, len(video_frames)//4, len(video_frames)//2, 3*len(video_frames)//4, len(video_frames)-1]\nkey_frames = [f for f in key_frames if f in outputs_per_frame]\n\nmask_annotator = sv.MaskAnnotator(color=sv.Color.GREEN, opacity=0.5)\n\nfig, axes = plt.subplots(1, len(key_frames), figsize=(4*len(key_frames), 4))\n\nfor i, frame_idx in enumerate(key_frames):\n    frame = video_frames[frame_idx].copy()\n    output = outputs_per_frame.get(frame_idx, {})\n    \n    # Extract masks from output\n    masks_list = []\n    for obj_id, obj_data in output.items():\n        if 'mask' in obj_data:\n            masks_list.append(obj_data['mask'])\n    \n    if masks_list:\n        masks = np.stack(masks_list)\n        detections = sv.Detections(xyxy=sv.mask_to_xyxy(masks), mask=masks)\n        frame = mask_annotator.annotate(frame, detections)\n    \n    axes[i].imshow(frame)\n    axes[i].set_title(f\"Frame {frame_idx}\")\n    axes[i].axis('off')\n\nplt.suptitle(\"Tracking 'tennis ball' with SAM3\", fontweight='bold')\nplt.tight_layout()\nplt.show()"
   },
   {
     "objectID": "posts/2025-12-23-sam3-video-tracking.html#save-tracked-video",
     "href": "posts/2025-12-23-sam3-video-tracking.html#save-tracked-video",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
     "section": "Save Tracked Video",
-    "text": "Save Tracked Video\n\nimport cv2\n\n# Create output video\noutput_path = \"tennis_tracked.mp4\"\nh, w = video_frames[0].shape[:2]\nfourcc = cv2.VideoWriter_fourcc(*'mp4v')\nout = cv2.VideoWriter(output_path, fourcc, fps, (w, h))\n\nfor frame_idx, frame in enumerate(video_frames):\n    if frame_idx in outputs_per_frame:\n        output = outputs_per_frame[frame_idx]\n        if output['masks'] is not None and len(output['masks']) &gt; 0:\n            frame = overlay_mask(frame, output['masks'][0], color=(0, 255, 0))\n    \n    out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))\n\nout.release()\nprint(f\"Saved: {output_path}\")\n\n\nfrom IPython.display import Video\nVideo(output_path, embed=True, width=640)"
+    "text": "Save Tracked Video\n\n# Create annotated frames\nannotated_frames = []\n\nfor frame_idx, frame in enumerate(video_frames):\n    frame = frame.copy()\n    output = outputs_per_frame.get(frame_idx, {})\n    \n    masks_list = []\n    for obj_id, obj_data in output.items():\n        if 'mask' in obj_data:\n            masks_list.append(obj_data['mask'])\n    \n    if masks_list:\n        masks = np.stack(masks_list)\n        detections = sv.Detections(xyxy=sv.mask_to_xyxy(masks), mask=masks)\n        frame = mask_annotator.annotate(frame, detections)\n    \n    annotated_frames.append(frame)\n\nprint(f\"Annotated {len(annotated_frames)} frames\")\n\n\n# Save video\noutput_path = \"tennis_tracked.mp4\"\nh, w = video_frames[0].shape[:2]\nfourcc = cv2.VideoWriter_fourcc(*'mp4v')\nout = cv2.VideoWriter(output_path, fourcc, fps, (w, h))\n\nfor frame in annotated_frames:\n    out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))\n\nout.release()\nprint(f\"Saved: {output_path}\")\n\n\nVideo(output_path, embed=True, width=640)\n\n\n# Cleanup\npredictor.handle_request(\n    request=dict(type=\"close_session\", session_id=session_id)\n)\npredictor.shutdown()\n\n# Remove temp frames\nimport shutil\nshutil.rmtree(temp_dir)"
   },
   {
     "objectID": "posts/2025-12-23-sam3-video-tracking.html#summary",
     "href": "posts/2025-12-23-sam3-video-tracking.html#summary",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
     "section": "Summary",
-    "text": "Summary\nSAM3’s video mode enables: - Text-based tracking: Just describe what to track - Frame propagation: Automatically follows object across frames - No manual annotation: Unlike SAM2 which needed point/box prompts per frame"
+    "text": "Summary\nSAM3’s video mode enables: - Text-based tracking: Just describe what to track (“tennis ball”) - Frame propagation: Automatically follows object across frames - Easy visualization: Using supervision for clean annotations"
   },
   {
     "objectID": "posts/2025-12-23-sam3-video-tracking.html#references",
     "href": "posts/2025-12-23-sam3-video-tracking.html#references",
     "title": "SAM3 Video Tracking: Following a Tennis Ball",
     "section": "References",
-    "text": "References\n\nPrevious post: SAM3 Image Segmentation\nSAM3 Video on Hugging Face\nSAM3 GitHub"
+    "text": "References\n\nPrevious post: SAM3 Image Segmentation\nSAM3 GitHub\nSupervision by Roboflow"
   },
   {
     "objectID": "posts/2021-05-31-gan.html",
