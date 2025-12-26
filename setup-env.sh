@@ -1,8 +1,8 @@
 #!/bin/bash
 # Python/PyTorch Development Environment Setup Script
-# Using uv for fast package management
+# Using uv for fast package management - GLOBAL environment
 # Author: Nipun Batra
-# Last updated: 2025-12-24
+# Last updated: 2025-12-26
 
 set -e  # Exit on error
 
@@ -22,7 +22,6 @@ export PATH="$HOME/.local/bin:$PATH"
 
 if ! command -v uv &> /dev/null; then
     echo -e "${BLUE}Installing uv...${NC}"
-    # Use SHELL=bash to avoid fish config issues
     curl -LsSf https://astral.sh/uv/install.sh | env SHELL=/bin/bash sh
     echo -e "${GREEN}✓ uv installed${NC}"
 else
@@ -30,16 +29,23 @@ else
 fi
 
 # ------------------------------
-# 2. Create virtual environment
+# 2. Create GLOBAL virtual environment
 # ------------------------------
-VENV_NAME="${1:-.venv}"  # Default to .venv, or use first argument
+VENV_NAME="${1:-nb-base}"  # Default to nb-base
+VENV_PATH="$HOME/.uv/$VENV_NAME"
 
-echo -e "${BLUE}Creating virtual environment: ${VENV_NAME}...${NC}"
-uv venv "$VENV_NAME" --python 3.11
+echo -e "${BLUE}Creating global virtual environment: ${VENV_PATH}...${NC}"
+
+if [ -d "$VENV_PATH" ]; then
+    echo -e "${GREEN}✓ Environment already exists at ${VENV_PATH}${NC}"
+else
+    uv venv "$VENV_PATH" --python 3.12
+    echo -e "${GREEN}✓ Virtual environment created${NC}"
+fi
 
 # Activate for the rest of this script
-source "$VENV_NAME/bin/activate"
-echo -e "${GREEN}✓ Virtual environment created and activated${NC}"
+source "$VENV_PATH/bin/activate"
+echo -e "${GREEN}✓ Activated${NC}"
 
 # ------------------------------
 # 3. Core Scientific Python
@@ -48,13 +54,12 @@ echo -e "${BLUE}Installing core scientific packages...${NC}"
 uv pip install numpy scipy pandas matplotlib seaborn
 
 # ------------------------------
-# 4. PyTorch with CUDA
+# 4. PyTorch with CUDA (2.6+ required for transformers security)
 # ------------------------------
 echo -e "${BLUE}Installing PyTorch with CUDA support...${NC}"
-# Check if NVIDIA GPU is available
 if command -v nvidia-smi &> /dev/null; then
     echo "NVIDIA GPU detected, installing CUDA version..."
-    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 else
     echo "No NVIDIA GPU detected, installing CPU version..."
     uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
@@ -87,9 +92,9 @@ uv pip install \
     ipywidgets \
     nbformat
 
-# Register kernel
+# Register kernel globally
 python -m ipykernel install --user --name="$VENV_NAME" --display-name="Python ($VENV_NAME)"
-echo -e "${GREEN}✓ Jupyter installed${NC}"
+echo -e "${GREEN}✓ Jupyter installed and kernel registered${NC}"
 
 # ------------------------------
 # 7. Computer Vision
@@ -136,7 +141,7 @@ echo -e "${GREEN}✓ Dev tools installed${NC}"
 echo -e "${BLUE}Installing blog/notebook dependencies...${NC}"
 uv pip install \
     nbdev \
-    quarto-cli 2>/dev/null || true  # May not be available via pip
+    quarto-cli 2>/dev/null || true
 
 echo -e "${GREEN}✓ Blog dependencies installed${NC}"
 
@@ -148,13 +153,17 @@ echo "=========================================="
 echo -e "${GREEN}Setup Complete!${NC}"
 echo "=========================================="
 echo ""
+echo "Global environment location: $VENV_PATH"
+echo ""
 echo "To activate the environment:"
-echo "  source $VENV_NAME/bin/activate"
+echo "  source $VENV_PATH/bin/activate"
+echo ""
+echo "Or add this alias to your ~/.bashrc:"
+echo "  alias nb='source $VENV_PATH/bin/activate'"
 echo ""
 echo "Python version: $(python --version)"
 echo "PyTorch version: $(python -c 'import torch; print(torch.__version__)')"
 echo "CUDA available: $(python -c 'import torch; print(torch.cuda.is_available())')"
 echo ""
-echo "Installed packages:"
-uv pip list | head -20
-echo "... (truncated, run 'uv pip list' for full list)"
+echo "Jupyter kernel '$VENV_NAME' is registered globally."
+echo "Select it in VSCode/JupyterLab to use this environment."
