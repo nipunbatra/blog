@@ -152,6 +152,157 @@ Tools installed:
 - `ripgrep` - faster `grep`
 - `zoxide` - smarter `cd`
 
+---
+
+## Before vs After: Real Examples
+
+Let's see these tools in action on a sample Python ML project:
+
+```
+dummy-project/
+├── config.yaml
+├── data/
+│   └── readings.csv
+├── docs/
+├── README.md
+├── src/
+│   ├── model.py
+│   └── train.py      (modified)
+└── tests/
+    └── test_model.py
+```
+
+### `ls` → `eza`: Directory Listing
+
+**Before** (`/bin/ls -la`):
+```
+total 16
+drwxr-xr-x@  9 nipun  staff  288  4 Jan 06:54 .
+drwxr-xr-x@  3 nipun  staff   96  4 Jan 06:54 ..
+drwxr-xr-x@ 12 nipun  staff  384  4 Jan 07:01 .git
+-rw-r--r--@  1 nipun  staff  104  4 Jan 06:54 config.yaml
+drwxr-xr-x@  3 nipun  staff   96  4 Jan 06:54 data
+drwxr-xr-x@  2 nipun  staff   64  4 Jan 06:54 docs
+-rw-r--r--@  1 nipun  staff  235  4 Jan 06:54 README.md
+drwxr-xr-x@  4 nipun  staff  128  4 Jan 06:54 src
+drwxr-xr-x@  3 nipun  staff   96  4 Jan 06:54 tests
+```
+
+**After** (`eza -la --git`):
+```
+drwxr-xr-x@   - nipun  4 Jan 07:01 -I .git
+.rw-r--r--@ 104 nipun  4 Jan 06:54 -- config.yaml
+drwxr-xr-x@   - nipun  4 Jan 06:54 -- data
+drwxr-xr-x@   - nipun  4 Jan 06:54 -- docs
+.rw-r--r--@ 235 nipun  4 Jan 06:54 -- README.md
+drwxr-xr-x@   - nipun  4 Jan 06:54 -M src        ← Modified!
+drwxr-xr-x@   - nipun  4 Jan 06:54 -- tests
+```
+
+Notice the `-M` flag showing the `src/` directory contains modified files. Git status at a glance!
+
+### `ls -R` → `eza --tree`: Tree View
+
+**Before** (`/bin/ls -laR`): Nested, hard to read output spanning many lines.
+
+**After** (`eza --tree --git-ignore`):
+```
+dummy-project/
+├── config.yaml
+├── data
+│   └── readings.csv
+├── docs
+├── README.md
+├── src
+│   ├── model.py
+│   └── train.py
+└── tests
+    └── test_model.py
+```
+
+Clean, visual hierarchy. Automatically ignores `.git/` and other gitignored files.
+
+### `cat` → `bat`: Syntax Highlighting
+
+**Before** (`/bin/cat src/model.py`):
+```
+"""Neural network model for energy prediction."""
+import torch
+import torch.nn as nn
+
+class EnergyPredictor(nn.Module):
+    def __init__(self, input_dim=10, hidden_dim=64):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+```
+
+**After** (`bat src/model.py`): Same content but with:
+- Syntax highlighting (keywords, strings, classes colored)
+- Line numbers
+- Git integration (shows modified lines)
+- Automatic paging for long files
+
+### `find` → `fd`: Finding Files
+
+**Before** (`find . -name "*.py" -not -path "./.git/*"`):
+```
+./tests/test_model.py
+./src/model.py
+./src/train.py
+```
+
+**After** (`fd -e py`):
+```
+src/model.py
+src/train.py
+tests/test_model.py
+```
+
+`fd` is:
+- ~5x faster on large codebases
+- Ignores `.git/`, `node_modules/`, etc. by default
+- Cleaner output (no `./` prefix)
+- Colored output in terminal
+
+### `grep` → `rg`: Searching Content
+
+**Before** (`grep -r "torch" . --include="*.py"`):
+```
+./tests/test_model.py:import torch
+./tests/test_model.py:    x = torch.randn(8, 10)
+./src/model.py:import torch
+./src/model.py:import torch.nn as nn
+./src/train.py:import torch
+./src/train.py:    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+```
+
+**After** (`rg "torch"`):
+```
+README.md:pip install torch pandas numpy
+tests/test_model.py:import torch
+tests/test_model.py:    x = torch.randn(8, 10)
+src/train.py:import torch
+src/train.py:    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+src/model.py:import torch
+src/model.py:import torch.nn as nn
+```
+
+`ripgrep` is:
+- ~10x faster than grep
+- Respects `.gitignore` automatically
+- Searches all file types by default (found the README match!)
+- Smart case sensitivity
+
+---
+
 ### fzf Integration
 
 Finally configured fzf properly:
