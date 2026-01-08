@@ -6,6 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Nipun Batra">
 <meta name="dcterms.date" content="2025-01-07">
 <meta name="description" content="Transferring large projects with thousands of small files over SSH can be painfully slow. Here’s how we solved it with parallel transfers.">
 
@@ -326,6 +327,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   
   <div class="quarto-title-meta">
 
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
       
       <div>
       <div class="quarto-title-meta-heading">Published</div>
@@ -353,7 +360,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#key-takeaways" id="toc-key-takeaways" class="nav-link" data-scroll-target="#key-takeaways">Key Takeaways</a></li>
   <li><a href="#monitoring-transfer-progress" id="toc-monitoring-transfer-progress" class="nav-link" data-scroll-target="#monitoring-transfer-progress">Monitoring Transfer Progress</a></li>
   <li><a href="#final-result" id="toc-final-result" class="nav-link" data-scroll-target="#final-result">Final Result</a></li>
-  <li><a href="#bonus-why-screen-studio-files-are-like-this" id="toc-bonus-why-screen-studio-files-are-like-this" class="nav-link" data-scroll-target="#bonus-why-screen-studio-files-are-like-this">Bonus: Why Screen Studio Files Are Like This</a></li>
+  <li><a href="#why-screen-studio-files-are-like-this" id="toc-why-screen-studio-files-are-like-this" class="nav-link" data-scroll-target="#why-screen-studio-files-are-like-this">Why Screen Studio Files Are Like This</a></li>
   <li><a href="#alternative-approaches" id="toc-alternative-approaches" class="nav-link" data-scroll-target="#alternative-approaches">Alternative Approaches</a></li>
   </ul>
 </nav>
@@ -366,14 +373,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<section id="the-problem" class="level1">
-<h1>The Problem</h1>
+<section id="the-problem" class="level2">
+<h2 class="anchored" data-anchor-id="the-problem">The Problem</h2>
 <p>I recently needed to transfer a Screen Studio project (about 3.5GB) from my MacBook to a remote machine. Screen Studio projects are bundles containing thousands of small video segments. When I tried the obvious <code>scp -r</code> command, it was painfully slow.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">scp</span> <span class="at">-r</span> project.screenstudio user@remote:~/Downloads/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This was taking forever because SCP transfers files sequentially, and with thousands of small files, the latency overhead for each file transfer adds up significantly.</p>
 </section>
-<section id="first-attempt-parallel-rsync" class="level1">
-<h1>First Attempt: Parallel Rsync</h1>
+<section id="first-attempt-parallel-rsync" class="level2">
+<h2 class="anchored" data-anchor-id="first-attempt-parallel-rsync">First Attempt: Parallel Rsync</h2>
 <p>I thought about using <code>rsync</code> with parallel transfers. My initial approach was to split the files into batches and run multiple rsync processes simultaneously:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">#!/bin/bash</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="va">SRC</span><span class="op">=</span><span class="st">"/path/to/project.screenstudio"</span></span>
@@ -404,48 +411,114 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="bu">wait</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="the-issue-with-parallel-batches" class="level1">
-<h1>The Issue with Parallel Batches</h1>
-<p>The parallel script seemed like a good idea, but when I checked the destination, I found: - Source: 3.5GB, 5388 files - Destination: 3.3GB, 4573 files - <strong>Missing: ~815 files!</strong></p>
+<section id="the-issue-with-parallel-batches" class="level2">
+<h2 class="anchored" data-anchor-id="the-issue-with-parallel-batches">The Issue with Parallel Batches</h2>
+<p>The parallel script seemed like a good idea, but when I checked the destination, I found:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Source</th>
+<th>Destination</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Size</td>
+<td>3.5GB</td>
+<td>3.3GB</td>
+</tr>
+<tr class="even">
+<td>Files</td>
+<td>5388</td>
+<td>4573</td>
+</tr>
+<tr class="odd">
+<td><strong>Missing</strong></td>
+<td></td>
+<td>~815 files</td>
+</tr>
+</tbody>
+</table>
 <p>The parallel transfers had some issues and didn’t complete all files. This is a common problem with parallel file transfers - race conditions, connection issues, or process management can cause incomplete transfers.</p>
 </section>
-<section id="the-simple-solution-just-use-rsync" class="level1">
-<h1>The Simple Solution: Just Use Rsync</h1>
+<section id="the-simple-solution-just-use-rsync" class="level2">
+<h2 class="anchored" data-anchor-id="the-simple-solution-just-use-rsync">The Simple Solution: Just Use Rsync</h2>
 <p>After the parallel approach partially failed, I went back to basics. A simple rsync command completed the remaining files:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rsync</span> <span class="at">-avz</span> <span class="at">--progress</span> /path/to/project.screenstudio/ user@remote:~/Downloads/project.screenstudio/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Rsync is smart about: - Only transferring changed files (incremental transfers) - Compressing data during transfer (<code>-z</code> flag) - Preserving file permissions and timestamps (<code>-a</code> flag) - Showing progress (<code>--progress</code> flag) - Resuming interrupted transfers</p>
+<p>Rsync is smart about:</p>
+<ul>
+<li>Only transferring changed files (incremental transfers)</li>
+<li>Compressing data during transfer (<code>-z</code> flag)</li>
+<li>Preserving file permissions and timestamps (<code>-a</code> flag)</li>
+<li>Showing progress (<code>--progress</code> flag)</li>
+<li>Resuming interrupted transfers</li>
+</ul>
 </section>
-<section id="key-takeaways" class="level1">
-<h1>Key Takeaways</h1>
+<section id="key-takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="key-takeaways">Key Takeaways</h2>
 <ol type="1">
-<li><p><strong>Start simple</strong>: A single rsync is often sufficient and more reliable than complex parallel solutions</p></li>
-<li><p><strong>Check your transfers</strong>: Always verify file counts and sizes after transfer</p></li>
-<li><p><strong>Monitor progress</strong>: Use <code>--progress</code> with rsync or monitor with:</p>
+<li><strong>Start simple</strong>: A single rsync is often sufficient and more reliable than complex parallel solutions</li>
+<li><strong>Check your transfers</strong>: Always verify file counts and sizes after transfer</li>
+<li><strong>Monitor progress</strong>: Use <code>--progress</code> with rsync or monitor with:</li>
+</ol>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">watch</span> <span class="at">-n</span> 2 <span class="st">'ssh user@remote "du -sh ~/Downloads/project &amp;&amp; ls ~/Downloads/project/recording/ | wc -l"'</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>(On macOS, install watch with <code>brew install watch</code> first)</p></li>
-<li><p><strong>Parallel isn’t always better</strong>: For file transfers, reliability often beats raw speed</p></li>
+<p>(On macOS, install watch with <code>brew install watch</code> first)</p>
+<ol start="4" type="1">
+<li><strong>Parallel isn’t always better</strong>: For file transfers, reliability often beats raw speed</li>
 </ol>
 </section>
-<section id="monitoring-transfer-progress" class="level1">
-<h1>Monitoring Transfer Progress</h1>
+<section id="monitoring-transfer-progress" class="level2">
+<h2 class="anchored" data-anchor-id="monitoring-transfer-progress">Monitoring Transfer Progress</h2>
 <p>During the transfer, I found it helpful to monitor both the size and file count:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Check current progress</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> user@remote <span class="st">"du -sh ~/Downloads/project.screenstudio"</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> user@remote <span class="st">"ls ~/Downloads/project.screenstudio/recording/ | wc -l"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="final-result" class="level1">
-<h1>Final Result</h1>
-<p>After using rsync to complete the transfer: - <strong>Source</strong>: 3.5GB, 5388 files - <strong>Destination</strong>: 3.5GB, 5388 files</p>
+<section id="final-result" class="level2">
+<h2 class="anchored" data-anchor-id="final-result">Final Result</h2>
+<p>After using rsync to complete the transfer:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Source</th>
+<th>Destination</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Size</td>
+<td>3.5GB</td>
+<td>3.5GB</td>
+</tr>
+<tr class="even">
+<td>Files</td>
+<td>5388</td>
+<td>5388</td>
+</tr>
+</tbody>
+</table>
 <p>Perfect match, transfer complete!</p>
 </section>
-<section id="bonus-why-screen-studio-files-are-like-this" class="level1">
-<h1>Bonus: Why Screen Studio Files Are Like This</h1>
-<p>Screen Studio projects contain thousands of small <code>.m4s</code> files (media segments). These are typically: - Video segments from screen recording (channel-1-display-0-<em>.m4s) - Audio segments from microphone (channel-2-microphone-0-</em>.m4s) - Metadata files (project.json, meta.json, etc.)</p>
+<section id="why-screen-studio-files-are-like-this" class="level2">
+<h2 class="anchored" data-anchor-id="why-screen-studio-files-are-like-this">Why Screen Studio Files Are Like This</h2>
+<p>Screen Studio projects contain thousands of small <code>.m4s</code> files (media segments). These are typically:</p>
+<ul>
+<li>Video segments from screen recording (channel-1-display-0-*.m4s)</li>
+<li>Audio segments from microphone (channel-2-microphone-0-*.m4s)</li>
+<li>Metadata files (project.json, meta.json, etc.)</li>
+</ul>
 <p>This structure allows for efficient editing and export within Screen Studio, but makes file transfers slower due to the sheer number of files.</p>
 </section>
-<section id="alternative-approaches" class="level1">
-<h1>Alternative Approaches</h1>
-<p>If you frequently need to transfer large projects with many files, consider: - <strong>Compressing first</strong>: Create a tar/zip archive, transfer the single file, then extract - <strong>Using a network share</strong>: Mount the remote directory via SSHFS or similar - <strong>rsync with more parallelism</strong>: Tools like <code>parallel</code> or GNU parallel can help, but add complexity</p>
+<section id="alternative-approaches" class="level2">
+<h2 class="anchored" data-anchor-id="alternative-approaches">Alternative Approaches</h2>
+<p>If you frequently need to transfer large projects with many files, consider:</p>
+<ul>
+<li><strong>Compressing first</strong>: Create a tar/zip archive, transfer the single file, then extract</li>
+<li><strong>Using a network share</strong>: Mount the remote directory via SSHFS or similar</li>
+<li><strong>rsync with more parallelism</strong>: Tools like <code>parallel</code> or GNU parallel can help, but add complexity</li>
+</ul>
 <p>For most cases, simple <code>rsync -avz --progress</code> is your best bet.</p>
 
 
