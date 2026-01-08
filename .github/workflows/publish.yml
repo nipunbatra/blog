@@ -27,22 +27,15 @@ jobs:
           restore-keys: |
             quarto-rendered-
 
-      - name: Get last gh-pages commit
-        id: last-build
-        run: |
-          # Get the last commit that built gh-pages successfully
-          git fetch origin gh-pages
-          LAST_COMMIT=$(git rev-parse origin/gh-pages)
-          echo "commit=$LAST_COMMIT" >> $GITHUB_OUTPUT
-
       - name: Detect changed files
         id: changed
         run: |
-          LAST_COMMIT="${{ steps.last-build.outputs.commit }}"
-          echo "Last gh-pages commit: $LAST_COMMIT"
+          # Get the previous commit on master to see what changed in this push
+          PREV_COMMIT=$(git rev-parse HEAD~1)
+          echo "Previous commit: $PREV_COMMIT"
 
-          # Get list of changed post files
-          CHANGED=$(git diff --name-only $LAST_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
+          # Get list of changed post files in this push
+          CHANGED=$(git diff --name-only $PREV_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
 
           if [ -z "$CHANGED" ]; then
             echo "No changes detected in posts"
