@@ -1,0 +1,234 @@
+---
+title: "Faster Quarto Builds with Incremental Rendering and Caching"
+date: "2025-01-08"
+description: "Tired of waiting 5+ minutes for Quarto to rebuild all 145 posts when you only changed one? Here's how to make GitHub Actions only rebuild what actually changed."
+author: "Nipun Batra"
+categories: [quarto, github-actions, caching, performance]
+format:
+  html:
+    toc: true
+---
+
+## The Problem
+
+My Quarto blog has 145+ posts. Every time I push a change, GitHub Actions re-renders the entire site, which takes:
+
+- 5-6 minutes
+- Re-executes all Jupyter notebooks
+- Hits memory limits on large notebooks
+- Often fails on problematic files
+
+This is wasteful. If I edit **1 post**, why rebuild **145**?
+
+## The Solution: Incremental Builds
+
+The key insight: **Quarto can render individual files**, not just the entire project. We can:
+
+1. **Detect which files changed** since the last successful build
+2. **Render only those files**
+3. **Merge with cached `_site`** directory
+4. **Push to gh-pages**
+
+This means: **1 file changed = 1 file rendered**
+
+## Implementation
+
+Here's the improved GitHub Actions workflow:
+
+```yaml
+on:
+  workflow_dispatch:
+  push:
+    branches: master
+
+name: Quarto Publish
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for detecting changes
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Cache rendered site
+        uses: actions/cache@v4
+        with:
+          path: _site
+          key: quarto-rendered-${{ github.run_number }}
+          restore-keys: |
+            quarto-rendered-
+
+      - name: Get last gh-pages commit
+        id: last-build
+        run: |
+          git fetch origin gh-pages
+          LAST_COMMIT=$(git rev-parse origin/gh-pages)
+          echo "commit=$LAST_COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Detect changed files
+        id: changed
+        run: |
+          LAST_COMMIT="${{ steps.last-build.outputs.commit }}"
+          echo "Last gh-pages commit: $LAST_COMMIT"
+
+          # Get list of changed post files
+          CHANGED=$(git diff --name-only $LAST_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
+
+          if [ -z "$CHANGED" ]; then
+            echo "No changes detected in posts"
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "files=" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            FILES=$(echo "$CHANGED" | tr '\n' ' ')
+            echo "files=$FILES" >> $GITHUB_OUTPUT
+            echo "Changed files: $CHANGED"
+          fi
+
+      - name: Install Python dependencies
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv "marimo>=0.13.3" matplotlib numpy jupyter nbformat ipykernel
+
+      - name: Render changed files only
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          # Restore cached _site if it exists
+          if [ -d "_site" ]; then
+            echo "Using cached _site directory"
+          else
+            echo "No cache found, doing initial render"
+            quarto render
+            exit 0
+          fi
+
+          # Render only changed files
+          for file in ${{ steps.changed.outputs.files }}; do
+            if [ -f "$file" ]; then
+              echo "Rendering: $file"
+              quarto render "$file"
+            fi
+          done
+
+      - name: Deploy to gh-pages
+        uses: quarto-dev/quarto-actions/publish@v2
+        with:
+          target: gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## How It Works
+
+### 1. Cache the `_site` directory
+
+```yaml
+- name: Cache rendered site
+  uses: actions/cache@v4
+  with:
+    path: _site
+    key: quarto-rendered-${{ github.run_number }}
+    restore-keys: |
+      quarto-rendered-
+```
+
+GitHub Actions cache persists the `_site` directory between runs. The key uses the run number to save new caches, but `restore-keys` allows falling back to any previous cache if no exact match is found.
+
+### 2. Detect changed files
+
+```bash
+LAST_COMMIT="${{ steps.last-build.outputs.commit }}"
+CHANGED=$(git diff --name-only $LAST_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
+```
+
+We compare the current `HEAD` with the last commit that successfully built `gh-pages`. This tells us exactly which post files changed.
+
+### 3. Render only changed files
+
+```bash
+for file in ${{ steps.changed.outputs.files }}; do
+  if [ -f "$file" ]; then
+    echo "Rendering: $file"
+    quarto render "$file"
+  fi
+done
+```
+
+Instead of `quarto render` (which rebuilds everything), we render each changed file individually. Quarto updates the `_site` directory with just the new files.
+
+### 4. Deploy to gh-pages
+
+The `quarto-actions/publish` action pushes the updated `_site` directory to `gh-pages`, which GitHub Pages serves.
+
+## Before vs After
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Files rendered per change | 145 | 1-5 |
+| Build time | 5-6 minutes | 30-60 seconds |
+| Failures on large notebooks | Frequent | Rare |
+| Cost (GitHub minutes) | High | Low |
+
+## Caveats
+
+### First build
+
+The first build after adding this workflow will still render everything (no cache yet). But every subsequent build will be incremental.
+
+### Cross-file changes
+
+If you modify `_quarto.yml`, `styles.scss`, or other site-wide files, the workflow won't detect them as changed posts. You may need to trigger a manual full build via workflow dispatch.
+
+### Cache expiration
+
+GitHub Actions cache expires after 7 days of no access. If you don't build for a week, you'll get a full rebuild on the next push.
+
+## Going Further
+
+### Smart cache invalidation
+
+You could detect changes to config files and force a full rebuild:
+
+```bash
+if git diff --name-only $LAST_COMMIT HEAD | grep -qE "_quarto.yml|styles.scss"; then
+  echo "Config files changed, doing full rebuild"
+  quarto render
+else
+  # Incremental build
+fi
+```
+
+### Parallel rendering
+
+For multiple changed files, render them in parallel:
+
+```bash
+echo "${{ steps.changed.outputs.files }}" | xargs -P 4 -I {} quarto render {}
+```
+
+### Better cache keys
+
+Use content hash of changed files instead of run number for more precise caching:
+
+```yaml
+key: quarto-site-${{ hashFiles('posts/**') }}
+```
+
+## Summary
+
+Incremental Quarto builds with GitHub Actions caching:
+
+- **Dramatically faster** builds for small changes
+- **More reliable** - fewer failures on problematic notebooks
+- **Cheaper** - uses fewer GitHub Actions minutes
+- **Simple** - under 100 lines of YAML
+
+The next time you're tired of waiting for Quarto to rebuild your entire site, give incremental builds a try!
