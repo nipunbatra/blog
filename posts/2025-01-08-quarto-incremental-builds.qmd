@@ -65,21 +65,15 @@ jobs:
           restore-keys: |
             quarto-rendered-
 
-      - name: Get last gh-pages commit
-        id: last-build
-        run: |
-          git fetch origin gh-pages
-          LAST_COMMIT=$(git rev-parse origin/gh-pages)
-          echo "commit=$LAST_COMMIT" >> $GITHUB_OUTPUT
-
       - name: Detect changed files
         id: changed
         run: |
-          LAST_COMMIT="${{ steps.last-build.outputs.commit }}"
-          echo "Last gh-pages commit: $LAST_COMMIT"
+          # Get the previous commit to see what changed in this push
+          PREV_COMMIT=$(git rev-parse HEAD~1)
+          echo "Previous commit: $PREV_COMMIT"
 
           # Get list of changed post files
-          CHANGED=$(git diff --name-only $LAST_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
+          CHANGED=$(git diff --name-only $PREV_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
 
           if [ -z "$CHANGED" ]; then
             echo "No changes detected in posts"
@@ -122,6 +116,7 @@ jobs:
         uses: quarto-dev/quarto-actions/publish@v2
         with:
           target: gh-pages
+          no-render: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -145,11 +140,11 @@ GitHub Actions cache persists the `_site` directory between runs. The key uses t
 ### 2. Detect changed files
 
 ```bash
-LAST_COMMIT="${{ steps.last-build.outputs.commit }}"
-CHANGED=$(git diff --name-only $LAST_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
+PREV_COMMIT=$(git rev-parse HEAD~1)
+CHANGED=$(git diff --name-only $PREV_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
 ```
 
-We compare the current `HEAD` with the last commit that successfully built `gh-pages`. This tells us exactly which post files changed.
+We compare the current `HEAD` with the previous commit (`HEAD~1`) to see what changed in this push. This is simpler than tracking the last `gh-pages` commit and works well for incremental builds.
 
 ### 3. Render only changed files
 
@@ -166,7 +161,15 @@ Instead of `quarto render` (which rebuilds everything), we render each changed f
 
 ### 4. Deploy to gh-pages
 
-The `quarto-actions/publish` action pushes the updated `_site` directory to `gh-pages`, which GitHub Pages serves.
+```yaml
+- name: Deploy to gh-pages
+  uses: quarto-dev/quarto-actions/publish@v2
+  with:
+    target: gh-pages
+    no-render: true  # Use pre-rendered _site from cache
+```
+
+The **critical** part is `no-render: true`. Without this, the publish action would re-render the entire site, defeating the purpose of incremental builds. With `no-render: true`, it simply deploys the already-rendered `_site` directory to `gh-pages`, which GitHub Pages serves.
 
 ## Before vs After
 
@@ -198,7 +201,7 @@ GitHub Actions cache expires after 7 days of no access. If you don't build for a
 You could detect changes to config files and force a full rebuild:
 
 ```bash
-if git diff --name-only $LAST_COMMIT HEAD | grep -qE "_quarto.yml|styles.scss"; then
+if git diff --name-only HEAD~1 HEAD | grep -qE "_quarto.yml|styles.scss"; then
   echo "Config files changed, doing full rebuild"
   quarto render
 else
