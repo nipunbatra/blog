@@ -1,0 +1,387 @@
+---
+title: "Building AI Tool Servers with FastMCP"
+author: "Nipun Batra"
+date: "2026-01-13"
+categories:
+  - python
+  - ai
+  - mcp
+  - llm
+  - tools
+description: "Learn how to build MCP servers with FastMCP - enabling LLMs like Claude to interact with your custom tools, databases, and APIs."
+toc: true
+---
+
+## What is MCP?
+
+The **Model Context Protocol (MCP)** is an open protocol that standardizes how AI assistants connect to external data sources and tools. Think of it as a USB-C port for AI - a universal interface that lets language models interact with your custom functionality.
+
+Before MCP, integrating an LLM with your tools meant writing custom code for each AI provider. MCP changes this by providing a standard way for AI applications (like Claude Desktop, Claude Code, or custom agents) to discover and use external capabilities.
+
+## Enter FastMCP
+
+[FastMCP](https://github.com/jlowin/fastmcp) is a Python framework that makes building MCP servers delightfully simple. If you've used FastAPI for web development, FastMCP will feel instantly familiar - it uses the same decorator-based approach.
+
+```bash
+pip install fastmcp
+```
+
+## Core Concepts
+
+FastMCP exposes three types of capabilities to AI models:
+
+| Capability | Description | Use Case |
+|------------|-------------|----------|
+| **Tools** | Functions the AI can execute | Run calculations, call APIs, modify files |
+| **Resources** | Data the AI can read | Config files, database records, documentation |
+| **Prompts** | Reusable prompt templates | Standardized workflows, complex instructions |
+
+## Application 1: File System Assistant
+
+Let's build a simple MCP server that helps an AI navigate and understand a project directory.
+
+```python
+# file_server.py
+from fastmcp import FastMCP
+
+mcp = FastMCP("File Assistant")
+
+@mcp.tool()
+def list_files(directory: str = ".") -> str:
+    """List all files in a directory."""
+    from pathlib import Path
+
+    path = Path(directory)
+    if not path.exists():
+        return f"Directory {directory} does not exist"
+
+    files = list(path.iterdir())
+    return "\n".join(f.name for f in sorted(files))
+
+@mcp.tool()
+def read_file(filepath: str) -> str:
+    """Read the contents of a file."""
+    from pathlib import Path
+
+    path = Path(filepath)
+    if not path.exists():
+        return f"File {filepath} does not exist"
+
+    return path.read_text()
+
+@mcp.tool()
+def file_stats(filepath: str) -> dict:
+    """Get statistics about a file."""
+    from pathlib import Path
+    import os
+
+    path = Path(filepath)
+    if not path.exists():
+        return {"error": f"File {filepath} does not exist"}
+
+    stat = path.stat()
+    return {
+        "size_bytes": stat.st_size,
+        "modified": stat.st_mtime,
+        "is_directory": path.is_dir(),
+        "extension": path.suffix
+    }
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+Run the server:
+
+```bash
+fastmcp run file_server.py
+```
+
+## Application 2: Database Query Interface
+
+A more powerful application - letting an AI query your database safely.
+
+```python
+# db_server.py
+from fastmcp import FastMCP
+import sqlite3
+
+mcp = FastMCP("Database Assistant")
+
+DATABASE = "app.db"
+
+@mcp.tool()
+def list_tables() -> list[str]:
+    """List all tables in the database."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    )
+    tables = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return tables
+
+@mcp.tool()
+def describe_table(table_name: str) -> list[dict]:
+    """Get the schema of a specific table."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.execute(f"PRAGMA table_info({table_name})")
+    columns = [
+        {"name": row[1], "type": row[2], "nullable": not row[3]}
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return columns
+
+@mcp.tool()
+def query_database(sql: str) -> list[dict]:
+    """Execute a read-only SQL query and return results.
+
+    Only SELECT queries are allowed for safety.
+    """
+    if not sql.strip().upper().startswith("SELECT"):
+        return {"error": "Only SELECT queries are allowed"}
+
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.execute(sql)
+    results = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return results
+
+@mcp.resource("schema://tables")
+def get_full_schema() -> str:
+    """Provide the complete database schema as a resource."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table'"
+    )
+    schemas = [row[0] for row in cursor.fetchall() if row[0]]
+    conn.close()
+    return "\n\n".join(schemas)
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+## Application 3: API Integration Server
+
+Connect an AI to external APIs - here's an example with a weather service.
+
+```python
+# weather_server.py
+from fastmcp import FastMCP
+import httpx
+
+mcp = FastMCP("Weather Assistant")
+
+API_KEY = "your_api_key"  # Use environment variables in production
+BASE_URL = "https://api.openweathermap.org/data/2.5"
+
+@mcp.tool()
+async def get_weather(city: str) -> dict:
+    """Get current weather for a city."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{BASE_URL}/weather",
+            params={"q": city, "appid": API_KEY, "units": "metric"}
+        )
+        data = response.json()
+
+        return {
+            "city": data["name"],
+            "temperature": data["main"]["temp"],
+            "feels_like": data["main"]["feels_like"],
+            "humidity": data["main"]["humidity"],
+            "description": data["weather"][0]["description"]
+        }
+
+@mcp.tool()
+async def get_forecast(city: str, days: int = 3) -> list[dict]:
+    """Get weather forecast for upcoming days."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{BASE_URL}/forecast",
+            params={"q": city, "appid": API_KEY, "units": "metric"}
+        )
+        data = response.json()
+
+        # Group by day and take first entry per day
+        forecasts = []
+        seen_dates = set()
+
+        for item in data["list"]:
+            date = item["dt_txt"].split()[0]
+            if date not in seen_dates and len(forecasts) < days:
+                seen_dates.add(date)
+                forecasts.append({
+                    "date": date,
+                    "temp_max": item["main"]["temp_max"],
+                    "temp_min": item["main"]["temp_min"],
+                    "description": item["weather"][0]["description"]
+                })
+
+        return forecasts
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+## Application 4: Code Analysis Server
+
+Help an AI understand and analyze code quality.
+
+```python
+# code_analyzer.py
+from fastmcp import FastMCP
+import subprocess
+import json
+
+mcp = FastMCP("Code Analyzer")
+
+@mcp.tool()
+def run_ruff_check(filepath: str) -> dict:
+    """Run Ruff linter on a Python file."""
+    result = subprocess.run(
+        ["ruff", "check", filepath, "--output-format", "json"],
+        capture_output=True,
+        text=True
+    )
+
+    issues = json.loads(result.stdout) if result.stdout else []
+    return {
+        "file": filepath,
+        "issue_count": len(issues),
+        "issues": issues[:10]  # Limit to first 10
+    }
+
+@mcp.tool()
+def count_lines(filepath: str) -> dict:
+    """Count lines of code, comments, and blanks."""
+    with open(filepath) as f:
+        lines = f.readlines()
+
+    code_lines = 0
+    comment_lines = 0
+    blank_lines = 0
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            blank_lines += 1
+        elif stripped.startswith("#"):
+            comment_lines += 1
+        else:
+            code_lines += 1
+
+    return {
+        "total": len(lines),
+        "code": code_lines,
+        "comments": comment_lines,
+        "blank": blank_lines
+    }
+
+@mcp.tool()
+def find_functions(filepath: str) -> list[str]:
+    """List all function definitions in a Python file."""
+    import ast
+
+    with open(filepath) as f:
+        tree = ast.parse(f.read())
+
+    functions = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            functions.append(node.name)
+        elif isinstance(node, ast.AsyncFunctionDef):
+            functions.append(f"{node.name} (async)")
+
+    return functions
+
+@mcp.prompt()
+def code_review_prompt(filepath: str) -> str:
+    """Generate a code review prompt for a file."""
+    return f"""Please review the code in {filepath}. Consider:
+
+1. Code quality and readability
+2. Potential bugs or edge cases
+3. Performance considerations
+4. Security concerns
+5. Suggestions for improvement
+
+Start by using the available tools to analyze the file."""
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+## Connecting to Claude Desktop
+
+Add your MCP server to Claude Desktop's configuration:
+
+```json
+{
+  "mcpServers": {
+    "file-assistant": {
+      "command": "fastmcp",
+      "args": ["run", "/path/to/file_server.py"]
+    },
+    "database": {
+      "command": "fastmcp",
+      "args": ["run", "/path/to/db_server.py"]
+    }
+  }
+}
+```
+
+On macOS, this file lives at: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+## Using with Claude Code
+
+For Claude Code, add to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "code-analyzer": {
+      "command": "fastmcp",
+      "args": ["run", "code_analyzer.py"]
+    }
+  }
+}
+```
+
+## Key Benefits of FastMCP
+
+| Feature | Benefit |
+|---------|---------|
+| **Decorator syntax** | Define tools with `@mcp.tool()` - no boilerplate |
+| **Type inference** | Automatic JSON schema generation from type hints |
+| **Async support** | Native async/await for non-blocking operations |
+| **Auto-documentation** | Docstrings become tool descriptions for the AI |
+| **Testing utilities** | Built-in testing support for your MCP servers |
+
+## Best Practices
+
+1. **Use descriptive docstrings** - The AI reads these to understand when to use each tool
+2. **Add type hints** - They help generate accurate JSON schemas
+3. **Limit scope** - Each tool should do one thing well
+4. **Handle errors gracefully** - Return error messages rather than raising exceptions
+5. **Use resources for static data** - Don't make the AI call tools for data that doesn't change
+
+## TL;DR
+
+- **MCP** = Standard protocol for AI-to-tool communication
+- **FastMCP** = Python framework for building MCP servers quickly
+- **Three capabilities**: Tools (functions), Resources (data), Prompts (templates)
+- **Works with**: Claude Desktop, Claude Code, and other MCP clients
+- **Install**: `pip install fastmcp`
+- **Run**: `fastmcp run your_server.py`
+
+FastMCP makes it trivial to extend what AI assistants can do. Whether you need database access, API integrations, or custom tooling - you can build it in minutes with a few decorated functions.
+
+## Resources
+
+- [FastMCP GitHub Repository](https://github.com/jlowin/fastmcp)
+- [MCP Specification](https://modelcontextprotocol.io)
+- [Anthropic MCP Documentation](https://docs.anthropic.com/en/docs/agents-and-tools/mcp)
