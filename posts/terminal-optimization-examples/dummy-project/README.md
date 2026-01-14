@@ -1,3 +1,7 @@
+---
+draft: true
+---
+
 # Energy Prediction Model
 
 A PyTorch model for predicting building energy consumption.
