@@ -371,7 +371,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#next-steps" id="toc-next-steps" class="nav-link" data-scroll-target="#next-steps">Next Steps</a></li>
   </ul></li>
   <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
-  <li><a href="#cleanup-release-gpu-memorywhen-done-with-the-notebook-run-this-cell-to-free-up-gpu-memory-for-other-tasks." id="toc-cleanup-release-gpu-memorywhen-done-with-the-notebook-run-this-cell-to-free-up-gpu-memory-for-other-tasks." class="nav-link" data-scroll-target="#cleanup-release-gpu-memorywhen-done-with-the-notebook-run-this-cell-to-free-up-gpu-memory-for-other-tasks.">Cleanup: Release GPU MemoryWhen done with the notebook, run this cell to free up GPU memory for other tasks.</a></li>
+  <li><a href="#cleanup-release-gpu-memory" id="toc-cleanup-release-gpu-memory" class="nav-link" data-scroll-target="#cleanup-release-gpu-memory">Cleanup: Release GPU Memory</a></li>
   </ul>
 </nav>
     </div>
@@ -584,7 +584,48 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.tokenizer.decode(generated_ids[<span class="dv">0</span>], skip_special_tokens<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div id="cell-7" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Model names - using larger models for better performancevision_model_name = "google/vit-large-patch16-224"lm_model_name = "HuggingFaceTB/SmolLM-360M"pretrained_dir = "mini-vlm-flickr8k"  # Caption model, NOT OD model# Load base modelsvision_encoder = ViTModel.from_pretrained(vision_model_name)language_model = AutoModelForCausalLM.from_pretrained(lm_model_name)tokenizer = AutoTokenizer.from_pretrained(lm_model_name)image_processor = ViTImageProcessor.from_pretrained(vision_model_name)if tokenizer.pad_token is None:    tokenizer.pad_token = tokenizer.eos_token# Create projectorvision_dim = vision_encoder.config.hidden_size  # 1024 for ViT-Largelanguage_dim = language_model.config.hidden_size  # 960 for SmolLM-360Mprojector = VisionProjector(vision_dim, language_dim)# Load pretrained caption model weightsif os.path.exists(f"{pretrained_dir}/mini_vlm_full.pt"):    print(f"Loading pretrained CAPTION model from {pretrained_dir}/")    checkpoint = torch.load(f"{pretrained_dir}/mini_vlm_full.pt", map_location='cpu')    try:        projector.load_state_dict(checkpoint['projector_state_dict'])        language_model.load_state_dict(checkpoint['language_model_state_dict'])        print("Loaded pretrained caption model weights!")    except Exception as e:        print(f"Could not load pretrained weights (dimension mismatch): {e}")        print("Starting with fresh weights for new model sizes.")else:    print("No pretrained weights found. Starting from scratch.")    print("(Run the captioning notebook first for better results)")# Create VLMvlm = MiniVLM(vision_encoder, language_model, projector, tokenizer)vlm = vlm.to(device)print(f"\nModel loaded on {device}")print(f"Vision encoder: {vision_model_name} (hidden_size={vision_dim})")print(f"Language model: {lm_model_name} (hidden_size={language_dim})")print(f"Trainable parameters: {sum(p.numel() for p in vlm.parameters() if p.requires_grad):,}")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Model names - using larger models for better performance</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>vision_model_name <span class="op">=</span> <span class="st">"google/vit-large-patch16-224"</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>lm_model_name <span class="op">=</span> <span class="st">"HuggingFaceTB/SmolLM-360M"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>pretrained_dir <span class="op">=</span> <span class="st">"mini-vlm-flickr8k"</span>  <span class="co"># Caption model, NOT OD model</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Load base models</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>vision_encoder <span class="op">=</span> ViTModel.from_pretrained(vision_model_name)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>language_model <span class="op">=</span> AutoModelForCausalLM.from_pretrained(lm_model_name)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>tokenizer <span class="op">=</span> AutoTokenizer.from_pretrained(lm_model_name)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>image_processor <span class="op">=</span> ViTImageProcessor.from_pretrained(vision_model_name)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> tokenizer.pad_token <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    tokenizer.pad_token <span class="op">=</span> tokenizer.eos_token</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Create projector</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>vision_dim <span class="op">=</span> vision_encoder.config.hidden_size  <span class="co"># 1024 for ViT-Large</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>language_dim <span class="op">=</span> language_model.config.hidden_size  <span class="co"># 960 for SmolLM-360M</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>projector <span class="op">=</span> VisionProjector(vision_dim, language_dim)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Load pretrained caption model weights</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> os.path.exists(<span class="ss">f"</span><span class="sc">{</span>pretrained_dir<span class="sc">}</span><span class="ss">/mini_vlm_full.pt"</span>):</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Loading pretrained CAPTION model from </span><span class="sc">{</span>pretrained_dir<span class="sc">}</span><span class="ss">/"</span>)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    checkpoint <span class="op">=</span> torch.load(<span class="ss">f"</span><span class="sc">{</span>pretrained_dir<span class="sc">}</span><span class="ss">/mini_vlm_full.pt"</span>, map_location<span class="op">=</span><span class="st">'cpu'</span>)</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        projector.load_state_dict(checkpoint[<span class="st">'projector_state_dict'</span>])</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>        language_model.load_state_dict(checkpoint[<span class="st">'language_model_state_dict'</span>])</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Loaded pretrained caption model weights!"</span>)</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Could not load pretrained weights (dimension mismatch): </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Starting with fresh weights for new model sizes."</span>)</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"No pretrained weights found. Starting from scratch."</span>)</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"(Run the captioning notebook first for better results)"</span>)</span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Create VLM</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>vlm <span class="op">=</span> MiniVLM(vision_encoder, language_model, projector, tokenizer)</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>vlm <span class="op">=</span> vlm.to(device)</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Model loaded on </span><span class="sc">{</span>device<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Vision encoder: </span><span class="sc">{</span>vision_model_name<span class="sc">}</span><span class="ss"> (hidden_size=</span><span class="sc">{</span>vision_dim<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Language model: </span><span class="sc">{</span>lm_model_name<span class="sc">}</span><span class="ss"> (hidden_size=</span><span class="sc">{</span>language_dim<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Trainable parameters: </span><span class="sc">{</span><span class="bu">sum</span>(p.numel() <span class="cf">for</span> p <span class="kw">in</span> vlm.parameters() <span class="cf">if</span> p.requires_grad)<span class="sc">:,}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="part-2-load-vqa-dataset" class="level2">
@@ -858,10 +899,101 @@ Q: Does it look dry?
 <h2 class="anchored" data-anchor-id="part-5-vqa-instruction-fine-tuning">Part 5: VQA Instruction Fine-Tuning</h2>
 <p>Train the model to give short, direct answers to questions.</p>
 <div id="cell-18" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> train_vlm_vqa(model, train_loader, num_epochs<span class="op">=</span><span class="dv">8</span>, lr<span class="op">=</span><span class="fl">2e-4</span>, checkpoint_path<span class="op">=</span><span class="st">"vqa_checkpoint.pt"</span>):    <span class="st">"""Train the VLM for VQA with checkpoint support for resumable training."""</span>        trainable_params <span class="op">=</span> [p <span class="cf">for</span> p <span class="kw">in</span> model.parameters() <span class="cf">if</span> p.requires_grad]    optimizer <span class="op">=</span> torch.optim.AdamW(trainable_params, lr<span class="op">=</span>lr)        <span class="co"># Try to load checkpoint for resumable training    start_epoch = 0    losses = []        if os.path.exists(checkpoint_path):        print(f"Found checkpoint: {checkpoint_path}")        try:            checkpoint = torch.load(checkpoint_path, map_location='cpu')            start_epoch = checkpoint.get('epoch', 0)            losses = checkpoint.get('losses', [])            model.projector.load_state_dict(checkpoint['projector_state_dict'])            model.language_model.load_state_dict(checkpoint['language_model_state_dict'])            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])            # Move optimizer state to device            for state in optimizer.state.values():                for k, v in state.items():                    if isinstance(v, torch.Tensor):                        state[k] = v.to(device)            print(f"Resumed from epoch {start_epoch}")        except Exception as e:            print(f"Could not load checkpoint: {e}")        model.train()    model.vision_encoder.eval()        try:        for epoch in range(start_epoch, num_epochs):            epoch_loss = 0            progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")                        for batch in progress_bar:                pixel_values = batch['pixel_values'].to(device)                input_ids = batch['input_ids'].to(device)                attention_mask = batch['attention_mask'].to(device)                labels = batch['labels'].to(device)                                outputs = model(                    pixel_values=pixel_values,                    input_ids=input_ids,                    attention_mask=attention_mask,                    labels=labels,                )                                loss = outputs.loss                                optimizer.zero_grad()                loss.backward()                torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=1.0)                optimizer.step()                                epoch_loss += loss.item()                progress_bar.set_postfix({'loss': f"{loss.item():.4f}"})                        avg_loss = epoch_loss / len(train_loader)            losses.append(avg_loss)            print(f"Epoch {epoch+1} - Average Loss: {avg_loss:.4f}")                        # Save checkpoint after each epoch            torch.save({                'epoch': epoch + 1,                'losses': losses,                'projector_state_dict': model.projector.state_dict(),                'language_model_state_dict': model.language_model.state_dict(),                'optimizer_state_dict': optimizer.state_dict(),            }, checkpoint_path)            print(f"Checkpoint saved to {checkpoint_path}")        except KeyboardInterrupt:        print("\n" + "="*70)        print("Training interrupted!")        print(f"Completed {len(losses)} epochs")        # Save checkpoint on interrupt        torch.save({            'epoch': len(losses),            'losses': losses,            'projector_state_dict': model.projector.state_dict(),            'language_model_state_dict': model.language_model.state_dict(),            'optimizer_state_dict': optimizer.state_dict(),        }, checkpoint_path)        print(f"Checkpoint saved to {checkpoint_path}")        print("Run training again to resume from this checkpoint.")        print("="*70)        return losses</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> train_vlm_vqa(model, train_loader, num_epochs<span class="op">=</span><span class="dv">8</span>, lr<span class="op">=</span><span class="fl">2e-4</span>, checkpoint_path<span class="op">=</span><span class="st">"vqa_checkpoint.pt"</span>):</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Train the VLM for VQA with checkpoint support for resumable training."""</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    trainable_params <span class="op">=</span> [p <span class="cf">for</span> p <span class="kw">in</span> model.parameters() <span class="cf">if</span> p.requires_grad]</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    optimizer <span class="op">=</span> torch.optim.AdamW(trainable_params, lr<span class="op">=</span>lr)</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Try to load checkpoint for resumable training</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    start_epoch <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    losses <span class="op">=</span> []</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> os.path.exists(checkpoint_path):</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Found checkpoint: </span><span class="sc">{</span>checkpoint_path<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>:</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>            checkpoint <span class="op">=</span> torch.load(checkpoint_path, map_location<span class="op">=</span><span class="st">'cpu'</span>)</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>            start_epoch <span class="op">=</span> checkpoint.get(<span class="st">'epoch'</span>, <span class="dv">0</span>)</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>            losses <span class="op">=</span> checkpoint.get(<span class="st">'losses'</span>, [])</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>            model.projector.load_state_dict(checkpoint[<span class="st">'projector_state_dict'</span>])</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>            model.language_model.load_state_dict(checkpoint[<span class="st">'language_model_state_dict'</span>])</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>            optimizer.load_state_dict(checkpoint[<span class="st">'optimizer_state_dict'</span>])</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Move optimizer state to device</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> state <span class="kw">in</span> optimizer.state.values():</span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> k, v <span class="kw">in</span> state.items():</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> <span class="bu">isinstance</span>(v, torch.Tensor):</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>                        state[k] <span class="op">=</span> v.to(device)</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Resumed from epoch </span><span class="sc">{</span>start_epoch<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Could not load checkpoint: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>    model.train()</span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>    model.vision_encoder.<span class="bu">eval</span>()</span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb17-33"><a href="#cb17-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> epoch <span class="kw">in</span> <span class="bu">range</span>(start_epoch, num_epochs):</span>
+<span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a>            epoch_loss <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a>            progress_bar <span class="op">=</span> tqdm(train_loader, desc<span class="op">=</span><span class="ss">f"Epoch </span><span class="sc">{</span>epoch<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>num_epochs<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> batch <span class="kw">in</span> progress_bar:</span>
+<span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a>                pixel_values <span class="op">=</span> batch[<span class="st">'pixel_values'</span>].to(device)</span>
+<span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a>                input_ids <span class="op">=</span> batch[<span class="st">'input_ids'</span>].to(device)</span>
+<span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a>                attention_mask <span class="op">=</span> batch[<span class="st">'attention_mask'</span>].to(device)</span>
+<span id="cb17-41"><a href="#cb17-41" aria-hidden="true" tabindex="-1"></a>                labels <span class="op">=</span> batch[<span class="st">'labels'</span>].to(device)</span>
+<span id="cb17-42"><a href="#cb17-42" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb17-43"><a href="#cb17-43" aria-hidden="true" tabindex="-1"></a>                outputs <span class="op">=</span> model(</span>
+<span id="cb17-44"><a href="#cb17-44" aria-hidden="true" tabindex="-1"></a>                    pixel_values<span class="op">=</span>pixel_values,</span>
+<span id="cb17-45"><a href="#cb17-45" aria-hidden="true" tabindex="-1"></a>                    input_ids<span class="op">=</span>input_ids,</span>
+<span id="cb17-46"><a href="#cb17-46" aria-hidden="true" tabindex="-1"></a>                    attention_mask<span class="op">=</span>attention_mask,</span>
+<span id="cb17-47"><a href="#cb17-47" aria-hidden="true" tabindex="-1"></a>                    labels<span class="op">=</span>labels,</span>
+<span id="cb17-48"><a href="#cb17-48" aria-hidden="true" tabindex="-1"></a>                )</span>
+<span id="cb17-49"><a href="#cb17-49" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb17-50"><a href="#cb17-50" aria-hidden="true" tabindex="-1"></a>                loss <span class="op">=</span> outputs.loss</span>
+<span id="cb17-51"><a href="#cb17-51" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb17-52"><a href="#cb17-52" aria-hidden="true" tabindex="-1"></a>                optimizer.zero_grad()</span>
+<span id="cb17-53"><a href="#cb17-53" aria-hidden="true" tabindex="-1"></a>                loss.backward()</span>
+<span id="cb17-54"><a href="#cb17-54" aria-hidden="true" tabindex="-1"></a>                torch.nn.utils.clip_grad_norm_(trainable_params, max_norm<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb17-55"><a href="#cb17-55" aria-hidden="true" tabindex="-1"></a>                optimizer.step()</span>
+<span id="cb17-56"><a href="#cb17-56" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb17-57"><a href="#cb17-57" aria-hidden="true" tabindex="-1"></a>                epoch_loss <span class="op">+=</span> loss.item()</span>
+<span id="cb17-58"><a href="#cb17-58" aria-hidden="true" tabindex="-1"></a>                progress_bar.set_postfix({<span class="st">'loss'</span>: <span class="ss">f"</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">:.4f}</span><span class="ss">"</span>})</span>
+<span id="cb17-59"><a href="#cb17-59" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb17-60"><a href="#cb17-60" aria-hidden="true" tabindex="-1"></a>            avg_loss <span class="op">=</span> epoch_loss <span class="op">/</span> <span class="bu">len</span>(train_loader)</span>
+<span id="cb17-61"><a href="#cb17-61" aria-hidden="true" tabindex="-1"></a>            losses.append(avg_loss)</span>
+<span id="cb17-62"><a href="#cb17-62" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Epoch </span><span class="sc">{</span>epoch<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss"> - Average Loss: </span><span class="sc">{</span>avg_loss<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb17-63"><a href="#cb17-63" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb17-64"><a href="#cb17-64" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Save checkpoint after each epoch</span></span>
+<span id="cb17-65"><a href="#cb17-65" aria-hidden="true" tabindex="-1"></a>            torch.save({</span>
+<span id="cb17-66"><a href="#cb17-66" aria-hidden="true" tabindex="-1"></a>                <span class="st">'epoch'</span>: epoch <span class="op">+</span> <span class="dv">1</span>,</span>
+<span id="cb17-67"><a href="#cb17-67" aria-hidden="true" tabindex="-1"></a>                <span class="st">'losses'</span>: losses,</span>
+<span id="cb17-68"><a href="#cb17-68" aria-hidden="true" tabindex="-1"></a>                <span class="st">'projector_state_dict'</span>: model.projector.state_dict(),</span>
+<span id="cb17-69"><a href="#cb17-69" aria-hidden="true" tabindex="-1"></a>                <span class="st">'language_model_state_dict'</span>: model.language_model.state_dict(),</span>
+<span id="cb17-70"><a href="#cb17-70" aria-hidden="true" tabindex="-1"></a>                <span class="st">'optimizer_state_dict'</span>: optimizer.state_dict(),</span>
+<span id="cb17-71"><a href="#cb17-71" aria-hidden="true" tabindex="-1"></a>            }, checkpoint_path)</span>
+<span id="cb17-72"><a href="#cb17-72" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Checkpoint saved to </span><span class="sc">{</span>checkpoint_path<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-73"><a href="#cb17-73" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-74"><a href="#cb17-74" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">KeyboardInterrupt</span>:</span>
+<span id="cb17-75"><a href="#cb17-75" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span> <span class="op">+</span> <span class="st">"="</span><span class="op">*</span><span class="dv">70</span>)</span>
+<span id="cb17-76"><a href="#cb17-76" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Training interrupted!"</span>)</span>
+<span id="cb17-77"><a href="#cb17-77" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Completed </span><span class="sc">{</span><span class="bu">len</span>(losses)<span class="sc">}</span><span class="ss"> epochs"</span>)</span>
+<span id="cb17-78"><a href="#cb17-78" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Save checkpoint on interrupt</span></span>
+<span id="cb17-79"><a href="#cb17-79" aria-hidden="true" tabindex="-1"></a>        torch.save({</span>
+<span id="cb17-80"><a href="#cb17-80" aria-hidden="true" tabindex="-1"></a>            <span class="st">'epoch'</span>: <span class="bu">len</span>(losses),</span>
+<span id="cb17-81"><a href="#cb17-81" aria-hidden="true" tabindex="-1"></a>            <span class="st">'losses'</span>: losses,</span>
+<span id="cb17-82"><a href="#cb17-82" aria-hidden="true" tabindex="-1"></a>            <span class="st">'projector_state_dict'</span>: model.projector.state_dict(),</span>
+<span id="cb17-83"><a href="#cb17-83" aria-hidden="true" tabindex="-1"></a>            <span class="st">'language_model_state_dict'</span>: model.language_model.state_dict(),</span>
+<span id="cb17-84"><a href="#cb17-84" aria-hidden="true" tabindex="-1"></a>            <span class="st">'optimizer_state_dict'</span>: optimizer.state_dict(),</span>
+<span id="cb17-85"><a href="#cb17-85" aria-hidden="true" tabindex="-1"></a>        }, checkpoint_path)</span>
+<span id="cb17-86"><a href="#cb17-86" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Checkpoint saved to </span><span class="sc">{</span>checkpoint_path<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb17-87"><a href="#cb17-87" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"Run training again to resume from this checkpoint."</span>)</span>
+<span id="cb17-88"><a href="#cb17-88" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"="</span><span class="op">*</span><span class="dv">70</span>)</span>
+<span id="cb17-89"><a href="#cb17-89" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-90"><a href="#cb17-90" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> losses</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div id="cell-19" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Train for VQA - more epochs for better convergence# Training is preemptible - interrupt with Ctrl+C and re-run to resumelosses = train_vlm_vqa(vlm, train_loader, num_epochs=12, lr=2e-4, checkpoint_path="vqa_checkpoint.pt")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Train for VQA - more epochs for better convergence</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Training is preemptible - interrupt with Ctrl+C and re-run to resume</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>losses <span class="op">=</span> train_vlm_vqa(vlm, train_loader, num_epochs<span class="op">=</span><span class="dv">12</span>, lr<span class="op">=</span><span class="fl">2e-4</span>, checkpoint_path<span class="op">=</span><span class="st">"vqa_checkpoint.pt"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div id="cell-20" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot training loss</span></span>
@@ -1212,10 +1344,53 @@ Contents: ['tokenizer', 'mini_vlm_vqa.pt', 'image_processor']</code></pre>
 <li><a href="https://llava-vl.github.io/">LLaVA: Visual Instruction Tuning</a></li>
 </ul>
 </section>
-<section id="cleanup-release-gpu-memorywhen-done-with-the-notebook-run-this-cell-to-free-up-gpu-memory-for-other-tasks." class="level2">
-<h2 class="anchored" data-anchor-id="cleanup-release-gpu-memorywhen-done-with-the-notebook-run-this-cell-to-free-up-gpu-memory-for-other-tasks.">Cleanup: Release GPU MemoryWhen done with the notebook, run this cell to free up GPU memory for other tasks.</h2>
+<section id="cleanup-release-gpu-memory" class="level2">
+<h2 class="anchored" data-anchor-id="cleanup-release-gpu-memory">Cleanup: Release GPU Memory</h2>
+<p>When done with the notebook, run this cell to free up GPU memory for other tasks.</p>
 <div id="89qj4h04nqg" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cleanup_gpu_memory():    <span class="st">"""Clean up GPU memory by deleting models and clearing cache."""</span>    <span class="im">import</span> gc        <span class="kw">global</span> vlm, vision_encoder, language_model, projector    <span class="kw">global</span> train_loader, train_dataset, test_dataset, vqa_samples        <span class="co"># Delete model components    for var_name in ['vlm', 'vision_encoder', 'language_model', 'projector']:        if var_name in globals():            try:                del globals()[var_name]                print(f"Deleted {var_name}")            except:                pass        # Delete data    for var_name in ['train_loader', 'train_dataset', 'test_dataset', 'vqa_samples']:        if var_name in globals():            try:                del globals()[var_name]                print(f"Deleted {var_name}")            except:                pass        # Force garbage collection    gc.collect()        # Clear CUDA cache    if torch.cuda.is_available():        torch.cuda.empty_cache()        torch.cuda.synchronize()                allocated = torch.cuda.memory_allocated() / 1024**3        reserved = torch.cuda.memory_reserved() / 1024**3        print(f"\nGPU Memory after cleanup:")        print(f"  Allocated: {allocated:.2f} GB")        print(f"  Reserved:  {reserved:.2f} GB")        print("\nGPU memory cleanup complete!")# Run cleanupcleanup_gpu_memory()</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cleanup_gpu_memory():</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Clean up GPU memory by deleting models and clearing cache."""</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> gc</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">global</span> vlm, vision_encoder, language_model, projector</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">global</span> train_loader, train_dataset, test_dataset, vqa_samples</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Delete model components</span></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> var_name <span class="kw">in</span> [<span class="st">'vlm'</span>, <span class="st">'vision_encoder'</span>, <span class="st">'language_model'</span>, <span class="st">'projector'</span>]:</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> var_name <span class="kw">in</span> <span class="bu">globals</span>():</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">try</span>:</span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>                <span class="kw">del</span> <span class="bu">globals</span>()[var_name]</span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>                <span class="bu">print</span>(<span class="ss">f"Deleted </span><span class="sc">{</span>var_name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>            <span class="cf">except</span>:</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>                <span class="cf">pass</span></span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Delete data</span></span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> var_name <span class="kw">in</span> [<span class="st">'train_loader'</span>, <span class="st">'train_dataset'</span>, <span class="st">'test_dataset'</span>, <span class="st">'vqa_samples'</span>]:</span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> var_name <span class="kw">in</span> <span class="bu">globals</span>():</span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>            <span class="cf">try</span>:</span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a>                <span class="kw">del</span> <span class="bu">globals</span>()[var_name]</span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>                <span class="bu">print</span>(<span class="ss">f"Deleted </span><span class="sc">{</span>var_name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>            <span class="cf">except</span>:</span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>                <span class="cf">pass</span></span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Force garbage collection</span></span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>    gc.collect()</span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Clear CUDA cache</span></span>
+<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> torch.cuda.is_available():</span>
+<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>        torch.cuda.empty_cache()</span>
+<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>        torch.cuda.synchronize()</span>
+<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>        allocated <span class="op">=</span> torch.cuda.memory_allocated() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span></span>
+<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a>        reserved <span class="op">=</span> torch.cuda.memory_reserved() <span class="op">/</span> <span class="dv">1024</span><span class="op">**</span><span class="dv">3</span></span>
+<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">GPU Memory after cleanup:"</span>)</span>
+<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Allocated: </span><span class="sc">{</span>allocated<span class="sc">:.2f}</span><span class="ss"> GB"</span>)</span>
+<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  Reserved:  </span><span class="sc">{</span>reserved<span class="sc">:.2f}</span><span class="ss"> GB"</span>)</span>
+<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">GPU memory cleanup complete!"</span>)</span>
+<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Run cleanup</span></span>
+<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a>cleanup_gpu_memory()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 
 
@@ -1308,7 +1483,7 @@ Contents: ['tokenizer', 'mini_vlm_vqa.pt', 'image_processor']</code></pre>
     }
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp("https:\/\/nipunbatra\.github\.io\/blog\/");
+        var filterRegex = new RegExp('/' + window.location.host + '/');
       var isInternal = (href) => {
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
