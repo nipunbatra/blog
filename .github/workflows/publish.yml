@@ -13,67 +13,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Cache rendered site
-        uses: actions/cache@v4
-        with:
-          path: _site
-          key: quarto-rendered-${{ github.run_number }}
-          restore-keys: |
-            quarto-rendered-
-
-      - name: Detect changed files
-        id: changed
-        run: |
-          # Get the previous commit on master to see what changed in this push
-          PREV_COMMIT=$(git rev-parse HEAD~1)
-          echo "Previous commit: $PREV_COMMIT"
-
-          # Get list of changed post files in this push
-          CHANGED=$(git diff --name-only $PREV_COMMIT HEAD -- posts/*.qmd posts/*.md posts/*.ipynb 2>/dev/null || true)
-
-          if [ -z "$CHANGED" ]; then
-            echo "No changes detected in posts"
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "files=" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            # Convert newlines to spaces for the output
-            FILES=$(echo "$CHANGED" | tr '\n' ' ')
-            echo "files=$FILES" >> $GITHUB_OUTPUT
-            echo "Changed files: $CHANGED"
-          fi
-
       - name: Install Python dependencies
-        if: steps.changed.outputs.changed == 'true'
         run: |
           python -m pip install --upgrade pip
-          pip install uv "marimo>=0.13.3" matplotlib numpy jupyter nbformat ipykernel
+          pip install matplotlib numpy jupyter nbformat ipykernel
 
-      - name: Render changed files only
-        if: steps.changed.outputs.changed == 'true'
-        run: |
-          # Restore cached _site if it exists
-          if [ -d "_site" ]; then
-            echo "Using cached _site directory"
-          else
-            echo "No cache found, doing initial render"
-            quarto render
-            exit 0
-          fi
-
-          # Render only changed files
-          for file in ${{ steps.changed.outputs.files }}; do
-            if [ -f "$file" ]; then
-              echo "Rendering: $file"
-              quarto render "$file"
-            fi
-          done
+      - name: Render site
+        run: quarto render
 
       - name: Deploy to gh-pages
         uses: quarto-dev/quarto-actions/publish@v2
