@@ -514,62 +514,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="async-comparison-helper" class="level2">
 <h2 class="anchored" data-anchor-id="async-comparison-helper">Async Comparison Helper</h2>
 <p>Calling 4 models sequentially is slow (Gemma can take 60-100s). We call them <strong>all in parallel</strong> using <code>client.aio</code>.</p>
-<div id="cell-6" class="cell" data-execution_count="51">
+<div id="cell-6" class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> _call_one(model, parts, config<span class="op">=</span><span class="va">None</span>):</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        kw <span class="op">=</span> {<span class="st">"model"</span>: model, <span class="st">"contents"</span>: parts}</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> config:</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>            kw[<span class="st">"config"</span>] <span class="op">=</span> config</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        resp <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(<span class="op">**</span>kw)</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        dt <span class="op">=</span> time.time() <span class="op">-</span> t0</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        u <span class="op">=</span> resp.usage_metadata</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> model, {</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>            <span class="st">"response"</span>: resp.text <span class="kw">or</span> <span class="st">"[empty]"</span>,</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            <span class="st">"time_s"</span>: dt, <span class="st">"time"</span>: <span class="ss">f"</span><span class="sc">{</span>dt<span class="sc">:.1f}</span><span class="ss">s"</span>,</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>            <span class="st">"in_tok"</span>: u.prompt_token_count <span class="cf">if</span> u <span class="cf">else</span> <span class="dv">0</span>,</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>            <span class="st">"out_tok"</span>: u.candidates_token_count <span class="cf">if</span> u <span class="cf">else</span> <span class="dv">0</span>,</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> model, {<span class="st">"response"</span>: <span class="ss">f"**Error**: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>, <span class="st">"time_s"</span>:<span class="dv">0</span>, <span class="st">"time"</span>:<span class="st">"err"</span>, <span class="st">"in_tok"</span>:<span class="dv">0</span>, <span class="st">"out_tok"</span>:<span class="dv">0</span>}</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> compare(prompt, images<span class="op">=</span><span class="va">None</span>, display_images<span class="op">=</span><span class="va">True</span>, config<span class="op">=</span><span class="va">None</span>):</span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run prompt on all models in parallel."""</span></span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> images <span class="kw">and</span> display_images:</span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        n <span class="op">=</span> <span class="bu">len</span>(images)</span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, n, figsize<span class="op">=</span>(<span class="dv">5</span><span class="op">*</span>n, <span class="dv">4</span>))</span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> n <span class="op">==</span> <span class="dv">1</span>: axes <span class="op">=</span> [axes]</span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> ax, img <span class="kw">in</span> <span class="bu">zip</span>(axes, images):</span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>            ax.imshow(img)<span class="op">;</span> ax.axis(<span class="st">'off'</span>)</span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        plt.tight_layout()<span class="op">;</span> plt.show()</span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    parts <span class="op">=</span> <span class="bu">list</span>(images <span class="kw">or</span> []) <span class="op">+</span> [prompt]</span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">async</span> <span class="kw">def</span> _go():</span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">dict</span>(<span class="cf">await</span> asyncio.gather(<span class="op">*</span>[_call_one(m, parts, config) <span class="cf">for</span> m <span class="kw">in</span> MODELS]))</span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Works in both Jupyter (already has loop) and plain Python</span></span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
-<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>        loop <span class="op">=</span> asyncio.get_running_loop()</span>
-<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        <span class="im">import</span> nest_asyncio<span class="op">;</span> nest_asyncio.<span class="bu">apply</span>()</span>
-<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        results <span class="op">=</span> loop.run_until_complete(_go())</span>
-<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">RuntimeError</span>:</span>
-<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>        results <span class="op">=</span> asyncio.run(_go())</span>
-<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>    wall <span class="op">=</span> time.time() <span class="op">-</span> t0</span>
-<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>    seq <span class="op">=</span> <span class="bu">sum</span>(r[<span class="st">'time_s'</span>] <span class="cf">for</span> r <span class="kw">in</span> results.values())</span>
-<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> model, r <span class="kw">in</span> results.items():</span>
-<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>        text <span class="op">=</span> r[<span class="st">'response'</span>][:<span class="dv">2000</span>] <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">*[truncated]*"</span> <span class="cf">if</span> <span class="bu">len</span>(r[<span class="st">'response'</span>]) <span class="op">&gt;</span> <span class="dv">2000</span> <span class="cf">else</span> r[<span class="st">'response'</span>]</span>
-<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>        display(Markdown(<span class="ss">f"**</span><span class="sc">{</span>SHORT[model]<span class="sc">}</span><span class="ss">** &amp;nbsp;|&amp;nbsp; </span><span class="sc">{</span>r[<span class="st">'time'</span>]<span class="sc">}</span><span class="ss"> &amp;nbsp;|&amp;nbsp; </span><span class="sc">{</span>r[<span class="st">'out_tok'</span>]<span class="sc">}</span><span class="ss"> tok"</span>))</span>
-<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>        display(Markdown(text))</span>
-<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n\u23f1</span><span class="ss"> Wall: </span><span class="sc">{</span>wall<span class="sc">:.1f}</span><span class="ss">s (parallel) vs </span><span class="sc">{</span>seq<span class="sc">:.1f}</span><span class="ss">s (sequential would be)"</span>)</span>
-<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> _call_one(model, parts, config<span class="op">=</span><span class="va">None</span>):    t0 <span class="op">=</span> time.time()    <span class="cf">try</span>:        kw <span class="op">=</span> {<span class="st">"model"</span>: model, <span class="st">"contents"</span>: parts}        <span class="cf">if</span> config:            kw[<span class="st">"config"</span>] <span class="op">=</span> config        resp <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(<span class="op">**</span>kw)        dt <span class="op">=</span> time.time() <span class="op">-</span> t0        u <span class="op">=</span> resp.usage_metadata        <span class="cf">return</span> model, {            <span class="st">"response"</span>: resp.text <span class="kw">or</span> <span class="st">"[empty]"</span>,            <span class="st">"time_s"</span>: dt, <span class="st">"time"</span>: <span class="ss">f"</span><span class="sc">{</span>dt<span class="sc">:.1f}</span><span class="ss">s"</span>,            <span class="st">"in_tok"</span>: u.prompt_token_count <span class="cf">if</span> u <span class="cf">else</span> <span class="dv">0</span>,            <span class="st">"out_tok"</span>: u.candidates_token_count <span class="cf">if</span> u <span class="cf">else</span> <span class="dv">0</span>,        }    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:        <span class="cf">return</span> model, {<span class="st">"response"</span>: <span class="ss">f"**Error**: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>, <span class="st">"time_s"</span>:<span class="dv">0</span>, <span class="st">"time"</span>:<span class="st">"err"</span>, <span class="st">"in_tok"</span>:<span class="dv">0</span>, <span class="st">"out_tok"</span>:<span class="dv">0</span>}<span class="kw">def</span> compare(prompt, images<span class="op">=</span><span class="va">None</span>, display_images<span class="op">=</span><span class="va">True</span>, config<span class="op">=</span><span class="va">None</span>):    <span class="st">"""Run prompt on all models in parallel."""</span>    <span class="cf">if</span> images <span class="kw">and</span> display_images:        n <span class="op">=</span> <span class="bu">len</span>(images)        fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, n, figsize<span class="op">=</span>(<span class="dv">4</span><span class="op">*</span>n, <span class="dv">3</span>))        <span class="cf">if</span> n <span class="op">==</span> <span class="dv">1</span>: axes <span class="op">=</span> [axes]        <span class="cf">for</span> ax, img <span class="kw">in</span> <span class="bu">zip</span>(axes, images):            ax.imshow(img)<span class="op">;</span> ax.axis(<span class="st">'off'</span>)        plt.tight_layout()<span class="op">;</span> plt.show()    parts <span class="op">=</span> <span class="bu">list</span>(images <span class="kw">or</span> []) <span class="op">+</span> [prompt]    t0 <span class="op">=</span> time.time()    <span class="cf">async</span> <span class="kw">def</span> _go():        <span class="cf">return</span> <span class="bu">dict</span>(<span class="cf">await</span> asyncio.gather(<span class="op">*</span>[_call_one(m, parts, config) <span class="cf">for</span> m <span class="kw">in</span> MODELS]))    <span class="cf">try</span>:        loop <span class="op">=</span> asyncio.get_running_loop()        <span class="im">import</span> nest_asyncio<span class="op">;</span> nest_asyncio.<span class="bu">apply</span>()        results <span class="op">=</span> loop.run_until_complete(_go())    <span class="cf">except</span> <span class="pp">RuntimeError</span>:        results <span class="op">=</span> asyncio.run(_go())    wall <span class="op">=</span> time.time() <span class="op">-</span> t0    seq <span class="op">=</span> <span class="bu">sum</span>(r[<span class="st">'time_s'</span>] <span class="cf">for</span> r <span class="kw">in</span> results.values())    <span class="cf">for</span> model, r <span class="kw">in</span> results.items():        text <span class="op">=</span> r[<span class="st">'response'</span>][:<span class="dv">2000</span>] <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">*[truncated]*"</span> <span class="cf">if</span> <span class="bu">len</span>(r[<span class="st">'response'</span>]) <span class="op">&gt;</span> <span class="dv">2000</span> <span class="cf">else</span> r[<span class="st">'response'</span>]        display(Markdown(<span class="ss">f"**</span><span class="sc">{</span>SHORT[model]<span class="sc">}</span><span class="ss">** &amp;nbsp;|&amp;nbsp; </span><span class="sc">{</span>r[<span class="st">'time'</span>]<span class="sc">}</span><span class="ss"> &amp;nbsp;|&amp;nbsp; </span><span class="sc">{</span>r[<span class="st">'out_tok'</span>]<span class="sc">}</span><span class="ss"> tok"</span>))        display(Markdown(text))    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n\u23f1</span><span class="ss"> Wall: </span><span class="sc">{</span>wall<span class="sc">:.1f}</span><span class="ss">s (parallel) vs </span><span class="sc">{</span>seq<span class="sc">:.1f}</span><span class="ss">s (sequential would be)"</span>)    <span class="cf">return</span> results</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -832,39 +780,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 ⏱ Wall: 115.0s (parallel) vs 218.4s (sequential would be)</code></pre>
 </div>
 </div>
-<div id="cell-14" class="cell" data-execution_count="56">
+<div id="cell-14" class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.patches <span class="im">import</span> Polygon <span class="im">as</span> MPLPoly</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>img_np <span class="op">=</span> np.array(seg_img)<span class="op">;</span> h, w <span class="op">=</span> img_np.shape[:<span class="dv">2</span>]</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="bu">len</span>(MODELS), figsize<span class="op">=</span>(<span class="dv">5</span><span class="op">*</span><span class="bu">len</span>(MODELS), <span class="dv">5</span>))</span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, model <span class="kw">in</span> <span class="bu">zip</span>(axes, MODELS):</span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    ax.set_title(SHORT[model], fontsize<span class="op">=</span><span class="dv">9</span>)<span class="op">;</span> ax.imshow(img_np)</span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        raw <span class="op">=</span> results_seg[model][<span class="st">'response'</span>].strip()</span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        raw <span class="op">=</span> re.sub(<span class="vs">r'```json</span><span class="dv">\s</span><span class="op">*</span><span class="vs">'</span>, <span class="st">''</span>, raw)</span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        raw <span class="op">=</span> re.sub(<span class="vs">r'```'</span>, <span class="st">''</span>, raw)</span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>        m <span class="op">=</span> re.search(<span class="vs">r'</span><span class="ch">\{</span><span class="dv">.</span><span class="op">*</span><span class="ch">\}</span><span class="vs">'</span>, raw, re.DOTALL)</span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        seg <span class="op">=</span> json.loads(m.group() <span class="cf">if</span> m <span class="cf">else</span> raw)</span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Handle both "polygon" and "segmentation" keys</span></span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        pts_raw <span class="op">=</span> seg.get(<span class="st">'polygon'</span>) <span class="kw">or</span> seg.get(<span class="st">'segmentation'</span>) <span class="kw">or</span> seg.get(<span class="st">'points'</span>, [])</span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>        pts <span class="op">=</span> [(x<span class="op">*</span>w<span class="op">/</span><span class="dv">1000</span>, y<span class="op">*</span>h<span class="op">/</span><span class="dv">1000</span>) <span class="cf">for</span> x, y <span class="kw">in</span> pts_raw]</span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        ax.add_patch(MPLPoly(pts, closed<span class="op">=</span><span class="va">True</span>, fill<span class="op">=</span><span class="va">True</span>, fc<span class="op">=</span><span class="st">'red'</span>, alpha<span class="op">=</span><span class="fl">0.35</span>, ec<span class="op">=</span><span class="st">'red'</span>, lw<span class="op">=</span><span class="dv">2</span>))</span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        ax.set_xlabel(<span class="ss">f"</span><span class="sc">{</span><span class="bu">len</span>(pts)<span class="sc">}</span><span class="ss"> pts </span><span class="ch">\u2014</span><span class="ss"> </span><span class="sc">{</span>seg<span class="sc">.</span>get(<span class="st">'label'</span>,<span class="st">'?'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span>:</span>
-<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>        ax.set_xlabel(<span class="st">"parse error"</span>)</span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>    ax.axis(<span class="st">'off'</span>)</span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">"Segmentation"</span>, fontsize<span class="op">=</span><span class="dv">14</span>)<span class="op">;</span> plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.patches <span class="im">import</span> Polygon <span class="im">as</span> MPLPolyimg_np <span class="op">=</span> np.array(seg_img)<span class="op">;</span> h, w <span class="op">=</span> img_np.shape[:<span class="dv">2</span>]fig, axes <span class="op">=</span> plt.subplots(<span class="dv">2</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">8</span>))<span class="cf">for</span> ax, model <span class="kw">in</span> <span class="bu">zip</span>(axes.flat, MODELS):    ax.set_title(SHORT[model], fontsize<span class="op">=</span><span class="dv">10</span>)<span class="op">;</span> ax.imshow(img_np)    <span class="cf">try</span>:        raw <span class="op">=</span> results_seg[model][<span class="st">'response'</span>].strip()        raw <span class="op">=</span> re.sub(<span class="vs">r'```json</span><span class="dv">\s</span><span class="op">*</span><span class="vs">'</span>, <span class="st">''</span>, raw)        raw <span class="op">=</span> re.sub(<span class="vs">r'```'</span>, <span class="st">''</span>, raw)        m <span class="op">=</span> re.search(<span class="vs">r'</span><span class="ch">\{</span><span class="dv">.</span><span class="op">*</span><span class="ch">\}</span><span class="vs">'</span>, raw, re.DOTALL)        seg <span class="op">=</span> json.loads(m.group() <span class="cf">if</span> m <span class="cf">else</span> raw)        pts_raw <span class="op">=</span> seg.get(<span class="st">'polygon'</span>) <span class="kw">or</span> seg.get(<span class="st">'segmentation'</span>) <span class="kw">or</span> seg.get(<span class="st">'points'</span>, [])        pts <span class="op">=</span> [(x<span class="op">*</span>w<span class="op">/</span><span class="dv">1000</span>, y<span class="op">*</span>h<span class="op">/</span><span class="dv">1000</span>) <span class="cf">for</span> x, y <span class="kw">in</span> pts_raw]        ax.add_patch(MPLPoly(pts, closed<span class="op">=</span><span class="va">True</span>, fill<span class="op">=</span><span class="va">True</span>, fc<span class="op">=</span><span class="st">'red'</span>, alpha<span class="op">=</span><span class="fl">0.35</span>, ec<span class="op">=</span><span class="st">'red'</span>, lw<span class="op">=</span><span class="dv">2</span>))        ax.set_xlabel(<span class="ss">f"</span><span class="sc">{</span><span class="bu">len</span>(pts)<span class="sc">}</span><span class="ss"> pts </span><span class="ch">\u2014</span><span class="ss"> </span><span class="sc">{</span>seg<span class="sc">.</span>get(<span class="st">'label'</span>,<span class="st">'?'</span>)<span class="sc">}</span><span class="ss">"</span>)    <span class="cf">except</span>:        ax.set_xlabel(<span class="st">"parse error"</span>)    ax.axis(<span class="st">'off'</span>)plt.suptitle(<span class="st">"Segmentation"</span>, fontsize<span class="op">=</span><span class="dv">14</span>)<span class="op">;</span> plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="2026-04-03-gemma4-vs-gemini_files/figure-html/cell-9-output-1.png" width="1821" height="495" class="figure-img"></p>
-</figure>
-</div>
-</div>
 </div>
 </section>
 <section id="task-4-object-detection" class="level2">
@@ -1020,51 +940,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 :::
 
 
-::: {#cell-17 .cell execution_count=58}
+::: {#cell-17 .cell}
 ``` {.python .cell-code}
-img_np = np.array(detect_img); h, w = img_np.shape[:2]
-fig, axes = plt.subplots(1, len(MODELS), figsize=(5*len(MODELS), 5))
-
-for ax, model in zip(axes, MODELS):
-    ax.set_title(SHORT[model], fontsize=9)
-    resp = results_detect[model]['response'].strip()
-    resp = re.sub(r'```json\s*', '', resp)
-    resp = re.sub(r'```', '', resp)
-    try:
-        m = re.search(r'\[.*\]', resp, re.DOTALL)
-        dets = json.loads(m.group() if m else resp)
-        pil = Image.fromarray(img_np.copy())
-        draw = ImageDraw.Draw(pil)
-        n_drawn = 0
-        for d in dets:
-            if not isinstance(d, dict):
-                continue
-            # Models use different keys: box, bbox, box_2d, bounding_box
-            box = d.get('box') or d.get('bbox') or d.get('box_2d') or d.get('bounding_box')
-            if box and len(box) == 4:
-                y1, x1, y2, x2 = box
-                draw.rectangle([x1*w/1000, y1*h/1000, x2*w/1000, y2*h/1000], outline='lime', width=2)
-                n_drawn += 1
-            elif 'point' in d and isinstance(d.get('point'), list) and len(d['point']) == 2:
-                py, px = d['point']
-                cx, cy = px*w/1000, py*h/1000
-                r = 10
-                draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline='lime', width=2)
-                n_drawn += 1
-        ax.imshow(np.array(pil))
-        ax.set_xlabel(f"{n_drawn} detections")
-    except Exception as e:
-        ax.imshow(img_np)
-        ax.set_xlabel(f"parse error")
-    ax.axis('off')
-plt.suptitle("Object Detection: People", fontsize=14); plt.tight_layout(); plt.show()</code></pre>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="2026-04-03-gemma4-vs-gemini_files/figure-html/cell-11-output-1.png" width="1990" height="469" class="figure-img"></p>
-</figure>
-</div>
-</div>
+img_np = np.array(detect_img); h, w = img_np.shape[:2]fig, axes = plt.subplots(2, 2, figsize=(10, 8))for ax, model in zip(axes.flat, MODELS):    ax.set_title(SHORT[model], fontsize=10)    resp = results_detect[model]['response'].strip()    resp = re.sub(r'```json\s*', '', resp)    resp = re.sub(r'```', '', resp)    try:        m = re.search(r'\[.*\]', resp, re.DOTALL)        dets = json.loads(m.group() if m else resp)        pil = Image.fromarray(img_np.copy())        draw = ImageDraw.Draw(pil)        n_drawn = 0        for d in dets:            if not isinstance(d, dict):                continue            box = d.get('box') or d.get('bbox') or d.get('box_2d') or d.get('bounding_box')            if box and len(box) == 4:                y1, x1, y2, x2 = box                draw.rectangle([x1*w/1000, y1*h/1000, x2*w/1000, y2*h/1000], outline='lime', width=2)                n_drawn += 1            elif 'point' in d and isinstance(d.get('point'), list) and len(d['point']) == 2:                py, px = d['point']                cx, cy = px*w/1000, py*h/1000                draw.ellipse([cx-10, cy-10, cx+10, cy+10], outline='lime', width=2)                n_drawn += 1        ax.imshow(np.array(pil))        ax.set_xlabel(f"{n_drawn} detections")    except Exception as e:        ax.imshow(img_np)        ax.set_xlabel("parse error")    ax.axis('off')plt.suptitle("Object Detection: People", fontsize=14); plt.tight_layout(); plt.show()</code></pre>
 </div>
 <section id="task-5-change-detection" class="level2">
 <h2 class="anchored" data-anchor-id="task-5-change-detection">Task 5: Change Detection</h2>
@@ -1174,131 +1052,11 @@ plt.suptitle("Object Detection: People", fontsize=14); plt.tight_layout(); plt.s
 <section id="task-6-structured-json-extraction" class="level2">
 <h2 class="anchored" data-anchor-id="task-6-structured-json-extraction">Task 6: Structured JSON Extraction</h2>
 <p>Gemini supports <code>response_schema</code> for guaranteed valid JSON. Gemma needs prompt-based extraction — does it still produce valid JSON?</p>
-<div id="cell-22" class="cell" data-execution_count="61">
+<div id="cell-22" class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>bus_img <span class="op">=</span> Image.<span class="bu">open</span>(<span class="st">'bus.jpg'</span>)</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>schema_config <span class="op">=</span> types.GenerateContentConfig(</span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    response_mime_type<span class="op">=</span><span class="st">"application/json"</span>,</span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    response_schema<span class="op">=</span>{</span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"type"</span>: <span class="st">"OBJECT"</span>,</span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">"properties"</span>: {</span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">"scene"</span>: {<span class="st">"type"</span>: <span class="st">"STRING"</span>},</span>
-<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"people_count"</span>: {<span class="st">"type"</span>: <span class="st">"INTEGER"</span>},</span>
-<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>            <span class="st">"text_visible"</span>: {<span class="st">"type"</span>: <span class="st">"ARRAY"</span>, <span class="st">"items"</span>: {<span class="st">"type"</span>: <span class="st">"STRING"</span>}},</span>
-<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>        },</span>
-<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">"required"</span>: [<span class="st">"scene"</span>, <span class="st">"people_count"</span>, <span class="st">"text_visible"</span>],</span>
-<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    },</span>
-<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>prompt_base <span class="op">=</span> <span class="st">"Describe this scene. How many people? What text is visible?"</span></span>
-<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>prompt_gemma <span class="op">=</span> prompt_base <span class="op">+</span> <span class="st">'</span><span class="ch">\n</span><span class="st">Return ONLY valid JSON: {"scene": "...", "people_count": int, "text_visible": ["..."]}'</span></span>
-<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> _json_task():</span>
-<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>    tasks <span class="op">=</span> []</span>
-<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> MODELS:</span>
-<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="st">'gemma'</span> <span class="kw">in</span> m:</span>
-<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>            tasks.append(_call_one(m, [bus_img, prompt_gemma]))</span>
-<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
-<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>            tasks.append(_call_one(m, [bus_img, prompt_base], config<span class="op">=</span>schema_config))</span>
-<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(<span class="cf">await</span> asyncio.gather(<span class="op">*</span>tasks))</span>
-<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
-<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>    loop <span class="op">=</span> asyncio.get_running_loop()</span>
-<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> nest_asyncio<span class="op">;</span> nest_asyncio.<span class="bu">apply</span>()</span>
-<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>    results_json <span class="op">=</span> loop.run_until_complete(_json_task())</span>
-<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">RuntimeError</span>:</span>
-<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>    results_json <span class="op">=</span> asyncio.run(_json_task())</span>
-<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">4</span>, <span class="dv">5</span>))</span>
-<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a>ax.imshow(bus_img)<span class="op">;</span> ax.axis(<span class="st">'off'</span>)<span class="op">;</span> plt.show()</span>
-<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> model, r <span class="kw">in</span> results_json.items():</span>
-<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a>    display(Markdown(<span class="ss">f"**</span><span class="sc">{</span>SHORT[model]<span class="sc">}</span><span class="ss">** (</span><span class="sc">{</span>r[<span class="st">'time'</span>]<span class="sc">}</span><span class="ss">)"</span>))</span>
-<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
-<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a>        raw <span class="op">=</span> r[<span class="st">'response'</span>].strip()</span>
-<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a>        raw <span class="op">=</span> re.sub(<span class="vs">r'```json</span><span class="dv">\s</span><span class="op">*</span><span class="vs">'</span>, <span class="st">''</span>, raw)</span>
-<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a>        raw <span class="op">=</span> re.sub(<span class="vs">r'```'</span>, <span class="st">''</span>, raw)</span>
-<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a>        parsed <span class="op">=</span> json.loads(raw)</span>
-<span id="cb24-45"><a href="#cb24-45" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(json.dumps(parsed, indent<span class="op">=</span><span class="dv">2</span>))</span>
-<span id="cb24-46"><a href="#cb24-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span>:</span>
-<span id="cb24-47"><a href="#cb24-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"[Invalid JSON] </span><span class="sc">{</span>r[<span class="st">'response'</span>][:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>bus_img <span class="op">=</span> Image.<span class="bu">open</span>(<span class="st">'bus.jpg'</span>)schema_config <span class="op">=</span> types.GenerateContentConfig(    response_mime_type<span class="op">=</span><span class="st">"application/json"</span>,    response_schema<span class="op">=</span>{        <span class="st">"type"</span>: <span class="st">"OBJECT"</span>,        <span class="st">"properties"</span>: {            <span class="st">"scene"</span>: {<span class="st">"type"</span>: <span class="st">"STRING"</span>},            <span class="st">"people_count"</span>: {<span class="st">"type"</span>: <span class="st">"INTEGER"</span>},            <span class="st">"text_visible"</span>: {<span class="st">"type"</span>: <span class="st">"ARRAY"</span>, <span class="st">"items"</span>: {<span class="st">"type"</span>: <span class="st">"STRING"</span>}},        },        <span class="st">"required"</span>: [<span class="st">"scene"</span>, <span class="st">"people_count"</span>, <span class="st">"text_visible"</span>],    },)prompt_base <span class="op">=</span> <span class="st">"Describe this scene. How many people? What text is visible?"</span>prompt_gemma <span class="op">=</span> prompt_base <span class="op">+</span> <span class="st">'</span><span class="ch">\n</span><span class="st">Return ONLY valid JSON: {"scene": "...", "people_count": int, "text_visible": ["..."]}'</span><span class="cf">async</span> <span class="kw">def</span> _json_task():    tasks <span class="op">=</span> []    <span class="cf">for</span> m <span class="kw">in</span> MODELS:        <span class="cf">if</span> <span class="st">'gemma'</span> <span class="kw">in</span> m:            tasks.append(_call_one(m, [bus_img, prompt_gemma]))        <span class="cf">else</span>:            tasks.append(_call_one(m, [bus_img, prompt_base], config<span class="op">=</span>schema_config))    <span class="cf">return</span> <span class="bu">dict</span>(<span class="cf">await</span> asyncio.gather(<span class="op">*</span>tasks))<span class="cf">try</span>:    loop <span class="op">=</span> asyncio.get_running_loop()    <span class="im">import</span> nest_asyncio<span class="op">;</span> nest_asyncio.<span class="bu">apply</span>()    results_json <span class="op">=</span> loop.run_until_complete(_json_task())<span class="cf">except</span> <span class="pp">RuntimeError</span>:    results_json <span class="op">=</span> asyncio.run(_json_task())fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">3</span>, <span class="dv">4</span>))ax.imshow(bus_img)<span class="op">;</span> ax.axis(<span class="st">'off'</span>)<span class="op">;</span> plt.tight_layout()<span class="op">;</span> plt.show()<span class="cf">for</span> model, r <span class="kw">in</span> results_json.items():    display(Markdown(<span class="ss">f"**</span><span class="sc">{</span>SHORT[model]<span class="sc">}</span><span class="ss">** (</span><span class="sc">{</span>r[<span class="st">'time'</span>]<span class="sc">}</span><span class="ss">)"</span>))    <span class="cf">try</span>:        raw <span class="op">=</span> r[<span class="st">'response'</span>].strip()        raw <span class="op">=</span> re.sub(<span class="vs">r'```json</span><span class="dv">\s</span><span class="op">*</span><span class="vs">'</span>, <span class="st">''</span>, raw)        raw <span class="op">=</span> re.sub(<span class="vs">r'```'</span>, <span class="st">''</span>, raw)        parsed <span class="op">=</span> json.loads(raw)        <span class="bu">print</span>(json.dumps(parsed, indent<span class="op">=</span><span class="dv">2</span>))    <span class="cf">except</span>:        <span class="bu">print</span>(<span class="ss">f"[Invalid JSON] </span><span class="sc">{</span>r[<span class="st">'response'</span>][:<span class="dv">200</span>]<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="2026-04-03-gemma4-vs-gemini_files/figure-html/cell-14-output-1.png" width="308" height="405" class="figure-img"></p>
-</figure>
-</div>
-</div>
-<div class="cell-output cell-output-display cell-output-markdown">
-<p><strong>gemini-3.1-pro-preview</strong> (3.6s)</p>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>{
-  "scene": "Street",
-  "people_count": 4,
-  "text_visible": [
-    "EMT",
-    "MADRID",
-    "Un minibu's 100% ele'ctrico si' es plan",
-    "ele'ctricaEMT",
-    "cero",
-    "emisiones",
-    "15"
-  ]
-}</code></pre>
-</div>
-<div class="cell-output cell-output-display cell-output-markdown">
-<p><strong>gemini-3.1-flash-lite-preview</strong> (2.6s)</p>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>{
-  "scene": "A city street scene with a blue electric bus, EMT Madrid, parked in the background and three pedestrians walking in the foreground.",
-  "people_count": 3,
-  "text_visible": [
-    "M1 SOL / SEVILLA",
-    "EMT MADRID",
-    "Un minib\u00fas 100% el\u00e9ctrico s\u00ed es plan",
-    "mu\u00e9vete el\u00e9ctricamEMTe",
-    "cero emisiones",
-    "10"
-  ]
-}</code></pre>
-</div>
-<div class="cell-output cell-output-display cell-output-markdown">
-<p><strong>gemma-4-31b-it</strong> (27.5s)</p>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>{
-  "scene": "A street scene featuring a blue and white bus parked in front of buildings, with several people standing nearby.",
-  "people_count": 4,
-  "text_visible": [
-    "S.L. FERROV...",
-    "La movilidad sostenible es el plan",
-    "centro de",
-    "elcompromiso",
-    "zero emisiones"
-  ]
-}</code></pre>
-</div>
-<div class="cell-output cell-output-display cell-output-markdown">
-<p><strong>gemma-4-26b-a4b-it</strong> (12.8s)</p>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>{
-  "scene": "A street scene with a blue and white bus or tram and people walking in the foreground.",
-  "people_count": 4,
-  "text_visible": [
-    "FERROVIARIA",
-    "un mil\u00e9simo m\u00e1s eficiente en el plan",
-    "cero emisiones",
-    "electromovilidad",
-    "10"
-  ]
-}</code></pre>
-</div>
 </div>
 </section>
 <section id="summary-time-tokens" class="level2">
@@ -1306,32 +1064,32 @@ plt.suptitle("Object Detection: People", fontsize=14); plt.tight_layout(); plt.s
 <div id="cell-24" class="cell" data-execution_count="62">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>all_tasks <span class="op">=</span> {</span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Scene"</span>: results_scene,</span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Chart"</span>: results_chart,</span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Segment"</span>: results_seg,</span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Detect"</span>: results_detect,</span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Change"</span>: results_change,</span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"JSON"</span>: results_json,</span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> []</span>
-<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> task, results <span class="kw">in</span> all_tasks.items():</span>
-<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> model, r <span class="kw">in</span> results.items():</span>
-<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>        in_t <span class="op">=</span> r[<span class="st">"in_tok"</span>] <span class="cf">if</span> <span class="bu">isinstance</span>(r[<span class="st">"in_tok"</span>], <span class="bu">int</span>) <span class="cf">else</span> <span class="dv">0</span></span>
-<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>        out_t <span class="op">=</span> r[<span class="st">"out_tok"</span>] <span class="cf">if</span> <span class="bu">isinstance</span>(r[<span class="st">"out_tok"</span>], <span class="bu">int</span>) <span class="cf">else</span> <span class="dv">0</span></span>
-<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a>        rows.append({</span>
-<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Task"</span>: task, <span class="st">"Model"</span>: SHORT[model],</span>
-<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Time"</span>: r[<span class="st">"time"</span>], <span class="st">"In Tok"</span>: in_t, <span class="st">"Out Tok"</span>: out_t,</span>
-<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a>        })</span>
-<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.DataFrame(rows)</span>
-<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="st">"### Response Time"</span>))</span>
-<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a>display(df.pivot(index<span class="op">=</span><span class="st">"Task"</span>, columns<span class="op">=</span><span class="st">"Model"</span>, values<span class="op">=</span><span class="st">"Time"</span>).rename_axis(<span class="va">None</span>, axis<span class="op">=</span><span class="dv">1</span>))</span>
-<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="st">"### Output Tokens"</span>))</span>
-<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a>display(df.pivot(index<span class="op">=</span><span class="st">"Task"</span>, columns<span class="op">=</span><span class="st">"Model"</span>, values<span class="op">=</span><span class="st">"Out Tok"</span>).rename_axis(<span class="va">None</span>, axis<span class="op">=</span><span class="dv">1</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>all_tasks <span class="op">=</span> {</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Scene"</span>: results_scene,</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Chart"</span>: results_chart,</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Segment"</span>: results_seg,</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Detect"</span>: results_detect,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Change"</span>: results_change,</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"JSON"</span>: results_json,</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> []</span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> task, results <span class="kw">in</span> all_tasks.items():</span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> model, r <span class="kw">in</span> results.items():</span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>        in_t <span class="op">=</span> r[<span class="st">"in_tok"</span>] <span class="cf">if</span> <span class="bu">isinstance</span>(r[<span class="st">"in_tok"</span>], <span class="bu">int</span>) <span class="cf">else</span> <span class="dv">0</span></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>        out_t <span class="op">=</span> r[<span class="st">"out_tok"</span>] <span class="cf">if</span> <span class="bu">isinstance</span>(r[<span class="st">"out_tok"</span>], <span class="bu">int</span>) <span class="cf">else</span> <span class="dv">0</span></span>
+<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>        rows.append({</span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Task"</span>: task, <span class="st">"Model"</span>: SHORT[model],</span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Time"</span>: r[<span class="st">"time"</span>], <span class="st">"In Tok"</span>: in_t, <span class="st">"Out Tok"</span>: out_t,</span>
+<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a>        })</span>
+<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.DataFrame(rows)</span>
+<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="st">"### Response Time"</span>))</span>
+<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a>display(df.pivot(index<span class="op">=</span><span class="st">"Task"</span>, columns<span class="op">=</span><span class="st">"Model"</span>, values<span class="op">=</span><span class="st">"Time"</span>).rename_axis(<span class="va">None</span>, axis<span class="op">=</span><span class="dv">1</span>))</span>
+<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="st">"### Output Tokens"</span>))</span>
+<span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a>display(df.pivot(index<span class="op">=</span><span class="st">"Task"</span>, columns<span class="op">=</span><span class="st">"Model"</span>, values<span class="op">=</span><span class="st">"Out Tok"</span>).rename_axis(<span class="va">None</span>, axis<span class="op">=</span><span class="dv">1</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <section id="response-time" class="level3 cell-output cell-output-display cell-output-markdown">
 <h3 class="anchored" data-anchor-id="response-time">Response Time</h3>
@@ -1478,101 +1236,11 @@ plt.suptitle("Object Detection: People", fontsize=14); plt.tight_layout(); plt.s
 </div>
 </div>
 </div>
-<div id="cell-25" class="cell" data-execution_count="63">
+<div id="cell-25" class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Aggregate per model</span></span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>agg <span class="op">=</span> df.groupby(<span class="st">'Model'</span>).agg(</span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>    Total_Input_Tokens<span class="op">=</span>(<span class="st">'In Tok'</span>, <span class="st">'sum'</span>),</span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>    Total_Output_Tokens<span class="op">=</span>(<span class="st">'Out Tok'</span>, <span class="st">'sum'</span>),</span>
-<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>    Total_Time_s<span class="op">=</span>(<span class="st">'Time'</span>, <span class="kw">lambda</span> x: <span class="bu">sum</span>(<span class="bu">float</span>(t.replace(<span class="st">'s'</span>,<span class="st">''</span>).replace(<span class="st">'err'</span>,<span class="st">'0'</span>)) <span class="cf">for</span> t <span class="kw">in</span> x)),</span>
-<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>).<span class="bu">round</span>(<span class="dv">0</span>)</span>
-<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>agg[<span class="st">'Total_Time_s'</span>] <span class="op">=</span> agg[<span class="st">'Total_Time_s'</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="ss">f"</span><span class="sc">{</span>x<span class="sc">:.1f}</span><span class="ss">s"</span>)</span>
-<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="st">"### Aggregate per Model"</span>))</span>
-<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>display(agg)</span>
-<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Bar chart of time and tokens</span></span>
-<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>fig, (ax1, ax2) <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">4</span>))</span>
-<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>colors <span class="op">=</span> [<span class="st">'#4285f4'</span>, <span class="st">'#34a853'</span>, <span class="st">'#ea4335'</span>, <span class="st">'#fbbc04'</span>]</span>
-<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>time_vals <span class="op">=</span> df.groupby(<span class="st">'Model'</span>)[<span class="st">'Time'</span>].<span class="bu">apply</span>(</span>
-<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">lambda</span> x: <span class="bu">sum</span>(<span class="bu">float</span>(t.replace(<span class="st">'s'</span>,<span class="st">''</span>).replace(<span class="st">'err'</span>,<span class="st">'0'</span>)) <span class="cf">for</span> t <span class="kw">in</span> x)</span>
-<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a>time_vals.plot.bar(ax<span class="op">=</span>ax1, color<span class="op">=</span>colors)</span>
-<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="st">'Time (s)'</span>)<span class="op">;</span> ax1.set_title(<span class="st">'Total Time per Model'</span>)</span>
-<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>ax1.tick_params(axis<span class="op">=</span><span class="st">'x'</span>, rotation<span class="op">=</span><span class="dv">25</span>)</span>
-<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, v <span class="kw">in</span> <span class="bu">enumerate</span>(time_vals):</span>
-<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>    ax1.text(i, v <span class="op">+</span> <span class="bu">max</span>(time_vals)<span class="op">*</span><span class="fl">0.02</span>, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">:.0f}</span><span class="ss">s'</span>, ha<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
-<span id="cb30-24"><a href="#cb30-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-25"><a href="#cb30-25" aria-hidden="true" tabindex="-1"></a>tok_vals <span class="op">=</span> df.groupby(<span class="st">'Model'</span>)[<span class="st">'Out Tok'</span>].<span class="bu">sum</span>()</span>
-<span id="cb30-26"><a href="#cb30-26" aria-hidden="true" tabindex="-1"></a>tok_vals.plot.bar(ax<span class="op">=</span>ax2, color<span class="op">=</span>colors)</span>
-<span id="cb30-27"><a href="#cb30-27" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="st">'Tokens'</span>)<span class="op">;</span> ax2.set_title(<span class="st">'Total Output Tokens per Model'</span>)</span>
-<span id="cb30-28"><a href="#cb30-28" aria-hidden="true" tabindex="-1"></a>ax2.tick_params(axis<span class="op">=</span><span class="st">'x'</span>, rotation<span class="op">=</span><span class="dv">25</span>)</span>
-<span id="cb30-29"><a href="#cb30-29" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, v <span class="kw">in</span> <span class="bu">enumerate</span>(tok_vals):</span>
-<span id="cb30-30"><a href="#cb30-30" aria-hidden="true" tabindex="-1"></a>    ax2.text(i, v <span class="op">+</span> <span class="bu">max</span>(tok_vals)<span class="op">*</span><span class="fl">0.02</span>, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">:,.0f}</span><span class="ss">'</span>, ha<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
-<span id="cb30-31"><a href="#cb30-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-32"><a href="#cb30-32" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Aggregate per modelagg = df.groupby('Model').agg(    Total_Input_Tokens=('In Tok', 'sum'),    Total_Output_Tokens=('Out Tok', 'sum'),    Total_Time_s=('Time', lambda x: sum(float(t.replace('s','').replace('err','0')) for t in x)),).round(0)agg['Total_Time_s'] = agg['Total_Time_s'].apply(lambda x: f"{x:.1f}s")display(Markdown("### Aggregate per Model"))display(agg)# Bar chart of time and tokensfig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))colors = ['#4285f4', '#34a853', '#ea4335', '#fbbc04']time_vals = df.groupby('Model')['Time'].apply(    lambda x: sum(float(t.replace('s','').replace('err','0')) for t in x))time_vals.plot.bar(ax=ax1, color=colors)ax1.set_ylabel('Time (s)'); ax1.set_title('Total Time per Model')ax1.tick_params(axis='x', rotation=30, labelsize=8)for i, v in enumerate(time_vals):    ax1.text(i, v + max(time_vals)*0.02, f'{v:.0f}s', ha='center', fontsize=9)tok_vals = df.groupby('Model')['Out Tok'].sum()tok_vals.plot.bar(ax=ax2, color=colors)ax2.set_ylabel('Tokens'); ax2.set_title('Total Output Tokens per Model')ax2.tick_params(axis='x', rotation=30, labelsize=8)for i, v in enumerate(tok_vals):    ax2.text(i, v + max(tok_vals)*0.02, f'{v:,.0f}', ha='center', fontsize=9)plt.tight_layout(); plt.show()</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<section id="aggregate-per-model" class="level3 cell-output cell-output-display cell-output-markdown">
-<h3 class="anchored" data-anchor-id="aggregate-per-model">Aggregate per Model</h3>
-</section>
-<div class="cell-output cell-output-display">
-<div>
-
-
-<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
-<thead>
-<tr class="header">
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th">Total_Input_Tokens</th>
-<th data-quarto-table-cell-role="th">Total_Output_Tokens</th>
-<th data-quarto-table-cell-role="th">Total_Time_s</th>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">Model</th>
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">gemini-3.1-flash-lite-preview</th>
-<td>7812</td>
-<td>1027</td>
-<td>22.0s</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">gemini-3.1-pro-preview</th>
-<td>7812</td>
-<td>2199</td>
-<td>193.0s</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">gemma-4-26b-a4b-it</th>
-<td>2116</td>
-<td>1975</td>
-<td>256.0s</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">gemma-4-31b-it</th>
-<td>2116</td>
-<td>1528</td>
-<td>230.0s</td>
-</tr>
-</tbody>
-</table>
-
-</div>
-</div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="2026-04-03-gemma4-vs-gemini_files/figure-html/cell-16-output-3.png" width="1189" height="389" class="figure-img"></p>
-</figure>
-</div>
-</div>
 </div>
 </section>
 <section id="takeaways" class="level2">
