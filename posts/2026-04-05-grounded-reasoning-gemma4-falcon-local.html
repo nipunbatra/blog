@@ -361,7 +361,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#setup" id="toc-setup" class="nav-link active" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#the-problem-vlms-are-confidently-wrong-about-numbers" id="toc-the-problem-vlms-are-confidently-wrong-about-numbers" class="nav-link active" data-scroll-target="#the-problem-vlms-are-confidently-wrong-about-numbers">The Problem: VLMs Are Confidently Wrong About Numbers</a></li>
+  <li><a href="#the-fix-perceive-measure-then-reason" id="toc-the-fix-perceive-measure-then-reason" class="nav-link" data-scroll-target="#the-fix-perceive-measure-then-reason">The Fix: Perceive, Measure, Then Reason</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
   <li><a href="#the-tasks" id="toc-the-tasks" class="nav-link" data-scroll-target="#the-tasks">The Tasks</a></li>
   <li><a href="#head-to-head-raw-gemma-vs.-grounded-pipeline" id="toc-head-to-head-raw-gemma-vs.-grounded-pipeline" class="nav-link" data-scroll-target="#head-to-head-raw-gemma-vs.-grounded-pipeline">Head-to-Head: Raw Gemma vs.&nbsp;Grounded Pipeline</a></li>
   <li><a href="#scorecard" id="toc-scorecard" class="nav-link" data-scroll-target="#scorecard">Scorecard</a></li>
@@ -392,6 +394,63 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>Reason</strong> with <a href="https://blog.google/technology/developers/gemma-4/">Gemma 4</a> — answer using only those measured facts</li>
 </ol>
 <p>We run <strong>7 tasks</strong> head-to-head: raw Gemma vs.&nbsp;the grounded pipeline. The results are not close.</p>
+<section id="the-problem-vlms-are-confidently-wrong-about-numbers" class="level2">
+<h2 class="anchored" data-anchor-id="the-problem-vlms-are-confidently-wrong-about-numbers">The Problem: VLMs Are Confidently Wrong About Numbers</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="hero-vlm-problem.png" class="img-fluid figure-img"></p>
+<figcaption>The problem with VLMs and numbers</figcaption>
+</figure>
+</div>
+<p>VLMs process images as visual impressions — they see a dense cluster of people and conclude that side “has more.” But <strong>counting, measuring distances, and checking thresholds are not visual tasks</strong>. They require enumeration and arithmetic, not pattern recognition. The result: answers that <em>sound</em> right but are based on heuristic guessing, not evidence.</p>
+</section>
+<section id="the-fix-perceive-measure-then-reason" class="level2">
+<h2 class="anchored" data-anchor-id="the-fix-perceive-measure-then-reason">The Fix: Perceive, Measure, Then Reason</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="hero-grounded-pipeline.png" class="img-fluid figure-img"></p>
+<figcaption>Grounded reasoning pipeline</figcaption>
+</figure>
+</div>
+<p>The fix splits the job into three components that play to each model’s strengths:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 30%">
+<col style="width: 37%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Stage</th>
+<th>Model</th>
+<th>What it does</th>
+<th>Why it’s needed</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Perceive</strong></td>
+<td>Falcon Perception</td>
+<td>Detects objects → bounding boxes, masks, coordinates</td>
+<td>Converts pixels into structured geometry</td>
+</tr>
+<tr class="even">
+<td><strong>Measure</strong></td>
+<td>Python</td>
+<td>Counts, computes widths, margins, areas, ratios</td>
+<td>Arithmetic on detections — no hallucination possible</td>
+</tr>
+<tr class="odd">
+<td><strong>Reason</strong></td>
+<td>Gemma 4</td>
+<td>Reads measurements → produces grounded verdict</td>
+<td>Free to focus on logic and explanation, not visual estimation</td>
+</tr>
+</tbody>
+</table>
+<p>The key insight: <strong>the final answer is auditable</strong>. Every claim traces back to a detection and a measurement. If the answer is wrong, you can see exactly <em>where</em> in the pipeline it went wrong — bad detection? bad measurement logic? bad reasoning? With a raw VLM, the answer is a black box.</p>
+</section>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> pip install <span class="at">-U</span> mlx-vlm supervision pillow matplotlib numpy</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
