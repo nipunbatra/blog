@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-04-03">
+
+<title>Gemma 4 Locally on Mac: Performance &amp; Vision Benchmarks – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-8573f446804c0a15c9c94b3afc156dc2.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-8573f446804c0a15c9c94b3afc156dc2.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-8573f446804c0a15c9c94b3afc156dc2.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-09f93c55ab6b7f852a50a8f40287560b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-79633cc1677eca2f8303e497ad5e1b1c.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-09f93c55ab6b7f852a50a8f40287560b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Gemma 4 Locally on Mac: Performance &amp; Vision Benchmarks</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">LLM</div>
+                <div class="quarto-category">Gemma-4</div>
+                <div class="quarto-category">MLX</div>
+                <div class="quarto-category">local-inference</div>
+                <div class="quarto-category">multimodal</div>
+                <div class="quarto-category">vision</div>
+                <div class="quarto-category">Apple-Silicon</div>
+                <div class="quarto-category">benchmarks</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">April 3, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#setup" id="toc-setup" class="nav-link active" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#loading-the-model" id="toc-loading-the-model" class="nav-link" data-scroll-target="#loading-the-model">Loading the Model</a></li>
+  <li><a href="#inference-helper" id="toc-inference-helper" class="nav-link" data-scroll-target="#inference-helper">Inference Helper</a></li>
+  <li><a href="#part-1-qualitative-examples" id="toc-part-1-qualitative-examples" class="nav-link" data-scroll-target="#part-1-qualitative-examples">Part 1: Qualitative Examples</a>
+  <ul class="collapse">
+  <li><a href="#scene-understanding" id="toc-scene-understanding" class="nav-link" data-scroll-target="#scene-understanding">Scene Understanding</a></li>
+  <li><a href="#chart-analysis" id="toc-chart-analysis" class="nav-link" data-scroll-target="#chart-analysis">Chart Analysis</a></li>
+  <li><a href="#segmentation" id="toc-segmentation" class="nav-link" data-scroll-target="#segmentation">Segmentation</a></li>
+  </ul></li>
+  <li><a href="#part-2-quantitative-benchmarks" id="toc-part-2-quantitative-benchmarks" class="nav-link" data-scroll-target="#part-2-quantitative-benchmarks">Part 2: Quantitative Benchmarks</a>
+  <ul class="collapse">
+  <li><a href="#vqa-vqav2-subset" id="toc-vqa-vqav2-subset" class="nav-link" data-scroll-target="#vqa-vqav2-subset">VQA: VQAv2 Subset</a></li>
+  <li><a href="#object-detection-coco-subset" id="toc-object-detection-coco-subset" class="nav-link" data-scroll-target="#object-detection-coco-subset">Object Detection: COCO Subset</a>
+  <ul class="collapse">
+  <li><a href="#gt-vs.-predictions-side-by-side" id="toc-gt-vs.-predictions-side-by-side" class="nav-link" data-scroll-target="#gt-vs.-predictions-side-by-side">GT vs.&nbsp;Predictions: Side-by-Side</a></li>
+  <li><a href="#detection-quality-breakdown" id="toc-detection-quality-breakdown" class="nav-link" data-scroll-target="#detection-quality-breakdown">Detection Quality Breakdown</a></li>
+  <li><a href="#best-and-worst-detections" id="toc-best-and-worst-detections" class="nav-link" data-scroll-target="#best-and-worst-detections">Best and Worst Detections</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#part-3-runtime-performance" id="toc-part-3-runtime-performance" class="nav-link" data-scroll-target="#part-3-runtime-performance">Part 3: Runtime Performance</a>
+  <ul class="collapse">
+  <li><a href="#prompt-length-vs-throughput" id="toc-prompt-length-vs-throughput" class="nav-link" data-scroll-target="#prompt-length-vs-throughput">Prompt Length vs Throughput</a></li>
+  </ul></li>
+  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary">Summary</a>
+  <ul class="collapse">
+  <li><a href="#takeaways" id="toc-takeaways" class="nav-link" data-scroll-target="#takeaways">Takeaways</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<p>Google released <a href="https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/">Gemma 4</a> yesterday — open-weight multimodal models under Apache 2.0. In a <a href="../posts/2026-04-03-gemma4-vs-gemini.html">companion post</a>, we compared Gemma 4 and Gemini via the API. Here, we run Gemma 4 <strong>entirely locally</strong> on a Mac Studio using <a href="https://github.com/Blaizzy/mlx-vlm">mlx-vlm</a> and measure:</p>
+<ol type="1">
+<li><strong>Qualitative examples</strong> — scene understanding, chart reading, segmentation</li>
+<li><strong>Quantitative benchmarks</strong> — VQA accuracy on VQAv2 subset, object detection IoU on COCO samples</li>
+<li><strong>Runtime performance</strong> — tokens/sec, prompt processing speed, peak memory</li>
+</ol>
+<p><strong>Hardware</strong>: Mac Studio</p>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> pip install <span class="at">-U</span> mlx-vlm==0.4.4 mlx-lm mlx datasets pycocotools supervision</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="imports" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time, json, re, os</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image, ImageDraw</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> supervision <span class="im">as</span> sv</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> display, Markdown</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mlx.core <span class="im">as</span> mx</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>config InlineBackend.figure_format <span class="op">=</span> <span class="st">'retina'</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"MLX version: </span><span class="sc">{</span>mx<span class="sc">.</span>__version__<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Metal device: </span><span class="sc">{</span>mx<span class="sc">.</span>default_device()<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="loading-the-model" class="level2">
+<h2 class="anchored" data-anchor-id="loading-the-model">Loading the Model</h2>
+<p>We test <strong>Gemma 4 31B IT (4-bit)</strong> via mlx-vlm. At 4-bit quantization it needs ~19 GB — well within 64 GB unified memory.</p>
+<div id="load-model" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> mlx_vlm <span class="im">import</span> load, generate</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> mlx_vlm.prompt_utils <span class="im">import</span> apply_chat_template</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> mlx_vlm.utils <span class="im">import</span> load_config</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>MODEL_PATH <span class="op">=</span> <span class="st">'mlx-community/gemma-4-31b-it-4bit'</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>t0 <span class="op">=</span> time.time()</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>model, processor <span class="op">=</span> load(MODEL_PATH)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>config <span class="op">=</span> load_config(MODEL_PATH)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>load_time <span class="op">=</span> time.time() <span class="op">-</span> t0</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model loaded in </span><span class="sc">{</span>load_time<span class="sc">:.1f}</span><span class="ss">s"</span>)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Model type: </span><span class="sc">{</span>config<span class="sc">.</span>get(<span class="st">'model_type'</span>)<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="inference-helper" class="level2">
+<h2 class="anchored" data-anchor-id="inference-helper">Inference Helper</h2>
+<div id="helper" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_local(prompt_text, image_path<span class="op">=</span><span class="va">None</span>, max_tokens<span class="op">=</span><span class="dv">512</span>, display_image<span class="op">=</span><span class="va">True</span>, quiet<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run Gemma 4 locally and return results with timing."""</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> image_path <span class="kw">and</span> display_image <span class="kw">and</span> <span class="kw">not</span> quiet:</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        img <span class="op">=</span> Image.<span class="bu">open</span>(image_path) <span class="cf">if</span> <span class="bu">isinstance</span>(image_path, <span class="bu">str</span>) <span class="cf">else</span> image_path</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">4</span>, <span class="dv">3</span>))</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        ax.imshow(img)<span class="op">;</span> ax.axis(<span class="st">'off'</span>)<span class="op">;</span> plt.tight_layout()<span class="op">;</span> plt.show()</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Save PIL images to temp file if needed</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> image_path <span class="kw">and</span> <span class="kw">not</span> <span class="bu">isinstance</span>(image_path, <span class="bu">str</span>):</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        tmp <span class="op">=</span> <span class="st">'/tmp/_mlx_tmp_img.png'</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        image_path.save(tmp)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        image_path <span class="op">=</span> tmp</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> apply_chat_template(</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        processor, config, prompt_text,</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        num_images<span class="op">=</span><span class="dv">1</span> <span class="cf">if</span> image_path <span class="cf">else</span> <span class="dv">0</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> generate(</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        model, processor, prompt,</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        image<span class="op">=</span>image_path <span class="cf">if</span> image_path <span class="cf">else</span> <span class="va">None</span>,</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        max_tokens<span class="op">=</span>max_tokens,</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        verbose<span class="op">=</span><span class="va">False</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    elapsed <span class="op">=</span> time.time() <span class="op">-</span> t0</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> {</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="st">'response'</span>: result.text,</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        <span class="st">'prompt_tokens'</span>: result.prompt_tokens,</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="st">'gen_tokens'</span>: result.generation_tokens,</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">'prompt_tps'</span>: result.prompt_tps,</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">'gen_tps'</span>: result.generation_tps,</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        <span class="st">'peak_mem_gb'</span>: result.peak_memory <span class="op">/</span> (<span class="dv">1024</span><span class="op">**</span><span class="dv">3</span>) <span class="cf">if</span> <span class="bu">hasattr</span>(result, <span class="st">'peak_memory'</span>) <span class="kw">and</span> result.peak_memory <span class="cf">else</span> <span class="va">None</span>,</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        <span class="st">'time_s'</span>: elapsed,</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> quiet:</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        display(Markdown(<span class="ss">f"**Gemma 4 31B (4-bit, local)** | </span><span class="sc">{</span>elapsed<span class="sc">:.1f}</span><span class="ss">s | "</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>                         <span class="ss">f"</span><span class="sc">{</span>out[<span class="st">'gen_tokens'</span>]<span class="sc">}</span><span class="ss"> tok | "</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>                         <span class="ss">f"</span><span class="sc">{</span>out[<span class="st">'gen_tps'</span>]<span class="sc">:.1f}</span><span class="ss"> tok/s"</span>))</span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>        display(Markdown(out[<span class="st">'response'</span>][:<span class="dv">2000</span>]))</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<hr>
+</section>
+<section id="part-1-qualitative-examples" class="level1">
+<h1>Part 1: Qualitative Examples</h1>
+<section id="scene-understanding" class="level2">
+<h2 class="anchored" data-anchor-id="scene-understanding">Scene Understanding</h2>
+<div id="task1" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>results_scene <span class="op">=</span> run_local(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Describe this image in 2-3 sentences. What is happening and what objects do you see?"</span>,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    image_path<span class="op">=</span><span class="st">'classroom.jpg'</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    max_tokens<span class="op">=</span><span class="dv">256</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="chart-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="chart-analysis">Chart Analysis</h2>
+<div id="task2-chart" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">42</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>epochs <span class="op">=</span> np.arange(<span class="dv">1</span>, <span class="dv">21</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>train_loss <span class="op">=</span> <span class="fl">2.5</span> <span class="op">*</span> np.exp(<span class="op">-</span><span class="fl">0.15</span> <span class="op">*</span> epochs) <span class="op">+</span> <span class="fl">0.1</span> <span class="op">+</span> np.random.normal(<span class="dv">0</span>, <span class="fl">0.05</span>, <span class="dv">20</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>val_loss <span class="op">=</span> <span class="fl">2.5</span> <span class="op">*</span> np.exp(<span class="op">-</span><span class="fl">0.12</span> <span class="op">*</span> epochs) <span class="op">+</span> <span class="fl">0.3</span> <span class="op">+</span> np.random.normal(<span class="dv">0</span>, <span class="fl">0.08</span>, <span class="dv">20</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>val_loss[<span class="dv">14</span>:] <span class="op">+=</span> np.linspace(<span class="dv">0</span>, <span class="fl">0.4</span>, <span class="dv">6</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>fig, (ax1, ax2) <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">4</span>))</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>ax1.plot(epochs, train_loss, <span class="st">'b-o'</span>, label<span class="op">=</span><span class="st">'Train'</span>, ms<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>ax1.plot(epochs, val_loss, <span class="st">'r-s'</span>, label<span class="op">=</span><span class="st">'Val'</span>, ms<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>ax1.<span class="bu">set</span>(xlabel<span class="op">=</span><span class="st">'Epoch'</span>, ylabel<span class="op">=</span><span class="st">'Loss'</span>, title<span class="op">=</span><span class="st">'Training vs Validation Loss'</span>)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>ax1.legend()<span class="op">;</span> ax1.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>bars <span class="op">=</span> [<span class="st">'CNN'</span>, <span class="st">'ResNet'</span>, <span class="st">'ViT'</span>, <span class="st">'Ours'</span>]</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>acc <span class="op">=</span> [<span class="fl">78.2</span>, <span class="fl">85.6</span>, <span class="fl">89.1</span>, <span class="fl">92.3</span>]</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>ax2.bar(bars, acc, color<span class="op">=</span>[<span class="st">'#aaa'</span>,<span class="st">'#aaa'</span>,<span class="st">'#aaa'</span>,<span class="st">'#e74c3c'</span>])</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>ax2.<span class="bu">set</span>(ylabel<span class="op">=</span><span class="st">'Accuracy (%)'</span>, title<span class="op">=</span><span class="st">'Model Comparison'</span>, ylim<span class="op">=</span>(<span class="dv">70</span>,<span class="dv">100</span>))</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, v <span class="kw">in</span> <span class="bu">enumerate</span>(acc): ax2.text(i, v<span class="op">+</span><span class="fl">0.5</span>, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">}</span><span class="ss">%'</span>, ha<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>fig.savefig(<span class="st">'/tmp/research_plot.png'</span>, dpi<span class="op">=</span><span class="dv">150</span>, bbox_inches<span class="op">=</span><span class="st">'tight'</span>)</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="task2-run" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>results_chart <span class="op">=</span> run_local(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"""Analyze these two plots concisely:</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="st">1. Left: what does it show and at which epoch does overfitting begin?</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="st">2. Right: which model is best and by how much over the runner-up?"""</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    image_path<span class="op">=</span><span class="st">'/tmp/research_plot.png'</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    max_tokens<span class="op">=</span><span class="dv">300</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    display_image<span class="op">=</span><span class="va">False</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="segmentation" class="level2">
+<h2 class="anchored" data-anchor-id="segmentation">Segmentation</h2>
+<div id="task-seg-run" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>results_seg <span class="op">=</span> run_local(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"""Segment the main animal in this image.</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="st">Return JSON: {"polygon": [[x1,y1], [x2,y2], ...], "label": "..."}</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="st">Coordinates in [0, 1000] range. Use 20+ points.</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="st">Return ONLY valid JSON."""</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    image_path<span class="op">=</span><span class="st">'happy-doggy.jpg'</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    max_tokens<span class="op">=</span><span class="dv">2048</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="task-seg-viz" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.patches <span class="im">import</span> Polygon <span class="im">as</span> MPLPoly</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>seg_img <span class="op">=</span> Image.<span class="bu">open</span>(<span class="st">'happy-doggy.jpg'</span>)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>img_np <span class="op">=</span> np.array(seg_img)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>h, w <span class="op">=</span> img_np.shape[:<span class="dv">2</span>]</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">6</span>, <span class="dv">5</span>))</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="st">'Gemma 4 31B (local) — Segmentation'</span>)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>ax.imshow(img_np)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    raw <span class="op">=</span> results_seg[<span class="st">'response'</span>].strip()</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    raw <span class="op">=</span> re.sub(<span class="vs">r'```json</span><span class="dv">\s</span><span class="op">*</span><span class="vs">'</span>, <span class="st">''</span>, raw)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    raw <span class="op">=</span> re.sub(<span class="vs">r'```'</span>, <span class="st">''</span>, raw)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> re.search(<span class="vs">r'</span><span class="ch">\{</span><span class="dv">.</span><span class="op">*</span><span class="ch">\}</span><span class="vs">'</span>, raw, re.DOTALL)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>    seg <span class="op">=</span> json.loads(m.group() <span class="cf">if</span> m <span class="cf">else</span> raw)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    pts_raw <span class="op">=</span> seg.get(<span class="st">'polygon'</span>) <span class="kw">or</span> seg.get(<span class="st">'segmentation'</span>) <span class="kw">or</span> seg.get(<span class="st">'points'</span>, [])</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    pts <span class="op">=</span> [(x <span class="op">*</span> w <span class="op">/</span> <span class="dv">1000</span>, y <span class="op">*</span> h <span class="op">/</span> <span class="dv">1000</span>) <span class="cf">for</span> x, y <span class="kw">in</span> pts_raw]</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    ax.add_patch(MPLPoly(pts, closed<span class="op">=</span><span class="va">True</span>, fill<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>                         fc<span class="op">=</span><span class="st">'red'</span>, alpha<span class="op">=</span><span class="fl">0.35</span>, ec<span class="op">=</span><span class="st">'red'</span>, lw<span class="op">=</span><span class="dv">2</span>))</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    ax.set_xlabel(<span class="ss">f"</span><span class="sc">{</span><span class="bu">len</span>(pts)<span class="sc">}</span><span class="ss"> points — </span><span class="sc">{</span>seg<span class="sc">.</span>get(<span class="st">'label'</span>, <span class="st">'?'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>    ax.set_xlabel(<span class="ss">f"Parse error: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>ax.axis(<span class="st">'off'</span>)</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<hr>
+</section>
+</section>
+<section id="part-2-quantitative-benchmarks" class="level1">
+<h1>Part 2: Quantitative Benchmarks</h1>
+<p>We evaluate on small subsets of standard datasets to get quantitative metrics.</p>
+<section id="vqa-vqav2-subset" class="level2">
+<h2 class="anchored" data-anchor-id="vqa-vqav2-subset">VQA: VQAv2 Subset</h2>
+<p>We sample 50 questions from <a href="https://huggingface.co/datasets/merve/vqav2-small">vqav2-small</a> validation split and measure exact-match accuracy against the ground truth answer.</p>
+<div id="vqa-load" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> datasets <span class="im">import</span> load_dataset</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>vqa_ds <span class="op">=</span> load_dataset(<span class="st">'merve/vqav2-small'</span>, split<span class="op">=</span><span class="st">'validation'</span>, streaming<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample 50 examples deterministically</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">42</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>N_VQA <span class="op">=</span> <span class="dv">50</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>vqa_samples <span class="op">=</span> []</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, ex <span class="kw">in</span> <span class="bu">enumerate</span>(vqa_ds):</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(vqa_samples) <span class="op">&gt;=</span> N_VQA:</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> np.random.random() <span class="op">&lt;</span> <span class="fl">0.05</span>:  <span class="co"># ~5% sampling rate</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        vqa_samples.append(ex)</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Loaded </span><span class="sc">{</span><span class="bu">len</span>(vqa_samples)<span class="sc">}</span><span class="ss"> VQA samples"</span>)</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Example: Q='</span><span class="sc">{</span>vqa_samples[<span class="dv">0</span>][<span class="st">'question'</span>]<span class="sc">}</span><span class="ss">', A='</span><span class="sc">{</span>vqa_samples[<span class="dv">0</span>][<span class="st">'multiple_choice_answer'</span>]<span class="sc">}</span><span class="ss">'"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="vqa-eval" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> vqa_exact_match(prediction, ground_truth):</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Exact match accuracy (case-insensitive, strip punctuation)."""</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> prediction.strip().lower().rstrip(<span class="st">'.'</span>).strip()</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    gt <span class="op">=</span> ground_truth.strip().lower().rstrip(<span class="st">'.'</span>).strip()</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">1.0</span> <span class="cf">if</span> pred <span class="op">==</span> gt <span class="cf">else</span> <span class="fl">0.0</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>vqa_results <span class="op">=</span> []</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, sample <span class="kw">in</span> <span class="bu">enumerate</span>(vqa_samples):</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> sample[<span class="st">'image'</span>]</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    question <span class="op">=</span> sample[<span class="st">'question'</span>]</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    gt_answer <span class="op">=</span> sample[<span class="st">'multiple_choice_answer'</span>]</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Save image temporarily</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    tmp_path <span class="op">=</span> <span class="st">'/tmp/_vqa_tmp.png'</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    img.save(tmp_path)</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> <span class="ss">f"""Answer this question about the image with a single short answer (1-3 words max).</span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="ss">Question: </span><span class="sc">{</span>question<span class="sc">}</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="ss">Answer:"""</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> run_local(prompt, image_path<span class="op">=</span>tmp_path, max_tokens<span class="op">=</span><span class="dv">20</span>, quiet<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> r[<span class="st">'response'</span>].strip().split(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>)[<span class="dv">0</span>]</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>    acc <span class="op">=</span> vqa_exact_match(pred, gt_answer)</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>    vqa_results.append({</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">'question'</span>: question,</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">'prediction'</span>: pred,</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">'gt_answer'</span>: gt_answer,</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>        <span class="st">'accuracy'</span>: acc,</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>        <span class="st">'time_s'</span>: r[<span class="st">'time_s'</span>],</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>        <span class="st">'gen_tps'</span>: r[<span class="st">'gen_tps'</span>],</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (i<span class="op">+</span><span class="dv">1</span>) <span class="op">%</span> <span class="dv">10</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>        running_acc <span class="op">=</span> np.mean([r[<span class="st">'accuracy'</span>] <span class="cf">for</span> r <span class="kw">in</span> vqa_results])</span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"  [</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>N_VQA<span class="sc">}</span><span class="ss">] Running accuracy: </span><span class="sc">{</span>running_acc<span class="sc">:.1%}</span><span class="ss">"</span>)</span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>overall_vqa_acc <span class="op">=</span> np.mean([r[<span class="st">'accuracy'</span>] <span class="cf">for</span> r <span class="kw">in</span> vqa_results])</span>
+<span id="cb11-39"><a href="#cb11-39" aria-hidden="true" tabindex="-1"></a>avg_time <span class="op">=</span> np.mean([r[<span class="st">'time_s'</span>] <span class="cf">for</span> r <span class="kw">in</span> vqa_results])</span>
+<span id="cb11-40"><a href="#cb11-40" aria-hidden="true" tabindex="-1"></a>avg_tps <span class="op">=</span> np.mean([r[<span class="st">'gen_tps'</span>] <span class="cf">for</span> r <span class="kw">in</span> vqa_results])</span>
+<span id="cb11-41"><a href="#cb11-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">VQA Accuracy: </span><span class="sc">{</span>overall_vqa_acc<span class="sc">:.1%}</span><span class="ss"> (</span><span class="sc">{</span><span class="bu">len</span>(vqa_results)<span class="sc">}</span><span class="ss"> samples)"</span>)</span>
+<span id="cb11-42"><a href="#cb11-42" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Avg time per question: </span><span class="sc">{</span>avg_time<span class="sc">:.1f}</span><span class="ss">s"</span>)</span>
+<span id="cb11-43"><a href="#cb11-43" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Avg generation speed: </span><span class="sc">{</span>avg_tps<span class="sc">:.1f}</span><span class="ss"> tok/s"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="vqa-analysis" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Show some correct and incorrect examples</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>correct <span class="op">=</span> [r <span class="cf">for</span> r <span class="kw">in</span> vqa_results <span class="cf">if</span> r[<span class="st">'accuracy'</span>] <span class="op">&gt;</span> <span class="dv">0</span>]</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>wrong <span class="op">=</span> [r <span class="cf">for</span> r <span class="kw">in</span> vqa_results <span class="cf">if</span> r[<span class="st">'accuracy'</span>] <span class="op">==</span> <span class="dv">0</span>]</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="ss">f"### VQA Results: </span><span class="sc">{</span>overall_vqa_acc<span class="sc">:.1%}</span><span class="ss"> accuracy on </span><span class="sc">{</span><span class="bu">len</span>(vqa_results)<span class="sc">}</span><span class="ss"> samples"</span>))</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="ss">f"</span><span class="sc">{</span><span class="bu">len</span>(correct)<span class="sc">}</span><span class="ss"> correct, </span><span class="sc">{</span><span class="bu">len</span>(wrong)<span class="sc">}</span><span class="ss"> incorrect"</span>))</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="st">"#### Sample correct predictions"</span>))</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> r <span class="kw">in</span> correct[:<span class="dv">5</span>]:</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Q: </span><span class="sc">{</span>r[<span class="st">'question'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Pred: </span><span class="sc">{</span>r[<span class="st">'prediction'</span>]<span class="sc">}</span><span class="ss"> | GT: </span><span class="sc">{</span>r[<span class="st">'gt_answer'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>display(Markdown(<span class="st">"#### Sample incorrect predictions"</span>))</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> r <span class="kw">in</span> wrong[:<span class="dv">5</span>]:</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Q: </span><span class="sc">{</span>r[<span class="st">'question'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  Pred: </span><span class="sc">{</span>r[<span class="st">'prediction'</span>]<span class="sc">}</span><span class="ss"> | GT: </span><span class="sc">{</span>r[<span class="st">'gt_answer'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="object-detection-coco-subset" class="level2">
+<h2 class="anchored" data-anchor-id="object-detection-coco-subset">Object Detection: COCO Subset</h2>
+<p>We take 20 COCO validation images and prompt Gemma 4 to return bounding boxes, then match predictions against ground truth. All visualizations use <a href="https://github.com/roboflow/supervision">supervision</a> — green/red boxes on the images show what the model got right and wrong.</p>
+<div id="od-load" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>COCO_CATS <span class="op">=</span> {</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1</span>:<span class="st">'person'</span>,<span class="dv">2</span>:<span class="st">'bicycle'</span>,<span class="dv">3</span>:<span class="st">'car'</span>,<span class="dv">4</span>:<span class="st">'motorcycle'</span>,<span class="dv">5</span>:<span class="st">'airplane'</span>,<span class="dv">6</span>:<span class="st">'bus'</span>,<span class="dv">7</span>:<span class="st">'train'</span>,<span class="dv">8</span>:<span class="st">'truck'</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">9</span>:<span class="st">'boat'</span>,<span class="dv">10</span>:<span class="st">'traffic light'</span>,<span class="dv">11</span>:<span class="st">'fire hydrant'</span>,<span class="dv">13</span>:<span class="st">'stop sign'</span>,<span class="dv">14</span>:<span class="st">'parking meter'</span>,<span class="dv">15</span>:<span class="st">'bench'</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">16</span>:<span class="st">'bird'</span>,<span class="dv">17</span>:<span class="st">'cat'</span>,<span class="dv">18</span>:<span class="st">'dog'</span>,<span class="dv">19</span>:<span class="st">'horse'</span>,<span class="dv">20</span>:<span class="st">'sheep'</span>,<span class="dv">21</span>:<span class="st">'cow'</span>,<span class="dv">22</span>:<span class="st">'elephant'</span>,<span class="dv">23</span>:<span class="st">'bear'</span>,<span class="dv">24</span>:<span class="st">'zebra'</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="dv">25</span>:<span class="st">'giraffe'</span>,<span class="dv">27</span>:<span class="st">'backpack'</span>,<span class="dv">28</span>:<span class="st">'umbrella'</span>,<span class="dv">31</span>:<span class="st">'handbag'</span>,<span class="dv">32</span>:<span class="st">'tie'</span>,<span class="dv">33</span>:<span class="st">'suitcase'</span>,<span class="dv">34</span>:<span class="st">'frisbee'</span>,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="dv">35</span>:<span class="st">'skis'</span>,<span class="dv">36</span>:<span class="st">'snowboard'</span>,<span class="dv">37</span>:<span class="st">'sports ball'</span>,<span class="dv">38</span>:<span class="st">'kite'</span>,<span class="dv">39</span>:<span class="st">'baseball bat'</span>,<span class="dv">40</span>:<span class="st">'baseball glove'</span>,</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    <span class="dv">41</span>:<span class="st">'skateboard'</span>,<span class="dv">42</span>:<span class="st">'surfboard'</span>,<span class="dv">43</span>:<span class="st">'tennis racket'</span>,<span class="dv">44</span>:<span class="st">'bottle'</span>,<span class="dv">46</span>:<span class="st">'wine glass'</span>,<span class="dv">47</span>:<span class="st">'cup'</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="dv">48</span>:<span class="st">'fork'</span>,<span class="dv">49</span>:<span class="st">'knife'</span>,<span class="dv">50</span>:<span class="st">'spoon'</span>,<span class="dv">51</span>:<span class="st">'bowl'</span>,<span class="dv">52</span>:<span class="st">'banana'</span>,<span class="dv">53</span>:<span class="st">'apple'</span>,<span class="dv">54</span>:<span class="st">'sandwich'</span>,<span class="dv">55</span>:<span class="st">'orange'</span>,</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    <span class="dv">56</span>:<span class="st">'broccoli'</span>,<span class="dv">57</span>:<span class="st">'carrot'</span>,<span class="dv">58</span>:<span class="st">'hot dog'</span>,<span class="dv">59</span>:<span class="st">'pizza'</span>,<span class="dv">60</span>:<span class="st">'donut'</span>,<span class="dv">61</span>:<span class="st">'cake'</span>,<span class="dv">62</span>:<span class="st">'chair'</span>,<span class="dv">63</span>:<span class="st">'couch'</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    <span class="dv">64</span>:<span class="st">'potted plant'</span>,<span class="dv">65</span>:<span class="st">'bed'</span>,<span class="dv">67</span>:<span class="st">'dining table'</span>,<span class="dv">70</span>:<span class="st">'toilet'</span>,<span class="dv">72</span>:<span class="st">'tv'</span>,<span class="dv">73</span>:<span class="st">'laptop'</span>,<span class="dv">74</span>:<span class="st">'mouse'</span>,</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="dv">75</span>:<span class="st">'remote'</span>,<span class="dv">76</span>:<span class="st">'keyboard'</span>,<span class="dv">77</span>:<span class="st">'cell phone'</span>,<span class="dv">78</span>:<span class="st">'microwave'</span>,<span class="dv">79</span>:<span class="st">'oven'</span>,<span class="dv">80</span>:<span class="st">'toaster'</span>,<span class="dv">81</span>:<span class="st">'sink'</span>,</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="dv">82</span>:<span class="st">'refrigerator'</span>,<span class="dv">84</span>:<span class="st">'book'</span>,<span class="dv">85</span>:<span class="st">'clock'</span>,<span class="dv">86</span>:<span class="st">'vase'</span>,<span class="dv">87</span>:<span class="st">'scissors'</span>,<span class="dv">88</span>:<span class="st">'teddy bear'</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    <span class="dv">89</span>:<span class="st">'hair drier'</span>,<span class="dv">90</span>:<span class="st">'toothbrush'</span>,</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Aliases: common VLM outputs → canonical COCO names</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>COCO_NAME_ALIASES <span class="op">=</span> {</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">'tv monitor'</span>: <span class="st">'tv'</span>, <span class="st">'tvmonitor'</span>: <span class="st">'tv'</span>, <span class="st">'television'</span>: <span class="st">'tv'</span>, <span class="st">'monitor'</span>: <span class="st">'tv'</span>,</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">'mobile phone'</span>: <span class="st">'cell phone'</span>, <span class="st">'cellphone'</span>: <span class="st">'cell phone'</span>, <span class="st">'phone'</span>: <span class="st">'cell phone'</span>,</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>    <span class="st">'smartphone'</span>: <span class="st">'cell phone'</span>, <span class="st">'iphone'</span>: <span class="st">'cell phone'</span>,</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>    <span class="st">'sofa'</span>: <span class="st">'couch'</span>, <span class="st">'loveseat'</span>: <span class="st">'couch'</span>,</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">'diningtable'</span>: <span class="st">'dining table'</span>, <span class="st">'table'</span>: <span class="st">'dining table'</span>, <span class="st">'desk'</span>: <span class="st">'dining table'</span>,</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>    <span class="st">'pottedplant'</span>: <span class="st">'potted plant'</span>, <span class="st">'houseplant'</span>: <span class="st">'potted plant'</span>, <span class="st">'plant'</span>: <span class="st">'potted plant'</span>,</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>    <span class="st">'aeroplane'</span>: <span class="st">'airplane'</span>, <span class="st">'plane'</span>: <span class="st">'airplane'</span>, <span class="st">'jet'</span>: <span class="st">'airplane'</span>,</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>    <span class="st">'motorbike'</span>: <span class="st">'motorcycle'</span>, <span class="st">'scooter'</span>: <span class="st">'motorcycle'</span>,</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>    <span class="st">'couch'</span>: <span class="st">'couch'</span>, <span class="st">'wine'</span>: <span class="st">'wine glass'</span>, <span class="st">'glass'</span>: <span class="st">'wine glass'</span>,</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>    <span class="st">'laptop computer'</span>: <span class="st">'laptop'</span>, <span class="st">'notebook'</span>: <span class="st">'laptop'</span>,</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>    <span class="st">'bicycle'</span>: <span class="st">'bicycle'</span>, <span class="st">'bike'</span>: <span class="st">'bicycle'</span>,</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>    <span class="st">'teddy'</span>: <span class="st">'teddy bear'</span>, <span class="st">'stuffed bear'</span>: <span class="st">'teddy bear'</span>, <span class="st">'plush bear'</span>: <span class="st">'teddy bear'</span>,</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>    <span class="st">'traffic signal'</span>: <span class="st">'traffic light'</span>, <span class="st">'signal'</span>: <span class="st">'traffic light'</span>,</span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>    <span class="st">'automobile'</span>: <span class="st">'car'</span>, <span class="st">'vehicle'</span>: <span class="st">'car'</span>,</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>    <span class="st">'human'</span>: <span class="st">'person'</span>, <span class="st">'man'</span>: <span class="st">'person'</span>, <span class="st">'woman'</span>: <span class="st">'person'</span>, <span class="st">'child'</span>: <span class="st">'person'</span>,</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>    <span class="st">'boy'</span>: <span class="st">'person'</span>, <span class="st">'girl'</span>: <span class="st">'person'</span>, <span class="st">'people'</span>: <span class="st">'person'</span>, <span class="st">'pedestrian'</span>: <span class="st">'person'</span>,</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> normalize_label(label):</span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> label <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> re.sub(<span class="vs">r'</span><span class="pp">[_-]</span><span class="op">+</span><span class="vs">'</span>, <span class="st">' '</span>, <span class="bu">str</span>(label).strip().lower())</span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> re.sub(<span class="vs">r'</span><span class="dv">\s</span><span class="op">+</span><span class="vs">'</span>, <span class="st">' '</span>, label)</span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> COCO_NAME_ALIASES.get(label, label)</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>COCO_NAME_TO_ID <span class="op">=</span> {normalize_label(name): cid <span class="cf">for</span> cid, name <span class="kw">in</span> COCO_CATS.items()}</span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a><span class="co"># Minimum GT box area (pixels²) — VLMs can't see tiny objects</span></span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>MIN_GT_AREA <span class="op">=</span> <span class="dv">32</span> <span class="op">*</span> <span class="dv">32</span></span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>coco_ds <span class="op">=</span> load_dataset(<span class="st">'detection-datasets/coco'</span>, split<span class="op">=</span><span class="st">'val'</span>, streaming<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>N_OD <span class="op">=</span> <span class="dv">20</span></span>
+<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a>od_samples <span class="op">=</span> []</span>
+<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ex <span class="kw">in</span> coco_ds:</span>
+<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(od_samples) <span class="op">&gt;=</span> N_OD:</span>
+<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span></span>
+<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>    cats <span class="op">=</span> [COCO_CATS.get(c) <span class="cf">for</span> c <span class="kw">in</span> ex[<span class="st">'objects'</span>][<span class="st">'category'</span>] <span class="cf">if</span> c <span class="kw">in</span> COCO_CATS]</span>
+<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(cats) <span class="op">&gt;=</span> <span class="dv">2</span>:</span>
+<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>        od_samples.append(ex)</span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Loaded </span><span class="sc">{</span><span class="bu">len</span>(od_samples)<span class="sc">}</span><span class="ss"> COCO images'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="od-helpers" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> coco_gt_objects(sample):</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Extract GT objects, filtering tiny boxes that VLMs can't see."""</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    objects <span class="op">=</span> []</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> bbox, class_id <span class="kw">in</span> <span class="bu">zip</span>(sample[<span class="st">'objects'</span>][<span class="st">'bbox'</span>], sample[<span class="st">'objects'</span>][<span class="st">'category'</span>]):</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        label <span class="op">=</span> COCO_CATS.get(class_id)</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> label <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        x1, y1, x2, y2 <span class="op">=</span> [<span class="bu">float</span>(v) <span class="cf">for</span> v <span class="kw">in</span> bbox]</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> x2 <span class="op">&lt;=</span> x1 <span class="kw">or</span> y2 <span class="op">&lt;=</span> y1:</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        area <span class="op">=</span> (x2 <span class="op">-</span> x1) <span class="op">*</span> (y2 <span class="op">-</span> y1)</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> area <span class="op">&lt;</span> MIN_GT_AREA:</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>        objects.append({<span class="st">'label'</span>: label, <span class="st">'class_id'</span>: class_id, <span class="st">'xyxy'</span>: [x1, y1, x2, y2]})</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> objects</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> parse_gemma_detections(text, width, height):</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Parse Gemma's JSON response into detection objects."""</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> text:</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> []</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>    cleaned <span class="op">=</span> re.sub(<span class="vs">r'```</span>(?:<span class="vs">json</span>)<span class="op">?</span><span class="dv">\s</span><span class="op">*</span><span class="vs">'</span>, <span class="st">''</span>, text.strip())</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>    cleaned <span class="op">=</span> re.sub(<span class="vs">r'```'</span>, <span class="st">''</span>, cleaned)</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>    match <span class="op">=</span> re.search(<span class="vs">r'</span><span class="ch">\[</span><span class="pp">[</span><span class="dv">\s\S</span><span class="pp">]</span><span class="op">*</span><span class="ch">\]</span><span class="vs">'</span>, cleaned)</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>        dets <span class="op">=</span> json.loads(match.group(<span class="dv">0</span>) <span class="cf">if</span> match <span class="cf">else</span> cleaned)</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span>:</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> []</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> <span class="bu">isinstance</span>(dets, <span class="bu">list</span>):</span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> []</span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>    objects <span class="op">=</span> []</span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> d <span class="kw">in</span> dets:</span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> <span class="bu">isinstance</span>(d, <span class="bu">dict</span>):</span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>        label <span class="op">=</span> normalize_label(d.get(<span class="st">'label'</span>) <span class="kw">or</span> d.get(<span class="st">'class'</span>) <span class="kw">or</span> d.get(<span class="st">'name'</span>) <span class="kw">or</span> d.get(<span class="st">'object'</span>))</span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>        box <span class="op">=</span> d.get(<span class="st">'box_2d'</span>) <span class="kw">or</span> d.get(<span class="st">'box'</span>) <span class="kw">or</span> d.get(<span class="st">'bbox'</span>) <span class="kw">or</span> d.get(<span class="st">'bounding_box'</span>)</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> label <span class="kw">not</span> <span class="kw">in</span> COCO_NAME_TO_ID <span class="kw">or</span> <span class="kw">not</span> <span class="bu">isinstance</span>(box, (<span class="bu">list</span>, <span class="bu">tuple</span>)) <span class="kw">or</span> <span class="bu">len</span>(box) <span class="op">!=</span> <span class="dv">4</span>:</span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>:</span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>            y1_n, x1_n, y2_n, x2_n <span class="op">=</span> [<span class="bu">float</span>(v) <span class="cf">for</span> v <span class="kw">in</span> box]</span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> (<span class="pp">ValueError</span>, <span class="pp">TypeError</span>):</span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Convert from 0-1000 normalized to pixel coordinates</span></span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>        x1 <span class="op">=</span> <span class="bu">float</span>(np.clip(x1_n <span class="op">/</span> <span class="dv">1000</span> <span class="op">*</span> width, <span class="dv">0</span>, width))</span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>        x2 <span class="op">=</span> <span class="bu">float</span>(np.clip(x2_n <span class="op">/</span> <span class="dv">1000</span> <span class="op">*</span> width, <span class="dv">0</span>, width))</span>
+<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>        y1 <span class="op">=</span> <span class="bu">float</span>(np.clip(y1_n <span class="op">/</span> <span class="dv">1000</span> <span class="op">*</span> height, <span class="dv">0</span>, height))</span>
+<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a>        y2 <span class="op">=</span> <span class="bu">float</span>(np.clip(y2_n <span class="op">/</span> <span class="dv">1000</span> <span class="op">*</span> height, <span class="dv">0</span>, height))</span>
+<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> x2 <span class="op">&lt;=</span> x1 <span class="op">+</span> <span class="dv">1</span> <span class="kw">or</span> y2 <span class="op">&lt;=</span> y1 <span class="op">+</span> <span class="dv">1</span>:</span>
+<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a>        objects.append({</span>
+<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a>            <span class="st">'label'</span>: label, <span class="st">'class_id'</span>: COCO_NAME_TO_ID[label],</span>
+<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a>            <span class="st">'xyxy'</span>: [x1, y1, x2, y2],</span>
+<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a>        })</span>
+<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> objects</span>
+<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> compute_iou(box1, box2):</span>
+<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a>    x1 <span class="op">=</span> <span class="bu">max</span>(box1[<span class="dv">0</span>], box2[<span class="dv">0</span>])</span>
+<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a>    y1 <span class="op">=</span> <span class="bu">max</span>(box1[<span class="dv">1</span>], box2[<span class="dv">1</span>])</span>
+<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>    x2 <span class="op">=</span> <span class="bu">min</span>(box1[<span class="dv">2</span>], box2[<span class="dv">2</span>])</span>
+<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a>    y2 <span class="op">=</span> <span class="bu">min</span>(box1[<span class="dv">3</span>], box2[<span class="dv">3</span>])</span>
+<span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a>    inter <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, x2 <span class="op">-</span> x1) <span class="op">*</span> <span class="bu">max</span>(<span class="dv">0</span>, y2 <span class="op">-</span> y1)</span>
+<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a>    area1 <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, box1[<span class="dv">2</span>] <span class="op">-</span> box1[<span class="dv">0</span>]) <span class="op">*</span> <span class="bu">max</span>(<span class="dv">0</span>, box1[<span class="dv">3</span>] <span class="op">-</span> box1[<span class="dv">1</span>])</span>
+<span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a>    area2 <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, box2[<span class="dv">2</span>] <span class="op">-</span> box2[<span class="dv">0</span>]) <span class="op">*</span> <span class="bu">max</span>(<span class="dv">0</span>, box2[<span class="dv">3</span>] <span class="op">-</span> box2[<span class="dv">1</span>])</span>
+<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a>    union <span class="op">=</span> area1 <span class="op">+</span> area2 <span class="op">-</span> inter</span>
+<span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> inter <span class="op">/</span> union <span class="cf">if</span> union <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> <span class="fl">0.0</span></span>
+<span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-69"><a href="#cb14-69" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> match_predictions(preds, gts, iou_threshold<span class="op">=</span><span class="fl">0.5</span>):</span>
+<span id="cb14-70"><a href="#cb14-70" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Greedy matching: each pred matches its best GT (same class, IoU &gt;= threshold).</span></span>
+<span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns per-prediction match info and overall metrics."""</span></span>
+<span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a>    matched_gt <span class="op">=</span> <span class="bu">set</span>()</span>
+<span id="cb14-73"><a href="#cb14-73" aria-hidden="true" tabindex="-1"></a>    tp <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb14-74"><a href="#cb14-74" aria-hidden="true" tabindex="-1"></a>    pred_info <span class="op">=</span> []  <span class="co"># per-prediction: matched?, iou, label</span></span>
+<span id="cb14-75"><a href="#cb14-75" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> pred <span class="kw">in</span> preds:</span>
+<span id="cb14-76"><a href="#cb14-76" aria-hidden="true" tabindex="-1"></a>        best_iou, best_j <span class="op">=</span> <span class="fl">0.0</span>, <span class="va">None</span></span>
+<span id="cb14-77"><a href="#cb14-77" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j, gt <span class="kw">in</span> <span class="bu">enumerate</span>(gts):</span>
+<span id="cb14-78"><a href="#cb14-78" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> j <span class="kw">in</span> matched_gt <span class="kw">or</span> pred[<span class="st">'class_id'</span>] <span class="op">!=</span> gt[<span class="st">'class_id'</span>]:</span>
+<span id="cb14-79"><a href="#cb14-79" aria-hidden="true" tabindex="-1"></a>                <span class="cf">continue</span></span>
+<span id="cb14-80"><a href="#cb14-80" aria-hidden="true" tabindex="-1"></a>            iou <span class="op">=</span> compute_iou(pred[<span class="st">'xyxy'</span>], gt[<span class="st">'xyxy'</span>])</span>
+<span id="cb14-81"><a href="#cb14-81" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> iou <span class="op">&gt;</span> best_iou:</span>
+<span id="cb14-82"><a href="#cb14-82" aria-hidden="true" tabindex="-1"></a>                best_iou, best_j <span class="op">=</span> iou, j</span>
+<span id="cb14-83"><a href="#cb14-83" aria-hidden="true" tabindex="-1"></a>        is_tp <span class="op">=</span> best_j <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="kw">and</span> best_iou <span class="op">&gt;=</span> iou_threshold</span>
+<span id="cb14-84"><a href="#cb14-84" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> is_tp:</span>
+<span id="cb14-85"><a href="#cb14-85" aria-hidden="true" tabindex="-1"></a>            matched_gt.add(best_j)</span>
+<span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a>            tp <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb14-87"><a href="#cb14-87" aria-hidden="true" tabindex="-1"></a>        pred_info.append({<span class="st">'tp'</span>: is_tp, <span class="st">'iou'</span>: best_iou, <span class="st">'label'</span>: pred[<span class="st">'label'</span>]})</span>
+<span id="cb14-88"><a href="#cb14-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a>    n_pred, n_gt <span class="op">=</span> <span class="bu">len</span>(preds), <span class="bu">len</span>(gts)</span>
+<span id="cb14-90"><a href="#cb14-90" aria-hidden="true" tabindex="-1"></a>    precision <span class="op">=</span> tp <span class="op">/</span> n_pred <span class="cf">if</span> n_pred <span class="cf">else</span> <span class="fl">0.0</span></span>
+<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a>    recall <span class="op">=</span> tp <span class="op">/</span> n_gt <span class="cf">if</span> n_gt <span class="cf">else</span> <span class="fl">0.0</span></span>
+<span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a>    f1 <span class="op">=</span> <span class="dv">2</span> <span class="op">*</span> precision <span class="op">*</span> recall <span class="op">/</span> (precision <span class="op">+</span> recall) <span class="cf">if</span> (precision <span class="op">+</span> recall) <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">else</span> <span class="fl">0.0</span></span>
+<span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Mean IoU of TRUE POSITIVES only (not dragged down by FPs)</span></span>
+<span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a>    tp_ious <span class="op">=</span> [p[<span class="st">'iou'</span>] <span class="cf">for</span> p <span class="kw">in</span> pred_info <span class="cf">if</span> p[<span class="st">'tp'</span>]]</span>
+<span id="cb14-95"><a href="#cb14-95" aria-hidden="true" tabindex="-1"></a>    mean_tp_iou <span class="op">=</span> <span class="bu">float</span>(np.mean(tp_ious)) <span class="cf">if</span> tp_ious <span class="cf">else</span> <span class="fl">0.0</span></span>
+<span id="cb14-96"><a href="#cb14-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-97"><a href="#cb14-97" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb14-98"><a href="#cb14-98" aria-hidden="true" tabindex="-1"></a>        <span class="st">'tp'</span>: tp, <span class="st">'n_pred'</span>: n_pred, <span class="st">'n_gt'</span>: n_gt,</span>
+<span id="cb14-99"><a href="#cb14-99" aria-hidden="true" tabindex="-1"></a>        <span class="st">'precision'</span>: precision, <span class="st">'recall'</span>: recall, <span class="st">'f1'</span>: f1,</span>
+<span id="cb14-100"><a href="#cb14-100" aria-hidden="true" tabindex="-1"></a>        <span class="st">'mean_tp_iou'</span>: mean_tp_iou,</span>
+<span id="cb14-101"><a href="#cb14-101" aria-hidden="true" tabindex="-1"></a>        <span class="st">'pred_info'</span>: pred_info,</span>
+<span id="cb14-102"><a href="#cb14-102" aria-hidden="true" tabindex="-1"></a>        <span class="st">'matched_gt_indices'</span>: matched_gt,</span>
+<span id="cb14-103"><a href="#cb14-103" aria-hidden="true" tabindex="-1"></a>    }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="od-sv" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> to_sv_detections(objects):</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Convert object list to supervision Detections."""</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> objects:</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> sv.Detections.empty()</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    label_to_id <span class="op">=</span> {l: i <span class="cf">for</span> i, l <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="bu">sorted</span>({o[<span class="st">'label'</span>] <span class="cf">for</span> o <span class="kw">in</span> objects}))}</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> sv.Detections(</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        xyxy<span class="op">=</span>np.array([o[<span class="st">'xyxy'</span>] <span class="cf">for</span> o <span class="kw">in</span> objects], dtype<span class="op">=</span>np.float32),</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>        class_id<span class="op">=</span>np.array([label_to_id[o[<span class="st">'label'</span>]] <span class="cf">for</span> o <span class="kw">in</span> objects], dtype<span class="op">=</span><span class="bu">int</span>),</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        data<span class="op">=</span>{<span class="st">'class_name'</span>: [o[<span class="st">'label'</span>] <span class="cf">for</span> o <span class="kw">in</span> objects]},</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> annotate_image(image, objects):</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Draw boxes + labels using supervision."""</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>    scene <span class="op">=</span> np.array(image.convert(<span class="st">'RGB'</span>)).copy()</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> objects:</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> scene</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>    dets <span class="op">=</span> to_sv_detections(objects)</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>    labels <span class="op">=</span> [o[<span class="st">'label'</span>] <span class="cf">for</span> o <span class="kw">in</span> objects]</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>    box_ann <span class="op">=</span> sv.BoxAnnotator(thickness<span class="op">=</span><span class="dv">2</span>, color_lookup<span class="op">=</span>sv.ColorLookup.CLASS)</span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>    lbl_ann <span class="op">=</span> sv.LabelAnnotator(text_scale<span class="op">=</span><span class="fl">0.4</span>, text_padding<span class="op">=</span><span class="dv">3</span>, color_lookup<span class="op">=</span>sv.ColorLookup.CLASS)</span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>    scene <span class="op">=</span> box_ann.annotate(scene<span class="op">=</span>scene, detections<span class="op">=</span>dets)</span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>    scene <span class="op">=</span> lbl_ann.annotate(scene<span class="op">=</span>scene, detections<span class="op">=</span>dets, labels<span class="op">=</span>labels)</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> scene</span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> annotate_tp_fp(image, pred_objects, pred_info):</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Draw predictions color-coded: green=TP, red=FP. Pure supervision, no cv2."""</span></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>    scene <span class="op">=</span> np.array(image.convert(<span class="st">'RGB'</span>)).copy()</span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> pred_objects:</span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> scene</span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>    tp_mask <span class="op">=</span> np.array([p[<span class="st">'tp'</span>] <span class="cf">for</span> p <span class="kw">in</span> pred_info])</span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Split into TP and FP groups and annotate separately with fixed colors</span></span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> is_tp, color <span class="kw">in</span> [(<span class="va">True</span>, sv.Color(<span class="dv">0</span>, <span class="dv">200</span>, <span class="dv">0</span>)), (<span class="va">False</span>, sv.Color(<span class="dv">220</span>, <span class="dv">50</span>, <span class="dv">50</span>))]:</span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> tp_mask <span class="cf">if</span> is_tp <span class="cf">else</span> <span class="op">~</span>tp_mask</span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>        indices <span class="op">=</span> np.where(mask)[<span class="dv">0</span>]</span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">len</span>(indices) <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>        subset <span class="op">=</span> [pred_objects[i] <span class="cf">for</span> i <span class="kw">in</span> indices]</span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>        subset_info <span class="op">=</span> [pred_info[i] <span class="cf">for</span> i <span class="kw">in</span> indices]</span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>        xyxy <span class="op">=</span> np.array([o[<span class="st">'xyxy'</span>] <span class="cf">for</span> o <span class="kw">in</span> subset], dtype<span class="op">=</span>np.float32)</span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a>        dets <span class="op">=</span> sv.Detections(xyxy<span class="op">=</span>xyxy)</span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>        tag <span class="op">=</span> <span class="st">'TP'</span> <span class="cf">if</span> is_tp <span class="cf">else</span> <span class="st">'FP'</span></span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>        labels <span class="op">=</span> [<span class="ss">f"</span><span class="sc">{</span>o[<span class="st">'label'</span>]<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>tag<span class="sc">}</span><span class="ss">)"</span> <span class="cf">for</span> o <span class="kw">in</span> subset]</span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>        box_ann <span class="op">=</span> sv.BoxAnnotator(thickness<span class="op">=</span><span class="dv">2</span>, color<span class="op">=</span>color)</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>        lbl_ann <span class="op">=</span> sv.LabelAnnotator(text_scale<span class="op">=</span><span class="fl">0.4</span>, text_padding<span class="op">=</span><span class="dv">3</span>, color<span class="op">=</span>color)</span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a>        scene <span class="op">=</span> box_ann.annotate(scene<span class="op">=</span>scene, detections<span class="op">=</span>dets)</span>
+<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a>        scene <span class="op">=</span> lbl_ann.annotate(scene<span class="op">=</span>scene, detections<span class="op">=</span>dets, labels<span class="op">=</span>labels)</span>
+<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> scene</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="od-eval" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>od_prompt <span class="op">=</span> <span class="st">"""Detect ALL visible objects in this image and return bounding boxes.</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="st">Return ONLY a JSON array — no explanation, no markdown.</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="st">Each element: {"label": "&lt;coco_class&gt;", "box_2d": [y_min, x_min, y_max, x_max]}</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="st">Coordinates are integers in [0, 1000] (normalized to image size).</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="st">Use standard COCO class names: person, car, dog, chair, cup, etc.</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="st">Include ALL visible instances, even partially occluded ones."""</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>od_results <span class="op">=</span> []</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, sample <span class="kw">in</span> <span class="bu">enumerate</span>(od_samples):</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> sample[<span class="st">'image'</span>]</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    w, h <span class="op">=</span> img.size</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    gt <span class="op">=</span> coco_gt_objects(sample)</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    tmp <span class="op">=</span> <span class="st">'/tmp/_od_tmp.jpg'</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>    img.save(tmp)</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> run_local(od_prompt, image_path<span class="op">=</span>tmp, max_tokens<span class="op">=</span><span class="dv">2048</span>, quiet<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    preds <span class="op">=</span> parse_gemma_detections(out[<span class="st">'response'</span>], w, h)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    metrics <span class="op">=</span> match_predictions(preds, gt)</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    metrics[<span class="st">'image'</span>] <span class="op">=</span> img</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    metrics[<span class="st">'pred_objects'</span>] <span class="op">=</span> preds</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>    metrics[<span class="st">'gt_objects'</span>] <span class="op">=</span> gt</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>    metrics[<span class="st">'time_s'</span>] <span class="op">=</span> out[<span class="st">'time_s'</span>]</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>    metrics[<span class="st">'raw_response'</span>] <span class="op">=</span> out[<span class="st">'response'</span>]</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>    od_results.append(metrics)</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (i <span class="op">+</span> <span class="dv">1</span>) <span class="op">%</span> <span class="dv">5</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>        p <span class="op">=</span> np.mean([r[<span class="st">'precision'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>        r <span class="op">=</span> np.mean([r[<span class="st">'recall'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'  [</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>N_OD<span class="sc">}</span><span class="ss">] P=</span><span class="sc">{</span>p<span class="sc">:.2f}</span><span class="ss">  R=</span><span class="sc">{</span>r<span class="sc">:.2f}</span><span class="ss">'</span>)</span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>mean_p <span class="op">=</span> np.mean([r[<span class="st">'precision'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])</span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>mean_r <span class="op">=</span> np.mean([r[<span class="st">'recall'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])</span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>mean_f1 <span class="op">=</span> np.mean([r[<span class="st">'f1'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>mean_iou <span class="op">=</span> np.mean([r[<span class="st">'mean_tp_iou'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>total_tp <span class="op">=</span> <span class="bu">sum</span>(r[<span class="st">'tp'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results)</span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>total_pred <span class="op">=</span> <span class="bu">sum</span>(r[<span class="st">'n_pred'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results)</span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>total_gt <span class="op">=</span> <span class="bu">sum</span>(r[<span class="st">'n_gt'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results)</span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'</span><span class="ch">\n</span><span class="ss">--- COCO Detection (</span><span class="sc">{</span>N_OD<span class="sc">}</span><span class="ss"> images, GT boxes ≥ </span><span class="sc">{</span>MIN_GT_AREA<span class="sc">}</span><span class="ss">px²) ---'</span>)</span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Precision:      </span><span class="sc">{</span>mean_p<span class="sc">:.2f}</span><span class="ss">  (</span><span class="sc">{</span>total_tp<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>total_pred<span class="sc">}</span><span class="ss"> preds matched)'</span>)</span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Recall:         </span><span class="sc">{</span>mean_r<span class="sc">:.2f}</span><span class="ss">  (</span><span class="sc">{</span>total_tp<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>total_gt<span class="sc">}</span><span class="ss"> GT matched)'</span>)</span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'F1:             </span><span class="sc">{</span>mean_f1<span class="sc">:.2f}</span><span class="ss">'</span>)</span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Mean TP IoU:    </span><span class="sc">{</span>mean_iou<span class="sc">:.2f}</span><span class="ss">  (only matched predictions)'</span>)</span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Avg time/image: </span><span class="sc">{</span>np<span class="sc">.</span>mean([r[<span class="st">"time_s"</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])<span class="sc">:.1f}</span><span class="ss">s'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="gt-vs.-predictions-side-by-side" class="level3">
+<h3 class="anchored" data-anchor-id="gt-vs.-predictions-side-by-side">GT vs.&nbsp;Predictions: Side-by-Side</h3>
+<div id="od-viz-grid" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>viz_idx <span class="op">=</span> np.linspace(<span class="dv">0</span>, <span class="bu">len</span>(od_results) <span class="op">-</span> <span class="dv">1</span>, <span class="dv">6</span>, dtype<span class="op">=</span><span class="bu">int</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="bu">len</span>(viz_idx), <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">4</span> <span class="op">*</span> <span class="bu">len</span>(viz_idx)))</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> row, idx <span class="kw">in</span> <span class="bu">enumerate</span>(viz_idx):</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> od_results[idx]</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    gt_scene <span class="op">=</span> annotate_image(r[<span class="st">'image'</span>], r[<span class="st">'gt_objects'</span>])</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    pred_scene <span class="op">=</span> annotate_tp_fp(r[<span class="st">'image'</span>], r[<span class="st">'pred_objects'</span>], r[<span class="st">'pred_info'</span>])</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">0</span>].imshow(gt_scene)</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">0</span>].set_title(<span class="ss">f'Ground truth (</span><span class="sc">{</span>r[<span class="st">"n_gt"</span>]<span class="sc">}</span><span class="ss"> objects)'</span>, fontsize<span class="op">=</span><span class="dv">10</span>)</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">0</span>].axis(<span class="st">'off'</span>)</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">1</span>].imshow(pred_scene)</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">1</span>].set_title(</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f'Gemma 4 — </span><span class="sc">{</span>r[<span class="st">"tp"</span>]<span class="sc">}</span><span class="ss"> TP (green) + </span><span class="sc">{</span>r[<span class="st">"n_pred"</span>] <span class="op">-</span> r[<span class="st">"tp"</span>]<span class="sc">}</span><span class="ss"> FP (red)  |  '</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f'P=</span><span class="sc">{</span>r[<span class="st">"precision"</span>]<span class="sc">:.2f}</span><span class="ss">  R=</span><span class="sc">{</span>r[<span class="st">"recall"</span>]<span class="sc">:.2f}</span><span class="ss">'</span>,</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>        fontsize<span class="op">=</span><span class="dv">10</span>,</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">1</span>].axis(<span class="st">'off'</span>)</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>fig.suptitle(<span class="st">'COCO Detection: supervision overlays (green=TP, red=FP)'</span>, fontsize<span class="op">=</span><span class="dv">13</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="detection-quality-breakdown" class="level3">
+<h3 class="anchored" data-anchor-id="detection-quality-breakdown">Detection Quality Breakdown</h3>
+<div id="od-analysis" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> collections <span class="im">import</span> Counter</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">3</span>, figsize<span class="op">=</span>(<span class="dv">16</span>, <span class="fl">4.5</span>))</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 1 — Per-image P vs R scatter</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>precs <span class="op">=</span> [r[<span class="st">'precision'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results]</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>recs  <span class="op">=</span> [r[<span class="st">'recall'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results]</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].scatter(recs, precs, s<span class="op">=</span><span class="dv">60</span>, alpha<span class="op">=</span><span class="fl">0.7</span>, edgecolors<span class="op">=</span><span class="st">'black'</span>, linewidth<span class="op">=</span><span class="fl">0.5</span>, c<span class="op">=</span><span class="st">'#06b6d4'</span>)</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_xlabel(<span class="st">'Recall'</span>)<span class="op">;</span> axes[<span class="dv">0</span>].set_ylabel(<span class="st">'Precision'</span>)</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_xlim(<span class="op">-</span><span class="fl">0.05</span>, <span class="fl">1.05</span>)<span class="op">;</span> axes[<span class="dv">0</span>].set_ylim(<span class="op">-</span><span class="fl">0.05</span>, <span class="fl">1.05</span>)</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_title(<span class="st">'Per-image Precision vs Recall'</span>)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].axhline(mean_p, color<span class="op">=</span><span class="st">'gray'</span>, ls<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>)</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].axvline(mean_r, color<span class="op">=</span><span class="st">'gray'</span>, ls<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>)</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].text(mean_r <span class="op">+</span> <span class="fl">0.02</span>, mean_p <span class="op">+</span> <span class="fl">0.04</span>, <span class="ss">f'mean (</span><span class="sc">{</span>mean_p<span class="sc">:.2f}</span><span class="ss">, </span><span class="sc">{</span>mean_r<span class="sc">:.2f}</span><span class="ss">)'</span>,</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>             fontsize<span class="op">=</span><span class="dv">8</span>, color<span class="op">=</span><span class="st">'gray'</span>)</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 2 — IoU distribution of all TPs</span></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>tp_ious <span class="op">=</span> [p[<span class="st">'iou'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results <span class="cf">for</span> p <span class="kw">in</span> r[<span class="st">'pred_info'</span>] <span class="cf">if</span> p[<span class="st">'tp'</span>]]</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> tp_ious:</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>].hist(tp_ious, bins<span class="op">=</span><span class="dv">15</span>, color<span class="op">=</span><span class="st">'#22c55e'</span>, edgecolor<span class="op">=</span><span class="st">'white'</span>, alpha<span class="op">=</span><span class="fl">0.85</span>)</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>].axvline(<span class="fl">0.5</span>, color<span class="op">=</span><span class="st">'red'</span>, ls<span class="op">=</span><span class="st">'--'</span>, lw<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="st">'IoU=0.5 threshold'</span>)</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>].set_xlabel(<span class="st">'IoU'</span>)<span class="op">;</span> axes[<span class="dv">1</span>].set_ylabel(<span class="st">'Count'</span>)</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>].legend(fontsize<span class="op">=</span><span class="dv">8</span>)</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_title(<span class="ss">f'IoU of matched predictions (n=</span><span class="sc">{</span><span class="bu">len</span>(tp_ious)<span class="sc">}</span><span class="ss">)'</span>)</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a><span class="co"># 3 — Per-class recall (top 10 GT classes)</span></span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>gt_counts <span class="op">=</span> Counter()</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>tp_counts <span class="op">=</span> Counter()</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> r <span class="kw">in</span> od_results:</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> obj <span class="kw">in</span> r[<span class="st">'gt_objects'</span>]:</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>        gt_counts[obj[<span class="st">'label'</span>]] <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> r[<span class="st">'matched_gt_indices'</span>]:</span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>        tp_counts[r[<span class="st">'gt_objects'</span>][j][<span class="st">'label'</span>]] <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>top <span class="op">=</span> gt_counts.most_common(<span class="dv">10</span>)</span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a>cls_names <span class="op">=</span> [c <span class="cf">for</span> c, _ <span class="kw">in</span> top]</span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a>cls_recall <span class="op">=</span> [tp_counts[c] <span class="op">/</span> gt_counts[c] <span class="cf">for</span> c <span class="kw">in</span> cls_names]</span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a>bar_colors <span class="op">=</span> [<span class="st">'#22c55e'</span> <span class="cf">if</span> v <span class="op">&gt;=</span> <span class="fl">0.5</span> <span class="cf">else</span> <span class="st">'#f97316'</span> <span class="cf">if</span> v <span class="op">&gt;=</span> <span class="fl">0.25</span> <span class="cf">else</span> <span class="st">'#ef4444'</span> <span class="cf">for</span> v <span class="kw">in</span> cls_recall]</span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].barh(cls_names[::<span class="op">-</span><span class="dv">1</span>], cls_recall[::<span class="op">-</span><span class="dv">1</span>], color<span class="op">=</span>bar_colors[::<span class="op">-</span><span class="dv">1</span>])</span>
+<span id="cb18-41"><a href="#cb18-41" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_xlabel(<span class="st">'Recall'</span>)</span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_xlim(<span class="dv">0</span>, <span class="fl">1.05</span>)</span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_title(<span class="st">'Per-class recall (top 10 by GT count)'</span>)</span>
+<span id="cb18-44"><a href="#cb18-44" aria-hidden="true" tabindex="-1"></a><span class="co"># Annotate counts</span></span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> k, (name, rec) <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="bu">zip</span>(cls_names[::<span class="op">-</span><span class="dv">1</span>], cls_recall[::<span class="op">-</span><span class="dv">1</span>])):</span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a>    n <span class="op">=</span> gt_counts[name]</span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">2</span>].text(rec <span class="op">+</span> <span class="fl">0.02</span>, k, <span class="ss">f'</span><span class="sc">{</span>tp_counts[name]<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>n<span class="sc">}</span><span class="ss">'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">8</span>)</span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">'Detection Quality Analysis'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb18-51"><a href="#cb18-51" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="best-and-worst-detections" class="level3">
+<h3 class="anchored" data-anchor-id="best-and-worst-detections">Best and Worst Detections</h3>
+<div id="od-bestworst" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>f1s <span class="op">=</span> [r[<span class="st">'f1'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results]</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>best_i, worst_i <span class="op">=</span> <span class="bu">int</span>(np.argmax(f1s)), <span class="bu">int</span>(np.argmin(f1s))</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">2</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">10</span>))</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> row, (idx, label) <span class="kw">in</span> <span class="bu">enumerate</span>([(best_i, <span class="st">'Best'</span>), (worst_i, <span class="st">'Worst'</span>)]):</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> od_results[idx]</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">0</span>].imshow(annotate_image(r[<span class="st">'image'</span>], r[<span class="st">'gt_objects'</span>]))</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">0</span>].set_title(<span class="ss">f'</span><span class="sc">{</span>label<span class="sc">}</span><span class="ss"> (F1=</span><span class="sc">{</span>r[<span class="st">"f1"</span>]<span class="sc">:.2f}</span><span class="ss">) — GT: </span><span class="sc">{</span>r[<span class="st">"n_gt"</span>]<span class="sc">}</span><span class="ss"> objects'</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">0</span>].axis(<span class="st">'off'</span>)</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">1</span>].imshow(annotate_tp_fp(r[<span class="st">'image'</span>], r[<span class="st">'pred_objects'</span>], r[<span class="st">'pred_info'</span>]))</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">1</span>].set_title(</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f'</span><span class="sc">{</span>label<span class="sc">}</span><span class="ss"> — Pred: </span><span class="sc">{</span>r[<span class="st">"n_pred"</span>]<span class="sc">}</span><span class="ss">  |  P=</span><span class="sc">{</span>r[<span class="st">"precision"</span>]<span class="sc">:.2f}</span><span class="ss">  R=</span><span class="sc">{</span>r[<span class="st">"recall"</span>]<span class="sc">:.2f}</span><span class="ss">'</span>,</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>        fontsize<span class="op">=</span><span class="dv">11</span>,</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>    axes[row, <span class="dv">1</span>].axis(<span class="st">'off'</span>)</span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">'Best vs Worst detection (by F1)'</span>, fontsize<span class="op">=</span><span class="dv">14</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Diagnose worst case</span></span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a>rw <span class="op">=</span> od_results[worst_i]</span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>gt_labels <span class="op">=</span> Counter(o[<span class="st">'label'</span>] <span class="cf">for</span> o <span class="kw">in</span> rw[<span class="st">'gt_objects'</span>])</span>
+<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>pred_labels <span class="op">=</span> Counter(o[<span class="st">'label'</span>] <span class="cf">for</span> o <span class="kw">in</span> rw[<span class="st">'pred_objects'</span>])</span>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Worst image — GT classes:   </span><span class="sc">{</span><span class="bu">dict</span>(gt_labels)<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Worst image — Pred classes: </span><span class="sc">{</span><span class="bu">dict</span>(pred_labels)<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a>missed <span class="op">=</span> <span class="bu">set</span>(gt_labels) <span class="op">-</span> <span class="bu">set</span>(pred_labels)</span>
+<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> missed:</span>
+<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f'Missed entirely: </span><span class="sc">{</span>missed<span class="sc">}</span><span class="ss">'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<hr>
+</section>
+</section>
+</section>
+<section id="part-3-runtime-performance" class="level1">
+<h1>Part 3: Runtime Performance</h1>
+<section id="prompt-length-vs-throughput" class="level2">
+<h2 class="anchored" data-anchor-id="prompt-length-vs-throughput">Prompt Length vs Throughput</h2>
+<p>How does generation speed change as prompt complexity increases? We test text-only and image prompts of varying length.</p>
+<div id="perf-bench" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>perf_tests <span class="op">=</span> [</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    (<span class="st">'Short text'</span>, <span class="st">'What is 2+2?'</span>, <span class="va">None</span>, <span class="dv">50</span>),</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    (<span class="st">'Medium text'</span>, <span class="st">'Explain the transformer architecture in detail, covering attention, positional encoding, and training.'</span>, <span class="va">None</span>, <span class="dv">300</span>),</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">'Long text'</span>, <span class="st">'Write a detailed tutorial on building a CNN for image classification in PyTorch. Cover data loading, model architecture with conv/pool/fc layers, training loop, evaluation, and common pitfalls. Include code snippets.'</span> , <span class="va">None</span>, <span class="dv">500</span>),</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    (<span class="st">'Image + short'</span>, <span class="st">'What is this?'</span>, <span class="st">'classroom.jpg'</span>, <span class="dv">50</span>),</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    (<span class="st">'Image + medium'</span>, <span class="st">'Describe everything you see in this image in detail.'</span>, <span class="st">'classroom.jpg'</span>, <span class="dv">300</span>),</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    (<span class="st">'Image + long'</span>, <span class="st">'Analyze this image. Describe the setting, count all people, describe their activities, identify all objects, estimate the time of day, and suggest what event is taking place. Be thorough.'</span>, <span class="st">'classroom.jpg'</span>, <span class="dv">500</span>),</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>perf_rows <span class="op">=</span> []</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, prompt, img, max_tok <span class="kw">in</span> perf_tests:</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Running: </span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">..."</span>, end<span class="op">=</span><span class="st">' '</span>)</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> run_local(prompt, image_path<span class="op">=</span>img, max_tokens<span class="op">=</span>max_tok, quiet<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>    perf_rows.append({</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Test'</span>: name,</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt tokens'</span>: r[<span class="st">'prompt_tokens'</span>],</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gen tokens'</span>: r[<span class="st">'gen_tokens'</span>],</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Prompt tok/s'</span>: <span class="bu">round</span>(r[<span class="st">'prompt_tps'</span>], <span class="dv">1</span>),</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Gen tok/s'</span>: <span class="bu">round</span>(r[<span class="st">'gen_tps'</span>], <span class="dv">1</span>),</span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Time (s)'</span>: <span class="bu">round</span>(r[<span class="st">'time_s'</span>], <span class="dv">1</span>),</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>        <span class="st">'Peak mem (GB)'</span>: <span class="bu">round</span>(r[<span class="st">'peak_mem_gb'</span>], <span class="dv">1</span>) <span class="cf">if</span> r[<span class="st">'peak_mem_gb'</span>] <span class="cf">else</span> <span class="st">'N/A'</span>,</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>r[<span class="st">'time_s'</span>]<span class="sc">:.1f}</span><span class="ss">s, </span><span class="sc">{</span>r[<span class="st">'gen_tps'</span>]<span class="sc">:.1f}</span><span class="ss"> tok/s"</span>)</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>df_perf <span class="op">=</span> pd.DataFrame(perf_rows)</span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>display(df_perf.style.hide(axis<span class="op">=</span><span class="st">'index'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="perf-chart" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">3</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">4</span>))</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>labels <span class="op">=</span> df_perf[<span class="st">'Test'</span>]</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>colors <span class="op">=</span> [<span class="st">'#3498db'</span> <span class="cf">if</span> <span class="st">'Image'</span> <span class="kw">not</span> <span class="kw">in</span> t <span class="cf">else</span> <span class="st">'#e74c3c'</span> <span class="cf">for</span> t <span class="kw">in</span> labels]</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].barh(labels, df_perf[<span class="st">'Gen tok/s'</span>], color<span class="op">=</span>colors, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_xlabel(<span class="st">'Tokens/sec'</span>)<span class="op">;</span> axes[<span class="dv">0</span>].set_title(<span class="st">'Generation Speed'</span>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, v <span class="kw">in</span> <span class="bu">enumerate</span>(df_perf[<span class="st">'Gen tok/s'</span>]):</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>].text(v <span class="op">+</span> <span class="fl">0.3</span>, i, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">}</span><span class="ss">'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].barh(labels, df_perf[<span class="st">'Prompt tok/s'</span>], color<span class="op">=</span>colors, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_xlabel(<span class="st">'Tokens/sec'</span>)<span class="op">;</span> axes[<span class="dv">1</span>].set_title(<span class="st">'Prompt Processing Speed'</span>)</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, v <span class="kw">in</span> <span class="bu">enumerate</span>(df_perf[<span class="st">'Prompt tok/s'</span>]):</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>].text(v <span class="op">+</span> <span class="fl">0.3</span>, i, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">}</span><span class="ss">'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].barh(labels, df_perf[<span class="st">'Time (s)'</span>], color<span class="op">=</span>colors, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_xlabel(<span class="st">'Seconds'</span>)<span class="op">;</span> axes[<span class="dv">2</span>].set_title(<span class="st">'Total Time'</span>)</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, v <span class="kw">in</span> <span class="bu">enumerate</span>(df_perf[<span class="st">'Time (s)'</span>]):</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">2</span>].text(v <span class="op">+</span> <span class="fl">0.3</span>, i, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">}</span><span class="ss">s'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>fig.suptitle(<span class="st">'Gemma 4 31B (4-bit) on M2 Max — Blue: text only, Red: with image'</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<hr>
+</section>
+</section>
+<section id="summary" class="level1">
+<h1>Summary</h1>
+<div id="summary-table" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>summary <span class="op">=</span> pd.DataFrame([</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"Metric"</span>: <span class="st">"Model"</span>, <span class="st">"Value"</span>: <span class="st">"Gemma 4 31B IT (4-bit)"</span>},</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"Metric"</span>: <span class="st">"Framework"</span>, <span class="st">"Value"</span>: <span class="st">"mlx-vlm 0.4.4 (PyPI)"</span>},</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"Metric"</span>: <span class="st">"Hardware"</span>, <span class="st">"Value"</span>: <span class="st">"Mac Studio M2 Max, 64 GB"</span>},</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"Metric"</span>: <span class="st">"Peak Memory"</span>, <span class="st">"Value"</span>: <span class="st">"~19 GB"</span>},</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"Metric"</span>: <span class="st">"Gen Speed (text)"</span>, <span class="st">"Value"</span>: <span class="ss">f"</span><span class="sc">{</span>df_perf<span class="sc">.</span>iloc[<span class="dv">0</span>][<span class="st">'Gen tok/s'</span>]<span class="sc">}</span><span class="ss"> tok/s"</span>},</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"Metric"</span>: <span class="st">"Gen Speed (vision)"</span>, <span class="st">"Value"</span>: <span class="ss">f"</span><span class="sc">{</span>df_perf<span class="sc">.</span>iloc[<span class="dv">3</span>][<span class="st">'Gen tok/s'</span>]<span class="sc">}</span><span class="ss"> tok/s"</span>},</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"Metric"</span>: <span class="st">"VQA Accuracy (VQAv2, n=50)"</span>, <span class="st">"Value"</span>: <span class="ss">f"</span><span class="sc">{</span>overall_vqa_acc<span class="sc">:.1%}</span><span class="ss">"</span>},</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Metric"</span>: <span class="st">"Localization Precision (COCO, n=20)"</span>,</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Value"</span>: <span class="ss">f"</span><span class="sc">{</span>np<span class="sc">.</span>mean([r[<span class="st">'precision'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])<span class="sc">:.2f}</span><span class="ss">"</span>,</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Metric"</span>: <span class="st">"Localization Recall (COCO, n=20)"</span>,</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Value"</span>: <span class="ss">f"</span><span class="sc">{</span>np<span class="sc">.</span>mean([r[<span class="st">'recall'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])<span class="sc">:.2f}</span><span class="ss">"</span>,</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Metric"</span>: <span class="st">"Localization Mean IoU (COCO, n=20)"</span>,</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">"Value"</span>: <span class="ss">f"</span><span class="sc">{</span>np<span class="sc">.</span>mean([r[<span class="st">'avg_iou'</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results])<span class="sc">:.2f}</span><span class="ss">"</span>,</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>display(summary.style.hide(axis<span class="op">=</span><span class="st">"index"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div id="summary-chart" class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">4</span>))</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].bar([<span class="st">"VQA Accuracy"</span>], [overall_vqa_acc], color<span class="op">=</span><span class="st">"#2ecc71"</span>, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_ylim(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_ylabel(<span class="st">"Accuracy"</span>)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_title(<span class="ss">f"VQAv2 (</span><span class="sc">{</span><span class="bu">len</span>(vqa_results)<span class="sc">}</span><span class="ss"> samples)"</span>)</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].text(<span class="dv">0</span>, overall_vqa_acc <span class="op">+</span> <span class="fl">0.02</span>, <span class="ss">f"</span><span class="sc">{</span>overall_vqa_acc<span class="sc">:.1%}</span><span class="ss">"</span>, ha<span class="op">=</span><span class="st">"center"</span>, fontsize<span class="op">=</span><span class="dv">14</span>)</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>od_bar <span class="op">=</span> {</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Precision"</span>: np.mean([r[<span class="st">"precision"</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results]),</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Recall"</span>: np.mean([r[<span class="st">"recall"</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results]),</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Mean TP IoU"</span>: np.mean([r[<span class="st">"mean_tp_iou"</span>] <span class="cf">for</span> r <span class="kw">in</span> od_results]),</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].bar(od_bar.keys(), od_bar.values(), color<span class="op">=</span>[<span class="st">"#3498db"</span>, <span class="st">"#e74c3c"</span>, <span class="st">"#f39c12"</span>], alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_ylim(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_title(<span class="ss">f"COCO Class-Aware Localization (</span><span class="sc">{</span>N_OD<span class="sc">}</span><span class="ss"> images)"</span>)</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> j, (label, value) <span class="kw">in</span> <span class="bu">enumerate</span>(od_bar.items()):</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>].text(j, value <span class="op">+</span> <span class="fl">0.02</span>, <span class="ss">f"</span><span class="sc">{</span>value<span class="sc">:.2f}</span><span class="ss">"</span>, ha<span class="op">=</span><span class="st">"center"</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">"Gemma 4 31B (4-bit, local) — Quantitative Results"</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="takeaways">Takeaways</h2>
+<ul>
+<li><strong>Gemma 4 31B (4-bit) runs well locally</strong> on M2 Max 64 GB with workable latency for interactive image prompting</li>
+<li><strong>mlx-vlm 0.4.4</strong> on PyPI includes the box output path used here, and <code>supervision</code> makes the qualitative inspection much clearer</li>
+<li><strong>VQA performance</strong> is solid on the VQAv2 subset, though the model can still be verbose when the answer should be a single token</li>
+<li><strong>COCO localization</strong> is good enough for rough grounded prompting, but class-aware COCO matching still shows the gap between a general VLM and a dedicated detector</li>
+<li><strong>Class labels matter</strong>: the notebook now scores only matches that overlap and agree on the predicted class, which is a more honest view than box overlap alone</li>
+<li><strong>Privacy</strong> remains the main win: the full pipeline stays offline on Apple Silicon</li>
+</ul>
+<p>For API-based comparison with Gemini models, see the <a href="../posts/2026-04-03-gemma4-vs-gemini.html">companion post</a>.</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
