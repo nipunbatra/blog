@@ -1,47 +1,530 @@
 /*-- scss:defaults --*/
 
-/* Fonts */
-$font-family-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-$font-family-monospace: "SF Mono", Menlo, Monaco, monospace;
+// Typography — system stack (renders SF Pro on Apple, Segoe UI on Windows)
+$font-family-sans-serif: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+  "SF Pro Display", "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+$font-family-monospace: "SF Mono", "JetBrains Mono", "Fira Code",
+  ui-monospace, Menlo, Monaco, Consolas, monospace;
+
+$body-color: #1d1d1f;
+$body-bg: #ffffff;
+$link-color: #0066cc;
+$border-color: #e5e5e7;
+
+$headings-font-weight: 700;
+$headings-line-height: 1.15;
 
 /*-- scss:rules --*/
 
-/* Inline code - THE priority */
+:root {
+  --accent: #0066cc;
+  --accent-soft: rgba(0, 102, 204, 0.08);
+  --muted: #6e6e73;
+  --surface-1: #f5f5f7;
+  --surface-2: #fbfbfd;
+  --border: #e5e5e7;
+  --border-strong: #d2d2d7;
+  --code-bg: #f6f6f7;
+  --code-border: #e5e5e7;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --easing: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-size: 17px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: $font-family-sans-serif;
+  line-height: 1.65;
+  letter-spacing: -0.003em;
+  color: var(--body-color, #1d1d1f);
+  background: #fff;
+  font-feature-settings: "kern", "liga", "calt";
+}
+
+/* Reading column — cap width on article pages */
+main.content,
+.quarto-title-block,
+#quarto-document-content {
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Let listing + full-width pages breathe */
+.page-layout-full main.content,
+.page-layout-full .quarto-title-block,
+body.quarto-listing-category main.content {
+  max-width: 1200px;
+}
+
+/* ---------- Typography scale ---------- */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: $font-family-sans-serif;
+  letter-spacing: -0.022em;
+  color: #1d1d1f;
+}
+
+h1 { font-size: 2.6rem; font-weight: 700; margin-top: 2.2rem; line-height: 1.08; }
+h2 { font-size: 1.8rem; font-weight: 650; margin-top: 2.6rem; margin-bottom: 0.8rem; letter-spacing: -0.018em; }
+h3 { font-size: 1.35rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.6rem; letter-spacing: -0.012em; }
+h4 { font-size: 1.1rem; font-weight: 600; margin-top: 1.5rem; color: #1d1d1f; }
+
+p {
+  margin: 0 0 1.1em;
+}
+
+/* Subtle horizontal rule */
+hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-strong), transparent);
+  margin: 3rem auto;
+  max-width: 60%;
+}
+
+/* ---------- Links ---------- */
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  transition: background-size 220ms var(--easing), color 180ms var(--easing);
+}
+a:hover {
+  background-size: 100% 1px;
+  color: #0051a8;
+}
+
+/* Nav / sidebar / footer links: skip the underline animation */
+.navbar a,
+.sidebar a,
+.footer a,
+.quarto-listing a.more {
+  background-image: none;
+}
+
+/* ---------- Inline code ---------- */
+
 :not(pre) > code,
-p code,
-li code,
-td code,
+p code, li code, td code,
 h1 code, h2 code, h3 code, h4 code {
-  background: #e8e8e8 !important;
-  color: #1a1a1a !important;
-  padding: 0.15em 0.4em !important;
-  border-radius: 4px !important;
-  font-size: 0.9em !important;
+  background: var(--code-bg) !important;
+  color: #c7254e !important;
+  border: 1px solid var(--code-border);
+  padding: 0.12em 0.4em !important;
+  border-radius: 5px !important;
+  font-size: 0.88em !important;
   font-weight: 500 !important;
+  font-family: $font-family-monospace;
 }
 
-/* Code blocks */
-pre {
-  background: #1e1e1e;
-  color: #d4d4d4;
-  padding: 1rem;
-  border-radius: 8px;
-  overflow-x: auto;
-  border-left: 3px solid #0071e3;
+/* Heading inline code — no colour shift, keep the headline coherent */
+h1 code, h2 code, h3 code, h4 code {
+  color: inherit !important;
+  font-size: 0.9em !important;
+  background: var(--code-bg) !important;
 }
 
-pre code {
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  font-size: inherit;
-  font-weight: normal;
-}
+/* ---------- Code blocks ---------- */
 
+/* Source code (input cells) — Apple-style light card */
 div.sourceCode {
   margin: 1.5rem 0;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  overflow: hidden;
+  position: relative;
 }
 
-div.sourceCode pre {
-  margin: 0;
+div.sourceCode pre.sourceCode {
+  background: transparent !important;
+  padding: 1rem 1.15rem;
+  margin: 0 !important;
+  overflow-x: auto;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  font-family: $font-family-monospace;
+  border: 0 !important;
+  box-shadow: none !important;
 }
+
+div.sourceCode pre.sourceCode code {
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  font-size: inherit !important;
+  color: inherit !important;
+  font-weight: 400 !important;
+  white-space: pre;
+}
+
+/* Language badge */
+div.sourceCode::before {
+  content: "code";
+  position: absolute;
+  top: 6px; right: 12px;
+  font-family: $font-family-monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.6;
+}
+/* Outer div.sourceCode does not carry the language class — the inner pre does.
+ * Use :has() so the badge stays on the positioned outer wrapper. */
+div.sourceCode:has(pre.python)::before { content: "python"; }
+div.sourceCode:has(pre.bash)::before,
+div.sourceCode:has(pre.sh)::before { content: "bash"; }
+div.sourceCode:has(pre.js)::before,
+div.sourceCode:has(pre.javascript)::before { content: "js"; }
+div.sourceCode:has(pre.ts)::before,
+div.sourceCode:has(pre.typescript)::before { content: "ts"; }
+div.sourceCode:has(pre.yaml)::before { content: "yaml"; }
+div.sourceCode:has(pre.json)::before { content: "json"; }
+div.sourceCode:has(pre.r)::before { content: "r"; }
+div.sourceCode:has(pre.html)::before { content: "html"; }
+div.sourceCode:has(pre.css)::before { content: "css"; }
+div.sourceCode:has(pre.scss)::before { content: "scss"; }
+div.sourceCode:has(pre.sql)::before { content: "sql"; }
+
+.code-copy-button {
+  opacity: 0;
+  transition: opacity 180ms var(--easing);
+  color: var(--muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+div.sourceCode:hover .code-copy-button { opacity: 1; }
+
+/* Plain <pre> blocks (not .sourceCode) — treat like cell output */
+pre:not(.sourceCode) {
+  background: #0d0d0f;
+  color: #f5f5f7;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  font-family: $font-family-monospace;
+  margin: 1.2rem 0;
+  border: 1px solid #0d0d0f;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Cell output (notebook stdout/stderr) — terminal feel */
+.cell-output,
+.cell-output-stdout,
+.cell-output-stderr {
+  background: #0d0d0f !important;
+  border: 1px solid #0d0d0f !important;
+  border-radius: var(--radius) !important;
+  padding: 0.9rem 1.1rem !important;
+  margin: 0.25rem 0 1.2rem !important;
+  font-family: $font-family-monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #f5f5f7 !important;
+  box-shadow: var(--shadow-sm);
+}
+.cell-output pre,
+.cell-output-stdout pre,
+.cell-output-stderr pre {
+  background: transparent !important;
+  color: inherit !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+.cell-output-stderr { border-left: 3px solid #ff6b6b !important; }
+
+/* Display outputs (images, tables) — light card */
+.cell-output-display {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0.6rem 0 1.2rem !important;
+}
+
+/* Compact the gap between source and its output */
+div.sourceCode + .cell-output,
+div.cell-output + div.cell-output { margin-top: -0.4rem; }
+
+/* ---------- Images ---------- */
+
+/* Defensive image defaults: prevent overflow, clean rounding */
+.quarto-figure,
+figure,
+.cell-output-display img,
+.cell-output img,
+p img {
+  max-width: 100%;
+  height: auto;
+}
+
+.cell-output-display img,
+p img,
+figure img,
+.quarto-figure img {
+  display: block;
+  margin: 1.4rem auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  background: #fff;
+}
+
+/* Captions — muted */
+figcaption,
+.figure-caption,
+.quarto-figure figcaption {
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+  margin-top: 0.5rem;
+  font-style: normal;
+}
+
+/* Audio player — full width */
+audio {
+  width: 100%;
+  margin: 0.6rem 0 1.2rem;
+  border-radius: 8px;
+}
+
+/* ---------- Tables ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+thead {
+  background: var(--surface-1);
+}
+
+th, td {
+  padding: 0.65rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #1d1d1f;
+}
+
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--surface-2); }
+
+/* ---------- Blockquotes ---------- */
+
+blockquote {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  margin: 1.4rem 0;
+  padding: 0.9rem 1.2rem;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: #1d1d1f;
+}
+
+blockquote p:last-child { margin-bottom: 0; }
+
+/* ---------- Callouts — Apple-like refinement ---------- */
+
+.callout {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.callout-note { border-left: 3px solid var(--accent); }
+.callout-tip  { border-left: 3px solid #34c759; }
+.callout-warning { border-left: 3px solid #ff9f0a; }
+.callout-important { border-left: 3px solid #ff3b30; }
+
+/* ---------- Navbar ---------- */
+
+.navbar {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none !important;
+}
+
+.navbar .navbar-brand,
+.navbar .navbar-title {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* ---------- Title block on articles ---------- */
+
+.quarto-title-block .quarto-title .title {
+  font-size: 2.7rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-bottom: 0.4rem;
+}
+
+.quarto-title-block .subtitle,
+.quarto-title-block .description {
+  font-size: 1.2rem;
+  color: var(--muted);
+  line-height: 1.5;
+  font-weight: 400;
+  margin-top: 0.6rem;
+  letter-spacing: -0.01em;
+}
+
+.quarto-title-meta,
+.quarto-title-block .quarto-title-meta {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem 0;
+}
+
+.quarto-categories .quarto-category {
+  background: var(--surface-1);
+  color: #1d1d1f;
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: background 180ms var(--easing), border-color 180ms var(--easing);
+}
+.quarto-categories .quarto-category:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- Listing page (index) ---------- */
+
+/* Index hero: replace the quarto banner with Apple-style oversize title */
+body.quarto-listing-category main.content > h1,
+#title-block-header.quarto-title-block.default:not(.page-columns) h1.title,
+#quarto-document-content > h1.title,
+.quarto-title-block .quarto-title .title {
+  letter-spacing: -0.03em;
+}
+
+/* Hide default "title-block-banner" styled header — we use plain titles */
+.quarto-title-block.banner {
+  background: transparent !important;
+  color: inherit !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+.quarto-title-block.banner .quarto-title .title {
+  color: #1d1d1f !important;
+  font-size: 3rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+}
+
+/* ---------- Blog listing cards ---------- */
+
+#quarto-document-content .quarto-listing,
+.quarto-listing {
+  margin-top: 2rem;
+}
+
+.quarto-listing-default .quarto-post {
+  padding: 1.4rem 0;
+  border-bottom: 1px solid var(--border);
+  transition: background 180ms var(--easing);
+}
+.quarto-listing-default .quarto-post:hover {
+  background: transparent;
+}
+
+.quarto-listing-default .quarto-post .listing-title a {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  color: #1d1d1f;
+  background-image: none;
+}
+.quarto-listing-default .quarto-post:hover .listing-title a {
+  color: var(--accent);
+}
+.quarto-listing-default .quarto-post .listing-description {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-top: 0.3rem;
+}
+.quarto-listing-default .quarto-post .listing-date,
+.quarto-listing-default .quarto-post .listing-categories {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* TOC sidebar — quieter */
+#TOC, .toc-active {
+  font-size: 0.9rem;
+}
+#TOC a {
+  color: var(--muted);
+  background-image: none;
+}
+#TOC a:hover { color: var(--accent); }
+#TOC .active > a,
+#TOC a.active {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+/* Selection */
+::selection {
+  background: rgba(0, 102, 204, 0.18);
+}
+
+/* Focus rings */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Make sure extremely wide images in notebooks don't blow out the column */
+.cell,
+.cell-output-display,
+.quarto-figure {
+  max-width: 100%;
+  overflow: hidden;
+}
+.cell-output-display > * { max-width: 100%; }
