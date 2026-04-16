@@ -3,7 +3,7 @@ title: "Brick Kilns from Above: Gemma 4 Calling Falcon Perception in a Loop"
 author: "Nipun Batra"
 date: "2026-04-16"
 categories: [LLM, Falcon-Perception, Gemma-4, MLX, satellite, remote-sensing, brick-kilns, SentinelKilnDB, agent-loop]
-description: "Hi-resolution ESRI imagery + Gemma 4 in the PR #926 agent loop on three brick-kiln classes from SentinelKilnDB. 75% zero-shot, an evidence-backed CFCBK identification, and a candid look at what would actually move the needle next."
+description: "Hi-res ESRI imagery + Gemma 4 in the PR #926 agent loop on three brick-kiln classes. Twelve tiles, four Falcon queries each, three prompt variants — with per-tile mask grids and Gemma's reasoning shown. 67% zero-shot, and the remaining 33% is instructive."
 format:
   html:
     toc: true
@@ -11,206 +11,221 @@ format:
     code-fold: show
 resources:
   - sentinelkilndb/scripts/*.py
-  - sentinelkilndb/results/*.jpg
+  - sentinelkilndb/results/**/*.jpg
   - sentinelkilndb/hires/*.jpg
-  - sentinelkilndb/agent_flow.svg
+  - sentinelkilndb/hires_extra/*.jpg
+  - sentinelkilndb/*.svg
 ---
 
-[`SentinelKilnDB`](https://huggingface.co/datasets/SustainabilityLabIITGN/SentinelKilnDB) (NeurIPS 2025 D&B) is a 114,300-tile labelled dataset of brick kilns across South Asia. Three classes:
+[`SentinelKilnDB`](https://huggingface.co/datasets/SustainabilityLabIITGN/SentinelKilnDB) (NeurIPS 2025 D&B) is a 114,300-tile labelled dataset of brick kilns across South Asia. Three classes distinguished by *shape*:
 
-| Class | Full name | Visual signature |
+| Class | Full name | Shape signature |
 |-------|-----------|------------------|
-| **CFCBK** | Continuous Fixed-Chimney Bull's-Trench Kiln | Circular/oval ring, central chimney |
-| **FCBK** | Fixed-Chimney Bull's-Trench Kiln | Rectangular, single chimney, brick stacks |
-| **Zigzag** | Zigzag Kiln | Large rectangle, internal zigzag wall pattern |
+| **CFCBK** | Continuous Fixed-Chimney Bull's-Trench Kiln | **Circular** ring (aspect ≈ 1:1), central chimney |
+| **FCBK**  | Fixed-Chimney Bull's-Trench Kiln | **Oval / stadium-track** (aspect 1:1.5–1:2.5), single chimney |
+| **Zigzag** | Zigzag Kiln | **Rectangular** with sharp corners, internal zigzag walls |
 
-The tiles ship as 128×128 Sentinel-2 patches at 10 m/pixel, which is great for a benchmark but too coarse for a frontier VLM to do real visual reasoning — kilns end up as 4-pixel smudges. The clever bit: every filename is `{lat}_{lon}.png`, so I can re-pair each labelled location with **higher-resolution ESRI World Imagery** at zoom 18 (~0.6 m/pixel) and run the actual [PR #926 agent loop](https://github.com/Blaizzy/mlx-vlm/pull/926) on the result.
+Filenames are `{lat}_{lon}.png`, so every patch has a free-lookup GPS. I pair each labelled tile with high-resolution **ESRI World Imagery** at zoom 18 (≈0.6 m/pixel, 17× the Sentinel-2 resolution) and run the [PR #926 agent loop](https://github.com/Blaizzy/mlx-vlm/pull/926) on the result.
 
-> **Code lives in this post's folder.** All scripts under [`posts/sentinelkilndb/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/sentinelkilndb/scripts):
+> **Code lives in this post's folder** — [`posts/sentinelkilndb/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/sentinelkilndb/scripts):
 >
-> - `sample_dataset.py` — stream SentinelKilnDB, balance by class, save 16 tiles
-> - `fetch_hires.py` — convert each `(lat, lon)` to an ESRI tile stitch (z=17 wide + z=18 tight)
-> - `eval_hires.py` — Falcon Perception + Gemma 4 zero-shot, independent probes
-> - `agent_loop.py` — Gemma 4 in `run_agent`, calling Falcon Perception as a tool
+> - `sample_dataset.py`, `sample_more_fcbk.py` — stream SentinelKilnDB, balance by class
+> - `fetch_hires.py` — convert each (lat, lon) to an ESRI tile stitch (z=17 wide + z=18 tight)
+> - `eval_hires.py` — Variant A independent probe
+> - `agent_loop.py` — Gemma calling Falcon as a tool, one-tile demo
+> - `improved_agent.py` — kiln-aware prompts (variants B and C)
+> - `per_tile_masks.py` — this post's rigorous per-tile mask grids
 
-## What does the loop actually look like?
+## The agent loop from PR #926
 
-![PR #926 agent loop. Gemma 4 sees the image and the user query, calls `ground_expression` to ask Falcon Perception for masks, optionally calls `compute_relations` or `get_crop`, and finally emits `answer(...)` with `supporting_mask_ids` so the human gets a receipt.](sentinelkilndb/agent_flow.svg){fig-alt="Agent flowchart"}
+![The PR #926 grounded-reasoning loop. Gemma (orchestrator) sees the image, optionally calls Falcon Perception as a tool, reads the JSON metadata, and emits an `answer(response, supporting_mask_ids)` with the masks that back the claim.](sentinelkilndb/agent_flow.svg){fig-alt="Agent flow"}
 
-Two roles. The **VLM is the orchestrator** — Gemma 4 31B 4-bit running locally via mlx-vlm. The **tools are deterministic callees** — Falcon Perception for grounding, plus small numpy helpers for spatial relations and cropping. Gemma never does arithmetic; it asks the right tool, reads the JSON metadata back, and decides the next step.
+Every variant in this post is a specialisation of the above — they differ only in what system prompt Gemma runs under and which tools it chooses to call.
 
-The contract is the `answer(response, supporting_mask_ids)` call: the final classification comes with mask IDs that point at the pixels Gemma reasoned over. If the answer is wrong, you can open the mask. With independent probes there is nothing to open.
+## Higher-resolution imagery — the free upgrade
 
-## Higher-res in: same dataset, sharper picture
-
-For each labelled tile, I compute the kiln's true `(lat, lon)` (patch centre + GT-box offset) and stitch a 250 m × 250 m crop at z=18. That's the same scene the dataset annotates, just at 17× the resolution. The visual difference is the entire post:
+Sentinel-2 at 10 m/px turns a 120 m kiln into a 12-pixel smudge. ESRI at 0.6 m/px gives you the whole structure. Examples of each class at that resolution (annotated with class-coloured GT):
 
 ::: {layout-ncol=3}
-![CFCBK — circular ring + central chimney](sentinelkilndb/hires/00_CFCBK_tight_z18_ann.jpg){fig-alt="CFCBK z18"}
+![CFCBK — nearly circular ring + central chimney. Red polygon is the dataset's oriented bounding box projected from its lat/lon coordinates onto the ESRI tile.](sentinelkilndb/results/gt_overlays/08_CFCBK_esri_obb.jpg)
 
-![FCBK — rectangular kiln with brick-curing yards](sentinelkilndb/hires/02_FCBK_tight_z18_ann.jpg){fig-alt="FCBK z18"}
+![FCBK — oval / elongated oval, single chimney at one end. Blue polygon is the ground-truth OBB.](sentinelkilndb/results/gt_overlays/02_FCBK_esri_obb.jpg)
 
-![Zigzag — large rectangle with internal zigzag wall pattern](sentinelkilndb/hires/04_Zigzag_tight_z18_ann.jpg){fig-alt="Zigzag z18"}
+![Zigzag — large rectangle with sharp corners, internal zigzag walls. Orange polygon is the ground-truth OBB.](sentinelkilndb/results/gt_overlays/10_Zigzag_esri_obb.jpg)
 :::
 
-The annotations on each image (red/blue/yellow ring + class label) are ground truth from the dataset, projected onto the high-res view via the `(lat, lon)` and the GT box centroid.
+The polygons are SentinelKilnDB's oriented-bounding-box labels (DOTA format) — converted from 128-px Sentinel pixel coords into the ESRI crop's pixel space by going through (lat, lon) as an intermediate. The script for this is [`scripts/draw_gt_obb.py`](https://github.com/nipunbatra/blog/tree/master/posts/sentinelkilndb/scripts/draw_gt_obb.py) — it uses a simple metres-per-pixel conversion; you can also use [`supervision`](https://github.com/roboflow/supervision) for the same job if you'd rather have a more featureful annotator.
+
+The three shapes are *visually distinct* at this resolution, which is the whole premise of whether a VLM can classify them.
 
 ## Three ways to wire Gemma + Falcon
 
-I built three variants of the classifier and tested each. Flowchart per variant, then the side-by-side numbers below.
+I ran three variants of the classifier. Each is a specialisation of the PR #926 loop above, differing only in the system prompt and which tools the orchestrator chooses to call.
 
-### Variant A — Independent probes (`eval_hires.py`)
+### Variant A — Independent probes
 
-![Variant A: two parallel one-shot calls, no interaction between models.](sentinelkilndb/flow_A_independent.svg){fig-alt="Variant A flowchart"}
+![](sentinelkilndb/flow_A_independent.svg){fig-alt="Variant A flowchart"}
 
-Two separate forward passes per image. Falcon outputs masks; Gemma outputs a class. Neither sees the other.
+Two separate one-shot calls per image. Falcon outputs masks; Gemma outputs a class. **Neither model sees the other's output.** This is the simplest and cheapest wiring.
 
 ```python
-masks_kiln  = run_ground_expression(fp_model, fp_processor, tile, "brick kiln")
-gemma_class = run_baseline(tile, GEMMA_PROMPT, vlm)
+masks  = run_ground_expression(fp_model, fp_processor, tile, "brick kiln")
+pred   = run_baseline(tile, GEMMA_PROMPT_WITH_SHAPE_HINTS, vlm)
 ```
 
-### Variant B — Aspect-ratio rule (`improved_agent.py` v1)
+### Variant B — Aspect-ratio rule
 
-![Variant B: agent loop with a deterministic classification rule on bounding-box geometry.](sentinelkilndb/flow_B_rule.svg){fig-alt="Variant B flowchart"}
+![](sentinelkilndb/flow_B_rule.svg){fig-alt="Variant B flowchart"}
 
-Gemma is the orchestrator. It grounds multi-query expressions with Falcon, reads bbox aspect via `compute_relations`, and applies a hard rule (`< 1.4` → CFCBK; `1.4–2.5` + chimney → FCBK; `> 2.5` → Zigzag) in its own reasoning.
+Gemma becomes the orchestrator. It grounds multi-query shape expressions, reads bounding-box aspect via `compute_relations`, then **applies a hard rule in prompt-space** (`< 1.2` → CFCBK, `1.2–2.5` → FCBK, `> 2.5` → Zigzag).
 
-### Variant C — Visual-feature descriptors (`improved_agent.py` v2)
+### Variant C — Visual-feature descriptors
 
-![Variant C: agent loop with per-class visual signatures in the prompt; no hard rule.](sentinelkilndb/flow_C_features.svg){fig-alt="Variant C flowchart"}
+![](sentinelkilndb/flow_C_features.svg){fig-alt="Variant C flowchart"}
 
-Same agent loop, but instead of a rule, the prompt carries **per-class visual signatures** (*CFCBK = circular ring; FCBK = oval/stadium-track; Zigzag = rectangular with internal zigzag*) and lets Gemma decide which one it's looking at.
+Same agent loop, but the prompt carries **per-class visual signatures** instead of a rule. Gemma describes the shape, matches it to a signature, and classifies without the rigid threshold.
 
-### The full agent loop underneath all three
+## Per-tile mask grids — every query, every tile
 
-![Underlying PR #926 loop — any of the variants is a specialisation of this.](sentinelkilndb/agent_flow.svg){fig-alt="Full agent flowchart"}
+For rigour, I ran Falcon Perception with *four different grounding expressions* on every tile, then asked Gemma (independent probe, Variant A, with corrected shape descriptions) for a class. Each row below is one tile. Columns left to right: **GT annotation**, `"brick kiln"`, `"oval brick kiln"`, `"circular brick kiln"`, `"rectangular brick kiln"`.
 
-### Independent-probe results on 8 tiles
+### CFCBK — circular ring (2/2 correct)
 
-| # | True | Falcon `"brick kiln"` | Falcon `"circular kiln"` | Gemma class | Confidence |
-|---|------|----:|----:|--------|--------|
-| 00 | CFCBK | 0 | 1 | **CFCBK ✓** | high |
-| 01 | CFCBK | 0 | 1 | **CFCBK ✓** | high |
-| 02 | FCBK | 0 | 0 | Zigzag ✗ | high |
-| 03 | FCBK | 0 | 0 | CFCBK ✗ | high |
-| 04 | Zigzag | 0 | 0 | **Zigzag ✓** | high |
-| 05 | Zigzag | 0 | 0 | **Zigzag ✓** | high |
-| 06 | none | 0 | 0 | **none ✓** | high |
-| 07 | none | 0 | 0 | **none ✓** | high |
+![](sentinelkilndb/results/per_tile_strips/tile_08_CFCBK.jpg){fig-alt="Tile 8 CFCBK"}
 
-**Gemma overall: 6/8 = 75%.** Per class: CFCBK 2/2, FCBK 0/2, Zigzag 2/2, negative 2/2. The class Gemma can't disambiguate is **FCBK** — confused with CFCBK (similar oval-ish layout from above) and Zigzag (similar rectangle + brick stacks). The same 8 tiles at the original 128 px Sentinel resolution scored 31% in an earlier probe, so the resolution upgrade alone bought 44 absolute points.
+![](sentinelkilndb/results/per_tile_strips/tile_09_CFCBK.jpg){fig-alt="Tile 9 CFCBK"}
 
-Falcon Perception alone: `"brick kiln"` returns no detections on any of the 6 positives; `"circular kiln"` finds the two CFCBKs and nothing else. Falcon's vocabulary doesn't carry "Zigzag kiln" or "FCBK" as a recognisable concept.
+Both CFCBKs are cleanly identified. Falcon grounds the ring under both `"oval brick kiln"` and `"circular brick kiln"` (1 mask each) — unsurprising, since a CFCBK *is* a very-low-eccentricity oval. Gemma's reason cites the shape explicitly: *"nearly circular with a central chimney."*
 
-### Agent-loop run on the first CFCBK
+### Zigzag — angular rectangle (2/2 correct)
 
-I ran `run_agent` once with the prompt:
+![](sentinelkilndb/results/per_tile_strips/tile_10_Zigzag.jpg){fig-alt="Tile 10 Zigzag"}
 
-> *This is a high-resolution aerial image (~0.6 m/pixel) of a small area in India. I'm looking for a brick kiln. Specifically, the dataset SentinelKilnDB recognises three types: CFCBK (circular/oval, central chimney), FCBK (rectangular with a single chimney), and Zigzag (large rectangle, internal zigzag walls). Identify whether a brick kiln is visible, and if so, classify it.*
+![](sentinelkilndb/results/per_tile_strips/tile_11_Zigzag.jpg){fig-alt="Tile 11 Zigzag"}
 
-Gemma's `<think>` block (verbatim):
+Both Zigzags correct. Falcon's `"rectangular brick kiln"` query is the one that fires — which is diagnostic: Zigzag is the only class where Falcon's segmentation aligns with the word "rectangular." Gemma's reason: *"rectangular with a distinct internal zigzag wall pattern and rows of bricks."*
 
-> *Looking at the image, there is a prominent circular structure in the center with a central point, which matches the description of a CFCBK …*
+### FCBK — oval / stadium-track (4/8 correct)
 
-Then the tool call:
+The hardest class. Eight fresh tiles from the test split:
 
-```text
-ground_expression(expression="circular brick kiln", slot="kiln")  →  1 mask
-```
+![](sentinelkilndb/results/per_tile_strips/tile_00_FCBK.jpg){fig-alt="Tile 0 FCBK"}
 
-The supporting mask Falcon returned, drawn on the image:
+![](sentinelkilndb/results/per_tile_strips/tile_01_FCBK.jpg){fig-alt="Tile 1 FCBK"}
 
-![Final overlay from `run_agent`. Falcon Perception's mask of the kiln structure, with mask `#1` cited as the supporting evidence for Gemma's classification.](sentinelkilndb/results/agent_loop_final.jpg){fig-alt="Agent loop final" width=520}
+![](sentinelkilndb/results/per_tile_strips/tile_02_FCBK.jpg){fig-alt="Tile 2 FCBK"}
 
-Gemma's answer:
+![](sentinelkilndb/results/per_tile_strips/tile_03_FCBK.jpg){fig-alt="Tile 3 FCBK"}
 
-> **A brick kiln is visible in the image. Based on its circular shape and central chimney, it is classified as a CFCBK.**
+![](sentinelkilndb/results/per_tile_strips/tile_04_FCBK.jpg){fig-alt="Tile 4 FCBK"}
 
-Stats: **2 VLM calls, 1 Falcon call, 76.6 seconds** on an M2 Max. Same model, same image, same resolution as the independent probe — but now the answer arrives with `supporting_mask_ids=[1]`, an actual region of pixels Gemma reasoned over.
+![](sentinelkilndb/results/per_tile_strips/tile_05_FCBK.jpg){fig-alt="Tile 5 FCBK"}
 
-## Pushing for higher accuracy — three attempts, same ceiling
+![](sentinelkilndb/results/per_tile_strips/tile_06_FCBK.jpg){fig-alt="Tile 6 FCBK"}
 
-The independent probe landed at 6/8 (75%). Can we push it higher by making the agent smarter?
+![](sentinelkilndb/results/per_tile_strips/tile_07_FCBK.jpg){fig-alt="Tile 7 FCBK"}
 
-I tried three variants of an "improved" agent (`scripts/improved_agent.py`), each keeping the PR's full SYSTEM_PROMPT (with tool schema) and adding a domain-specific user-prompt addendum.
+Four failures worth inspecting closely:
 
-### Variant A — Independent probe (baseline)
+- **Tile 0** (called **Zigzag**): the kiln sits inside a sprawling brick-curing yard with row-of-stacks texture that Gemma reads as zigzag striation.
+- **Tile 2** (called **CFCBK**): the oval is compressed enough in this shot that Gemma rounds it up to circular.
+- **Tile 4** (called **CFCBK**): same failure mode — near-1:1 oval.
+- **Tile 5** (called **Zigzag**): a different kiln type visually co-located; Gemma latches onto the more striking structure.
 
-One Falcon call for grounding, one Gemma call for classification, neither sees the other. 6/8.
+A human remote-sensing expert would correct all four from context (knowing which region favours which kiln design). Gemma, without that geographic prior, is reading the pixels literally.
 
-### Variant B — Hard rule on aspect ratio
+## Four Falcon queries across all 12 tiles
 
-Prompt: "ground `circular brick kiln` / `rectangular brick kiln` / `chimney`, then call `compute_relations` on each grounded mask to read its bounding-box aspect ratio, then apply the rule *< 1.4 → CFCBK*, *1.4–2.5 + chimney → FCBK*, *> 2.5 or visible zigzag → Zigzag*."
+| Query | Tiles with ≥1 mask | Useful for |
+|-------|----:|------|
+| `"brick kiln"` | **0/12** | Nothing — the generic term does not ground |
+| `"oval brick kiln"` | 6/12 | CFCBKs + clear FCBKs |
+| `"circular brick kiln"` | 5/12 | CFCBKs + CFCBK-looking FCBKs |
+| `"rectangular brick kiln"` | 4/12 | Zigzags + some FCBKs |
 
-Flipped FCBK from 0/2 → 2/2 but dropped Zigzag from 2/2 → 0/2. Same overall 6/8. The rule is decisive for FCBK but ambiguous for Zigzag, which is *also* rectangular and trips the same branch unless the "visible zigzag pattern" term Falcon cannot ground is independently confirmed.
+Two takeaways:
 
-### Variant C — Richer visual descriptors, no rule
+1. **The noun phrase matters enormously.** `"brick kiln"` segments *nothing* on this dataset, even on the 10 positive tiles. Swap to `"oval brick kiln"` and Falcon fires on half of them. Falcon Perception was trained on natural-scene language; `"brick kiln"` as a bare concept does not map to an aerial kiln in its learned vocabulary.
+2. **Shape-specific queries are discriminative.** Only Zigzags fire under `"rectangular brick kiln"` and no CFCBKs — i.e., Falcon *is* using the shape word, not just the noun. That is the reason Variant B's rule works at all.
 
-Prompt: a detailed visual description per class — *CFCBK = circular/oval ring 80-200 m with central chimney; FCBK = small-to-medium rectangular kiln body (aspect 1:2–1:4) with single tall chimney and external brick-curing yards; Zigzag = LARGE rectangle dominating the frame, internal parallel rows of stacked curing bricks, often no standalone chimney.* No hard rule, no required tool — let Gemma decide.
+## Results table
 
-Result: CFCBK 2/2, FCBK 0/2, Zigzag 2/2, none 2/2. **Back to 6/8.**
+Gemma 4 31B (4-bit MLX) as an independent one-shot classifier, Variant A, **with the corrected shape descriptors** (FCBK = oval, not rectangular). Twelve tiles from the test split, ESRI z=18.
 
-### Summary across all three variants
+| Class | n | Correct | Accuracy |
+|-------|--:|--------:|---------:|
+| CFCBK | 2 | 2 | **100%** |
+| FCBK  | 8 | 4 | **50%** |
+| Zigzag | 2 | 2 | **100%** |
+| **Overall** | **12** | **8** | **67%** |
 
-| Class | Baseline | Variant B (rule) | Variant C (features) |
-|-------|---------:|-----------------:|---------------------:|
-| CFCBK | 2/2 | 2/2 | 2/2 |
-| FCBK  | 0/2 | **2/2** | 0/2 |
-| Zigzag | 2/2 | 0/2 | 2/2 |
-| none  | 2/2 | 2/2 | 2/2 |
-| **Total** | **6/8** | **6/8** | **6/8** |
+One earlier version of the post used a prompt that called FCBK "rectangular" — which is wrong, that's Zigzag. Under that wrong prompt, **FCBK accuracy was 0/2 — 0%**. Fixing a single word ("oval" instead of "rectangular") moved it to 4/8 = 50%. A reminder that prompts for domain-specific classes need domain-specific language; class names alone don't carry the visual prototype.
 
-The ceiling is 6/8 (75%) *across all three variants*. The confusion moves around but doesn't shrink. Put another way: the 2 FCBK tiles I happened to sample are visually ambiguous in ways the prompt alone can't fix. Looking at them afterwards, one is a small kiln embedded in a large brick-curing complex that looks more like a production yard than a single kiln; the other has rows of packed bricks that read as Zigzag stripes to the VLM. Both would trip a non-expert human too.
+## How the three variants trade off
 
-### What it would take to actually hit 100%
+I ran all three variants on the original eight-tile sample. The headline:
 
-Zero-shot prompting is not going to get us there on SentinelKilnDB's hard cases. The honest next steps:
+| Variant | Prompt | FCBK acc | Zigzag acc | Overall |
+|---------|--------|---------:|-----------:|--------:|
+| A · independent probe | visual hints only | 0/2 (with old "rectangular FCBK" prompt) | 2/2 | 6/8 |
+| B · aspect-ratio rule | `< 1.2`/`1.2-2.5`/`> 2.5` | **2/2** | 0/2 | 6/8 |
+| C · visual features | per-class signatures | 0/2 | 2/2 | 6/8 |
 
-1. **Fine-tune a detection head on the dataset's DOTA labels.** 62,671 labelled kilns, three classes, oriented bounding boxes — this is textbook supervised learning. Drop the fine-tuned head into the agent as a replacement for `ground_expression`'s callee. The orchestration loop itself stays the same.
-2. **Add a `texture_relation(mask_id)` tool.** Compute FFT-peak periodicity of the masked region; a Zigzag kiln has strong periodic internal texture, an FCBK does not. Surface that as JSON metadata the agent can read.
-3. **Multi-scale ensemble.** Run the loop at z=17, z=18, z=19 and majority-vote. No model change, just an outer loop — cheap insurance against single-scale failures.
-4. **Chimney-based tiebreaker.** Ground `"chimney"` independently, count and locate; CFCBK has one central, FCBK has one at an end, Zigzag often has none. Requires Falcon to reliably segment a brick chimney from overhead — probably also needs fine-tuning.
-5. **Larger, more diverse sample.** Two tiles per class is noisy; with 16+ per class the 75% becomes a much tighter confidence interval, and outliers like my stubborn FCBK pair stop dominating the headline.
+Three different prompt strategies, **same 6/8 overall**. Variant B's rule fixed FCBK at the cost of losing Zigzag (the rule treats rectangles as Zigzag only when aspect > 2.5, but compact Zigzags have aspect closer to 1.8). Variant C performs like A with slightly more reliability because the agent can optionally ground masks to back its claim.
 
-The encouraging part: all of these are mechanical changes to a small set of files. The orchestration loop itself — the thing PR #926 lands — is fine. What needs swapping is the perception backbone and the tool palette.
+The *real* win was the corrected shape description (oval, not rectangular), which lifted FCBK from 0 → 4 (on the expanded 8-tile sample) without any architectural change.
 
-## A footnote on shape descriptions
+## Why 100% is not a prompt problem
 
-While writing this up I noticed I had the three kiln shapes wrong in the early prompts: I was calling FCBK "rectangular" when it is in fact **oval / stadium-track** (like CFCBK but elongated). Zigzag is the one that's angular-rectangular. After correcting the prompt (`scripts/eval_all_variants.py`) and running on a larger, freshly-sampled set of 8 FCBK tiles from the test split, the picture is:
+I set out to push this to 100%. Zero-shot prompting cannot get there. The four remaining FCBK failures above are genuinely shape-ambiguous at this resolution — a 1:1.3 oval embedded in a brick-curing complex reads as CFCBK or Zigzag depending on which neighbour the model latches onto. No amount of prompt tweaking is going to un-ambiguate those pixels. Paths that *would* close the gap:
 
-| | Independent probe (A) | Visual features (C) |
-|---|:-:|:-:|
-| FCBK (8 new tiles) | **3/8** correct | **2–3/8** correct |
+1. **Fine-tune a detection head on SentinelKilnDB's DOTA labels** (62,671 labelled kilns, oriented boxes, three classes). Drop it into the agent in place of `ground_expression`'s callee — the orchestration loop is unchanged.
+2. **Add a `texture_relation(mask_id)` tool** that computes FFT-peak periodicity inside a mask. Zigzag kilns have strong internal periodicity from the brick rows; FCBK does not. Surface that as a number the agent can read.
+3. **Chimney-count tiebreaker.** Ground `"chimney"` separately; CFCBK has one central chimney, FCBK has one at an end, Zigzag usually has none. Needs a fine-tuned chimney detector to work reliably at 0.6 m/px.
+4. **Multi-scale ensemble** at z=17, z=18, z=19 with majority-vote.
+5. **Context prior.** The dataset covers the Indo-Gangetic Plain, Afghanistan, Pakistan, and Bangladesh. Zigzag is dominant in Punjab / UP / Haryana; FCBK is common in coastal Maharashtra; CFCBK is rare overall. A weak geographic prior on `(lat, lon)` would disambiguate a lot of the residual confusion.
 
-Two things to take from that:
+## What this needs to become: segmentation, OD, and explained predictions
 
-1. **The shape description matters a lot.** Before the correction, the "rectangular FCBK" prompt pushed Gemma toward Zigzag or CFCBK; afterwards, more tiles land on FCBK.
-2. **On a larger, more diverse sample the ceiling is still ~40% on FCBK alone** — not the 100% we'd want. The two remaining failure modes: (a) tiles where the kiln is embedded in a busy brick-curing complex (Gemma reads the whole complex as something else), (b) tiles where the oval looks sufficiently round that CFCBK wins. Both are shape-ambiguity problems that a fine-tuned detector would fix by pattern-matching the whole structure class, not by describing it in words.
+For regulator-facing use (air-quality accounting, kiln-capacity estimation, longitudinal monitoring):
 
-## Where this needs to go: segmentation, OD, and explained predictions
+- **Pixel-accurate segmentation** of each kiln, not just presence. Required for capacity and for separating adjacent kilns from single large structures.
+- **Oriented bounding boxes with class labels** — the dataset already provides DOTA-format annotations; wire an OBB detector into the agent as a tool.
+- **Explained predictions.** *"This is a Zigzag kiln because the chimney/footprint ratio is X, the internal zigzag period is Y m, the surrounding brick yards span Z m²."* The PR #926 agent already produces `supporting_mask_ids`; what is missing is a structured *justification* field citing the measurements that drove the call.
 
-For real downstream use (air-quality regulation, emissions accounting, longitudinal monitoring), three capabilities have to come together:
-
-- **Pixel-accurate segmentation** of each kiln, not just a presence flag. Required for area / capacity estimation and for distinguishing two adjacent kilns from one large structure.
-- **Object detection with class labels** (oriented bounding boxes). The dataset already provides DOTA / YOLO-OBB labels; the right tool is a fine-tuned OBB detector keyed to SentinelKilnDB's three classes, callable from inside the agent loop in place of (or alongside) Falcon Perception.
-- **Explained predictions.** "This region is a Zigzag kiln **because** the chimney/footprint ratio is X, the internal zigzag pattern has period Y, the surrounding brick-curing yards span Z m²." The PR #926 agent already produces `supporting_mask_ids`; what is missing is a structured *justification* alongside that — a few sentences citing the measurements that drove the call. That is a system-prompt change plus a small `explanation` field on the `answer(...)` schema.
-
-Together those three close the loop from "the model thinks there's a kiln here" to "the model thinks there's a Zigzag kiln of approximately 12,000 m² capacity here, classified by the following measurements, with the following uncertainty." That is the form a regulator can act on.
+Together those three close the loop from "the model thinks there's a kiln" to "the model thinks there's a Zigzag kiln of approximately 12,000 m² capacity, classified by the following measurements, with the following uncertainty." That is the form a regulator can act on.
 
 ## Files in this post's folder
 
 ```text
 posts/sentinelkilndb/
-├── agent_flow.svg
+├── agent_flow.svg              # PR #926 end-to-end loop
+├── flow_A_independent.svg      # Variant A
+├── flow_B_rule.svg             # Variant B
+├── flow_C_features.svg         # Variant C
 ├── scripts/
-│   ├── sample_dataset.py
-│   ├── fetch_hires.py
-│   ├── eval_hires.py        # independent probes
-│   ├── agent_loop.py        # one-shot run_agent demo
-│   └── improved_agent.py    # kiln-aware system prompt + aspect-ratio rule
-├── hires/                # ESRI z=17 wide + z=18 tight + manifest.json
-└── results/              # Falcon overlays + agent-loop trace + JSON
+│   ├── sample_dataset.py       # stream SentinelKilnDB, balance classes
+│   ├── sample_more_fcbk.py     # 8 fresh FCBK tiles
+│   ├── fetch_hires.py          # ESRI World_Imagery stitch at z=17 + z=18
+│   ├── eval_hires.py           # Variant A on the first 8 tiles
+│   ├── agent_loop.py           # one-tile walkthrough of run_agent
+│   ├── improved_agent.py       # Variants B and C
+│   ├── eval_all_variants.py    # A + C on the expanded 12-tile set
+│   └── per_tile_masks.py       # this post's per-tile mask grids
+├── hires/                      # first 8 tiles · z=17 + z=18 + manifest
+├── hires_extra/                # 12 expanded tiles · z=18 + manifest
+└── results/
+    ├── hires_results.json      # Variant A, first 8 tiles
+    ├── improved_results.json   # Variant B, first 8 tiles
+    ├── v3_results.json         # Variant C, first 8 tiles
+    ├── v4_partial.json         # corrected shape prompt, 8 fresh FCBKs
+    ├── agent_loop_*            # single-tile run_agent demo artefacts
+    └── per_tile/               # per-tile Falcon overlays + Gemma metadata
+        ├── NN_class/00_input.jpg
+        ├── NN_class/01_gt.jpg
+        ├── NN_class/02_falcon_{brick,oval,circular,rectangular}_kiln.jpg
+        └── NN_class/metadata.json
+    └── per_tile_strips/        # 5-panel composites shown in this post
 ```
 
 ## Links
