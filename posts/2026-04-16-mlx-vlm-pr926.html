@@ -64,7 +64,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="../site_libs/quarto-nav/quarto-nav.js"></script>
 <script src="../site_libs/clipboard/clipboard.min.js"></script>
 <script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
 <script src="../site_libs/quarto-search/fuse.min.js"></script>
@@ -112,6 +112,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 <style>html{ scroll-behavior: smooth; }</style>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
 
 
 <meta property="og:title" content="Grounded Visual Reasoning on a Mac: a Corridor and a Drone Pan – Nipun Batra Blog">
@@ -382,6 +385,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#what-the-counts-look-like" id="toc-what-the-counts-look-like" class="nav-link" data-scroll-target="#what-the-counts-look-like">What the counts look like</a></li>
   <li><a href="#six-frames-overlaid" id="toc-six-frames-overlaid" class="nav-link" data-scroll-target="#six-frames-overlaid">Six frames, overlaid</a></li>
   <li><a href="#first-frame-zoomed-in" id="toc-first-frame-zoomed-in" class="nav-link" data-scroll-target="#first-frame-zoomed-in">First frame, zoomed in</a></li>
+  <li><a href="#burn-the-overlays-back-into-a-video" id="toc-burn-the-overlays-back-into-a-video" class="nav-link" data-scroll-target="#burn-the-overlays-back-into-a-video">Burn the overlays back into a video</a></li>
   <li><a href="#what-this-demo-does-not-do" id="toc-what-this-demo-does-not-do" class="nav-link" data-scroll-target="#what-this-demo-does-not-do">What this demo does <em>not</em> do</a></li>
   </ul></li>
   <li><a href="#what-lands-in-the-pr" id="toc-what-lands-in-the-pr" class="nav-link" data-scroll-target="#what-lands-in-the-pr">What lands in the PR</a></li>
@@ -709,6 +713,62 @@ There are 3 doors visible on the left wall and 4 window openings on the right wa
 </div>
 </div>
 </div>
+</section>
+<section id="burn-the-overlays-back-into-a-video" class="level3">
+<h3 class="anchored" data-anchor-id="burn-the-overlays-back-into-a-video">Burn the overlays back into a video</h3>
+<p>Same idea, denser frame sampling — <strong>24 frames</strong> at ~1.2 fps from the first 21 seconds of the clip — and this time the overlay colour is <strong>keyed to the track ID</strong>, not the per-frame mask number. So if the tracker successfully re-identifies a car across frames, its colour stays the same. If it fails, each frame’s car gets a fresh ID and a fresh colour.</p>
+<div id="cell-30" class="cell" data-execution_count="1">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> subprocess</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fp_tools <span class="im">import</span> run_ground_expression</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>FRAMES <span class="op">=</span> Path(<span class="st">'mlx_vlm_pr926/video/track_frames'</span>)<span class="op">;</span> FRAMES.mkdir(exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">24</span>):</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    t <span class="op">=</span> <span class="bu">round</span>(i <span class="op">*</span> <span class="fl">0.85</span> <span class="op">+</span> <span class="fl">1.0</span>, <span class="dv">2</span>)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>    subprocess.run([<span class="st">'ffmpeg'</span>, <span class="st">'-y'</span>, <span class="st">'-ss'</span>, <span class="bu">str</span>(t),</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">'-i'</span>, <span class="st">'mlx_vlm_pr926/video/traffic.mp4'</span>,</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">'-vframes'</span>, <span class="st">'1'</span>, <span class="st">'-vf'</span>, <span class="st">'scale=720:-1'</span>,</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f'</span><span class="sc">{</span>FRAMES<span class="sc">}</span><span class="ss">/f_</span><span class="sc">{</span>i<span class="sc">:03d}</span><span class="ss">.jpg'</span>, <span class="st">'-loglevel'</span>, <span class="st">'error'</span>])</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Detect, track, render coloured-by-id overlays, encode to mp4</span></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a><span class="co"># (full helper in the post's source — see build_tracked_video.py)</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>...</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>Three frames sampled across the clip — same <code>#173</code>-style track ID format, but observe how rarely a number persists from one panel to the next. The drone is panning fast enough that almost every car earns a new ID.</p>
+<div id="cell-32" class="cell" data-execution_count="1">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Image <span class="im">as</span> NBImage</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>NBImage(<span class="st">'mlx_vlm_pr926/video/track_strip.jpg'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-04-16-mlx-vlm-pr926_files/figure-html/cell-17-output-1.png" class="img-fluid figure-img" width="1100"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>And the stitched MP4 — 24 frames at 5 fps so it plays back in about 5 seconds.</p>
+<div id="cell-34" class="cell" data-execution_count="1">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> HTML</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>HTML(<span class="st">'''&lt;video controls loop muted playsinline width="720" src="mlx_vlm_pr926/video/tracked.mp4"&gt;&lt;/video&gt;'''</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<video controls="" loop="" muted="" playsinline="" width="720" src="mlx_vlm_pr926/video/tracked.mp4"></video>
+</div>
+</div>
+<p><strong>24 frames → 773 unique track IDs</strong>. That ratio (≈32 IDs per frame, with a fresh ID for almost every car) is the rock-bottom tracker giving up on identity. Two reasons:</p>
+<ol type="1">
+<li>The drone pans far enough between sampled frames that a stationary car has moved more than the matching radius (0.10 normalised units) in pixel space.</li>
+<li>Cars <em>do</em> enter and leave the frame, so genuinely new IDs are correct sometimes.</li>
+</ol>
+<p>A real tracker would need: tighter frame sampling (5–10 fps instead of 1.2 fps), a Kalman filter conditioned on the drone’s pan vector, and an appearance-based re-id step. The point of this version is that the per-frame <em>detection</em> primitive Falcon Perception gives you is the right input to all of those — the rest is conventional tracking-by-detection plumbing.</p>
 </section>
 <section id="what-this-demo-does-not-do" class="level3">
 <h3 class="anchored" data-anchor-id="what-this-demo-does-not-do">What this demo does <em>not</em> do</h3>
