@@ -116,13 +116,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <meta property="og:title" content="Brick Kilns from Above: Gemma 4 Calling Falcon Perception in a Loop – Nipun Batra Blog">
 <meta property="og:description" content="Hi-resolution ESRI imagery + Gemma 4 in the PR #926 agent loop on three brick-kiln classes from SentinelKilnDB. 75% zero-shot, an evidence-backed CFCBK identification, and a candid look at what would actually move the needle next.">
-<meta property="og:image" content="sentinelkilndb/agent_flow.svg">
+<meta property="og:image" content="sentinelkilndb/flow_C_features.svg">
 <meta property="og:site_name" content="Nipun Batra Blog">
-<meta property="og:image:alt" content="Agent flowchart">
+<meta property="og:image:alt" content="Variant C flowchart">
 <meta name="twitter:title" content="Brick Kilns from Above: Gemma 4 Calling Falcon Perception in a Loop – Nipun Batra Blog">
 <meta name="twitter:description" content="Hi-resolution ESRI imagery + Gemma 4 in the PR #926 agent loop on three brick-kiln classes from SentinelKilnDB. 75% zero-shot, an evidence-backed CFCBK identification, and a candid look at what would actually move the needle next.">
-<meta name="twitter:image" content="sentinelkilndb/agent_flow.svg">
-<meta name="twitter:image:alt" content="Agent flowchart">
+<meta name="twitter:image" content="sentinelkilndb/flow_C_features.svg">
+<meta name="twitter:image:alt" content="Variant C flowchart">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -372,8 +372,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#what-does-the-loop-actually-look-like" id="toc-what-does-the-loop-actually-look-like" class="nav-link active" data-scroll-target="#what-does-the-loop-actually-look-like">What does the loop actually look like?</a></li>
   <li><a href="#higher-res-in-same-dataset-sharper-picture" id="toc-higher-res-in-same-dataset-sharper-picture" class="nav-link" data-scroll-target="#higher-res-in-same-dataset-sharper-picture">Higher-res in: same dataset, sharper picture</a></li>
-  <li><a href="#two-ways-to-wire-gemma-falcon" id="toc-two-ways-to-wire-gemma-falcon" class="nav-link" data-scroll-target="#two-ways-to-wire-gemma-falcon">Two ways to wire Gemma + Falcon</a>
+  <li><a href="#three-ways-to-wire-gemma-falcon" id="toc-three-ways-to-wire-gemma-falcon" class="nav-link" data-scroll-target="#three-ways-to-wire-gemma-falcon">Three ways to wire Gemma + Falcon</a>
   <ul class="collapse">
+  <li><a href="#variant-a-independent-probes-eval_hires.py" id="toc-variant-a-independent-probes-eval_hires.py" class="nav-link" data-scroll-target="#variant-a-independent-probes-eval_hires.py">Variant A — Independent probes (<code>eval_hires.py</code>)</a></li>
+  <li><a href="#variant-b-aspect-ratio-rule-improved_agent.py-v1" id="toc-variant-b-aspect-ratio-rule-improved_agent.py-v1" class="nav-link" data-scroll-target="#variant-b-aspect-ratio-rule-improved_agent.py-v1">Variant B — Aspect-ratio rule (<code>improved_agent.py</code> v1)</a></li>
+  <li><a href="#variant-c-visual-feature-descriptors-improved_agent.py-v2" id="toc-variant-c-visual-feature-descriptors-improved_agent.py-v2" class="nav-link" data-scroll-target="#variant-c-visual-feature-descriptors-improved_agent.py-v2">Variant C — Visual-feature descriptors (<code>improved_agent.py</code> v2)</a></li>
+  <li><a href="#the-full-agent-loop-underneath-all-three" id="toc-the-full-agent-loop-underneath-all-three" class="nav-link" data-scroll-target="#the-full-agent-loop-underneath-all-three">The full agent loop underneath all three</a></li>
   <li><a href="#independent-probe-results-on-8-tiles" id="toc-independent-probe-results-on-8-tiles" class="nav-link" data-scroll-target="#independent-probe-results-on-8-tiles">Independent-probe results on 8 tiles</a></li>
   <li><a href="#agent-loop-run-on-the-first-cfcbk" id="toc-agent-loop-run-on-the-first-cfcbk" class="nav-link" data-scroll-target="#agent-loop-run-on-the-first-cfcbk">Agent-loop run on the first CFCBK</a></li>
   </ul></li>
@@ -385,6 +389,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#summary-across-all-three-variants" id="toc-summary-across-all-three-variants" class="nav-link" data-scroll-target="#summary-across-all-three-variants">Summary across all three variants</a></li>
   <li><a href="#what-it-would-take-to-actually-hit-100" id="toc-what-it-would-take-to-actually-hit-100" class="nav-link" data-scroll-target="#what-it-would-take-to-actually-hit-100">What it would take to actually hit 100%</a></li>
   </ul></li>
+  <li><a href="#a-footnote-on-shape-descriptions" id="toc-a-footnote-on-shape-descriptions" class="nav-link" data-scroll-target="#a-footnote-on-shape-descriptions">A footnote on shape descriptions</a></li>
   <li><a href="#where-this-needs-to-go-segmentation-od-and-explained-predictions" id="toc-where-this-needs-to-go-segmentation-od-and-explained-predictions" class="nav-link" data-scroll-target="#where-this-needs-to-go-segmentation-od-and-explained-predictions">Where this needs to go: segmentation, OD, and explained predictions</a></li>
   <li><a href="#files-in-this-posts-folder" id="toc-files-in-this-posts-folder" class="nav-link" data-scroll-target="#files-in-this-posts-folder">Files in this post’s folder</a></li>
   <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
@@ -485,39 +490,50 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <p>The annotations on each image (red/blue/yellow ring + class label) are ground truth from the dataset, projected onto the high-res view via the <code>(lat, lon)</code> and the GT box centroid.</p>
 </section>
-<section id="two-ways-to-wire-gemma-falcon" class="level2">
-<h2 class="anchored" data-anchor-id="two-ways-to-wire-gemma-falcon">Two ways to wire Gemma + Falcon</h2>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
+<section id="three-ways-to-wire-gemma-falcon" class="level2">
+<h2 class="anchored" data-anchor-id="three-ways-to-wire-gemma-falcon">Three ways to wire Gemma + Falcon</h2>
+<p>I built three variants of the classifier and tested each. Flowchart per variant, then the side-by-side numbers below.</p>
+<section id="variant-a-independent-probes-eval_hires.py" class="level3">
+<h3 class="anchored" data-anchor-id="variant-a-independent-probes-eval_hires.py">Variant A — Independent probes (<code>eval_hires.py</code>)</h3>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sentinelkilndb/flow_A_independent.svg" class="img-fluid figure-img" alt="Variant A flowchart"></p>
+<figcaption>Variant A: two parallel one-shot calls, no interaction between models.</figcaption>
+</figure>
 </div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Independent probes — <code>eval_hires.py</code>
-</div>
-</div>
-<div class="callout-body-container callout-body">
 <p>Two separate forward passes per image. Falcon outputs masks; Gemma outputs a class. Neither sees the other.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>masks_kiln  <span class="op">=</span> run_ground_expression(fp_model, fp_processor, tile, <span class="st">"brick kiln"</span>)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>gemma_class <span class="op">=</span> run_baseline(tile, GEMMA_PROMPT, vlm)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="variant-b-aspect-ratio-rule-improved_agent.py-v1" class="level3">
+<h3 class="anchored" data-anchor-id="variant-b-aspect-ratio-rule-improved_agent.py-v1">Variant B — Aspect-ratio rule (<code>improved_agent.py</code> v1)</h3>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sentinelkilndb/flow_B_rule.svg" class="img-fluid figure-img" alt="Variant B flowchart"></p>
+<figcaption>Variant B: agent loop with a deterministic classification rule on bounding-box geometry.</figcaption>
+</figure>
 </div>
+<p>Gemma is the orchestrator. It grounds multi-query expressions with Falcon, reads bbox aspect via <code>compute_relations</code>, and applies a hard rule (<code>&lt; 1.4</code> → CFCBK; <code>1.4–2.5</code> + chimney → FCBK; <code>&gt; 2.5</code> → Zigzag) in its own reasoning.</p>
+</section>
+<section id="variant-c-visual-feature-descriptors-improved_agent.py-v2" class="level3">
+<h3 class="anchored" data-anchor-id="variant-c-visual-feature-descriptors-improved_agent.py-v2">Variant C — Visual-feature descriptors (<code>improved_agent.py</code> v2)</h3>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sentinelkilndb/flow_C_features.svg" class="img-fluid figure-img" alt="Variant C flowchart"></p>
+<figcaption>Variant C: agent loop with per-class visual signatures in the prompt; no hard rule.</figcaption>
+</figure>
 </div>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
+<p>Same agent loop, but instead of a rule, the prompt carries <strong>per-class visual signatures</strong> (<em>CFCBK = circular ring; FCBK = oval/stadium-track; Zigzag = rectangular with internal zigzag</em>) and lets Gemma decide which one it’s looking at.</p>
+</section>
+<section id="the-full-agent-loop-underneath-all-three" class="level3">
+<h3 class="anchored" data-anchor-id="the-full-agent-loop-underneath-all-three">The full agent loop underneath all three</h3>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sentinelkilndb/agent_flow.svg" class="img-fluid figure-img" alt="Full agent flowchart"></p>
+<figcaption>Underlying PR #926 loop — any of the variants is a specialisation of this.</figcaption>
+</figure>
 </div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>Agent loop — <code>agent_loop.py</code>
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>Gemma sees the image, decides what to ground, calls Falcon as a tool, reasons over the JSON metadata, then emits an <code>answer(...)</code> with mask IDs.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> run_agent(tile, query, fp_model, fp_processor, vlm, max_steps<span class="op">=</span><span class="dv">8</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result.answer)</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result.supporting_mask_ids)   <span class="co"># the mask IDs that backed the answer</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-</div>
+</section>
 <section id="independent-probe-results-on-8-tiles" class="level3">
 <h3 class="anchored" data-anchor-id="independent-probe-results-on-8-tiles">Independent-probe results on 8 tiles</h3>
 <table class="caption-top table">
@@ -711,6 +727,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </ol>
 <p>The encouraging part: all of these are mechanical changes to a small set of files. The orchestration loop itself — the thing PR #926 lands — is fine. What needs swapping is the perception backbone and the tool palette.</p>
 </section>
+</section>
+<section id="a-footnote-on-shape-descriptions" class="level2">
+<h2 class="anchored" data-anchor-id="a-footnote-on-shape-descriptions">A footnote on shape descriptions</h2>
+<p>While writing this up I noticed I had the three kiln shapes wrong in the early prompts: I was calling FCBK “rectangular” when it is in fact <strong>oval / stadium-track</strong> (like CFCBK but elongated). Zigzag is the one that’s angular-rectangular. After correcting the prompt (<code>scripts/eval_all_variants.py</code>) and running on a larger, freshly-sampled set of 8 FCBK tiles from the test split, the picture is:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th style="text-align: center;">Independent probe (A)</th>
+<th style="text-align: center;">Visual features (C)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>FCBK (8 new tiles)</td>
+<td style="text-align: center;"><strong>3/8</strong> correct</td>
+<td style="text-align: center;"><strong>2–3/8</strong> correct</td>
+</tr>
+</tbody>
+</table>
+<p>Two things to take from that:</p>
+<ol type="1">
+<li><strong>The shape description matters a lot.</strong> Before the correction, the “rectangular FCBK” prompt pushed Gemma toward Zigzag or CFCBK; afterwards, more tiles land on FCBK.</li>
+<li><strong>On a larger, more diverse sample the ceiling is still ~40% on FCBK alone</strong> — not the 100% we’d want. The two remaining failure modes: (a) tiles where the kiln is embedded in a busy brick-curing complex (Gemma reads the whole complex as something else), (b) tiles where the oval looks sufficiently round that CFCBK wins. Both are shape-ambiguity problems that a fine-tuned detector would fix by pattern-matching the whole structure class, not by describing it in words.</li>
+</ol>
 </section>
 <section id="where-this-needs-to-go-segmentation-od-and-explained-predictions" class="level2">
 <h2 class="anchored" data-anchor-id="where-this-needs-to-go-segmentation-od-and-explained-predictions">Where this needs to go: segmentation, OD, and explained predictions</h2>
@@ -1260,206 +1301,227 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     }
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Brick Kilns from Above: Gemma 4 Calling Falcon Perception in a Loop"</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-04-16"</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [LLM, Falcon-Perception, Gemma-4, MLX, satellite, remote-sensing, brick-kilns, SentinelKilnDB, agent-loop]</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Hi-resolution ESRI imagery + Gemma 4 in the PR #926 agent loop on three brick-kiln classes from SentinelKilnDB. 75% zero-shot, an evidence-backed CFCBK identification, and a candid look at what would actually move the needle next."</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/scripts/*.py</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/results/*.jpg</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/hires/*.jpg</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/agent_flow.svg</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`SentinelKilnDB`</span><span class="co">](https://huggingface.co/datasets/SustainabilityLabIITGN/SentinelKilnDB)</span> (NeurIPS 2025 D&amp;B) is a 114,300-tile labelled dataset of brick kilns across South Asia. Three classes:</span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Class <span class="pp">|</span> Full name <span class="pp">|</span> Visual signature <span class="pp">|</span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="pp">|-------|-----------|------------------|</span></span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **CFCBK** <span class="pp">|</span> Continuous Fixed-Chimney Bull's-Trench Kiln <span class="pp">|</span> Circular/oval ring, central chimney <span class="pp">|</span></span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **FCBK** <span class="pp">|</span> Fixed-Chimney Bull's-Trench Kiln <span class="pp">|</span> Rectangular, single chimney, brick stacks <span class="pp">|</span></span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Zigzag** <span class="pp">|</span> Zigzag Kiln <span class="pp">|</span> Large rectangle, internal zigzag wall pattern <span class="pp">|</span></span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>The tiles ship as 128×128 Sentinel-2 patches at 10 m/pixel, which is great for a benchmark but too coarse for a frontier VLM to do real visual reasoning — kilns end up as 4-pixel smudges. The clever bit: every filename is <span class="in">`{lat}_{lon}.png`</span>, so I can re-pair each labelled location with **higher-resolution ESRI World Imagery** at zoom 18 (~0.6 m/pixel) and run the actual <span class="co">[</span><span class="ot">PR #926 agent loop</span><span class="co">](https://github.com/Blaizzy/mlx-vlm/pull/926)</span> on the result.</span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **Code lives in this post's folder.** All scripts under </span><span class="co">[</span><span class="ot">`posts/sentinelkilndb/scripts/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/sentinelkilndb/scripts)</span><span class="at">:</span></span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`sample_dataset.py`</span><span class="at"> — stream SentinelKilnDB, balance by class, save 16 tiles</span></span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`fetch_hires.py`</span><span class="at"> — convert each </span><span class="in">`(lat, lon)`</span><span class="at"> to an ESRI tile stitch (z=17 wide + z=18 tight)</span></span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`eval_hires.py`</span><span class="at"> — Falcon Perception + Gemma 4 zero-shot, independent probes</span></span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`agent_loop.py`</span><span class="at"> — Gemma 4 in </span><span class="in">`run_agent`</span><span class="at">, calling Falcon Perception as a tool</span></span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a><span class="fu">## What does the loop actually look like?</span></span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a><span class="al">![PR #926 agent loop. Gemma 4 sees the image and the user query, calls `ground_expression` to ask Falcon Perception for masks, optionally calls `compute_relations` or `get_crop`, and finally emits `answer(...)` with `supporting_mask_ids` so the human gets a receipt.](sentinelkilndb/agent_flow.svg)</span>{fig-alt="Agent flowchart"}</span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>Two roles. The **VLM is the orchestrator** — Gemma 4 31B 4-bit running locally via mlx-vlm. The **tools are deterministic callees** — Falcon Perception for grounding, plus small numpy helpers for spatial relations and cropping. Gemma never does arithmetic; it asks the right tool, reads the JSON metadata back, and decides the next step.</span>
-<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>The contract is the <span class="in">`answer(response, supporting_mask_ids)`</span> call: the final classification comes with mask IDs that point at the pixels Gemma reasoned over. If the answer is wrong, you can open the mask. With independent probes there is nothing to open.</span>
-<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a><span class="fu">## Higher-res in: same dataset, sharper picture</span></span>
-<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>For each labelled tile, I compute the kiln's true <span class="in">`(lat, lon)`</span> (patch centre + GT-box offset) and stitch a 250 m × 250 m crop at z=18. That's the same scene the dataset annotates, just at 17× the resolution. The visual difference is the entire post:</span>
-<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
-<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a><span class="al">![CFCBK — circular ring + central chimney](sentinelkilndb/hires/00_CFCBK_tight_z18_ann.jpg)</span>{fig-alt="CFCBK z18"}</span>
-<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a><span class="al">![FCBK — rectangular kiln with brick-curing yards](sentinelkilndb/hires/02_FCBK_tight_z18_ann.jpg)</span>{fig-alt="FCBK z18"}</span>
-<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a><span class="al">![Zigzag — large rectangle with internal zigzag wall pattern](sentinelkilndb/hires/04_Zigzag_tight_z18_ann.jpg)</span>{fig-alt="Zigzag z18"}</span>
-<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>The annotations on each image (red/blue/yellow ring + class label) are ground truth from the dataset, projected onto the high-res view via the <span class="in">`(lat, lon)`</span> and the GT box centroid.</span>
-<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a><span class="fu">## Two ways to wire Gemma + Falcon</span></span>
-<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a><span class="fu">### Independent probes — `eval_hires.py`</span></span>
-<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>Two separate forward passes per image. Falcon outputs masks; Gemma outputs a class. Neither sees the other.</span>
-<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>masks_kiln  <span class="op">=</span> run_ground_expression(fp_model, fp_processor, tile, <span class="st">"brick kiln"</span>)</span>
-<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>gemma_class <span class="op">=</span> run_baseline(tile, GEMMA_PROMPT, vlm)</span>
-<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a><span class="fu">### Agent loop — `agent_loop.py`</span></span>
-<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>Gemma sees the image, decides what to ground, calls Falcon as a tool, reasons over the JSON metadata, then emits an <span class="in">`answer(...)`</span> with mask IDs.</span>
-<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> run_agent(tile, query, fp_model, fp_processor, vlm, max_steps<span class="op">=</span><span class="dv">8</span>)</span>
-<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result.answer)</span>
-<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result.supporting_mask_ids)   <span class="co"># the mask IDs that backed the answer</span></span>
-<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a><span class="fu">### Independent-probe results on 8 tiles</span></span>
-<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> # <span class="pp">|</span> True <span class="pp">|</span> Falcon <span class="in">`"brick kiln"`</span> <span class="pp">|</span> Falcon <span class="in">`"circular kiln"`</span> <span class="pp">|</span> Gemma class <span class="pp">|</span> Confidence <span class="pp">|</span></span>
-<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|------|----:|----:|--------|--------|</span></span>
-<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 00 <span class="pp">|</span> CFCBK <span class="pp">|</span> 0 <span class="pp">|</span> 1 <span class="pp">|</span> **CFCBK ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 01 <span class="pp">|</span> CFCBK <span class="pp">|</span> 0 <span class="pp">|</span> 1 <span class="pp">|</span> **CFCBK ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 02 <span class="pp">|</span> FCBK <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> Zigzag ✗ <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 03 <span class="pp">|</span> FCBK <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> CFCBK ✗ <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 04 <span class="pp">|</span> Zigzag <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **Zigzag ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 05 <span class="pp">|</span> Zigzag <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **Zigzag ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 06 <span class="pp">|</span> none <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **none ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 07 <span class="pp">|</span> none <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **none ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
-<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>**Gemma overall: 6/8 = 75%.** Per class: CFCBK 2/2, FCBK 0/2, Zigzag 2/2, negative 2/2. The class Gemma can't disambiguate is **FCBK** — confused with CFCBK (similar oval-ish layout from above) and Zigzag (similar rectangle + brick stacks). The same 8 tiles at the original 128 px Sentinel resolution scored 31% in an earlier probe, so the resolution upgrade alone bought 44 absolute points.</span>
-<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>Falcon Perception alone: <span class="in">`"brick kiln"`</span> returns no detections on any of the 6 positives; <span class="in">`"circular kiln"`</span> finds the two CFCBKs and nothing else. Falcon's vocabulary doesn't carry "Zigzag kiln" or "FCBK" as a recognisable concept.</span>
-<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a><span class="fu">### Agent-loop run on the first CFCBK</span></span>
-<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>I ran <span class="in">`run_agent`</span> once with the prompt:</span>
-<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *This is a high-resolution aerial image (~0.6 m/pixel) of a small area in India. I'm looking for a brick kiln. Specifically, the dataset SentinelKilnDB recognises three types: CFCBK (circular/oval, central chimney), FCBK (rectangular with a single chimney), and Zigzag (large rectangle, internal zigzag walls). Identify whether a brick kiln is visible, and if so, classify it.*</span></span>
-<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>Gemma's <span class="in">`&lt;think&gt;`</span> block (verbatim):</span>
-<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *Looking at the image, there is a prominent circular structure in the center with a central point, which matches the description of a CFCBK …*</span></span>
-<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a>Then the tool call:</span>
-<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a><span class="in">```text</span></span>
-<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a><span class="in">ground_expression(expression="circular brick kiln", slot="kiln")  →  1 mask</span></span>
-<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a>The supporting mask Falcon returned, drawn on the image:</span>
-<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a><span class="al">![Final overlay from `run_agent`. Falcon Perception's mask of the kiln structure, with mask `#1` cited as the supporting evidence for Gemma's classification.](sentinelkilndb/results/agent_loop_final.jpg)</span>{fig-alt="Agent loop final" width=520}</span>
-<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a>Gemma's answer:</span>
-<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **A brick kiln is visible in the image. Based on its circular shape and central chimney, it is classified as a CFCBK.**</span></span>
-<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a>Stats: **2 VLM calls, 1 Falcon call, 76.6 seconds** on an M2 Max. Same model, same image, same resolution as the independent probe — but now the answer arrives with <span class="in">`supporting_mask_ids=[1]`</span>, an actual region of pixels Gemma reasoned over.</span>
-<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a><span class="fu">## Pushing for higher accuracy — three attempts, same ceiling</span></span>
-<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>The independent probe landed at 6/8 (75%). Can we push it higher by making the agent smarter?</span>
-<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-128"><a href="#cb5-128" aria-hidden="true" tabindex="-1"></a>I tried three variants of an "improved" agent (<span class="in">`scripts/improved_agent.py`</span>), each keeping the PR's full SYSTEM_PROMPT (with tool schema) and adding a domain-specific user-prompt addendum.</span>
-<span id="cb5-129"><a href="#cb5-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-130"><a href="#cb5-130" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant A — Independent probe (baseline)</span></span>
-<span id="cb5-131"><a href="#cb5-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-132"><a href="#cb5-132" aria-hidden="true" tabindex="-1"></a>One Falcon call for grounding, one Gemma call for classification, neither sees the other. 6/8.</span>
-<span id="cb5-133"><a href="#cb5-133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-134"><a href="#cb5-134" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant B — Hard rule on aspect ratio</span></span>
-<span id="cb5-135"><a href="#cb5-135" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-136"><a href="#cb5-136" aria-hidden="true" tabindex="-1"></a>Prompt: "ground <span class="in">`circular brick kiln`</span> / <span class="in">`rectangular brick kiln`</span> / <span class="in">`chimney`</span>, then call <span class="in">`compute_relations`</span> on each grounded mask to read its bounding-box aspect ratio, then apply the rule *&lt; 1.4 → CFCBK*, *1.4–2.5 + chimney → FCBK*, *&gt; 2.5 or visible zigzag → Zigzag*."</span>
-<span id="cb5-137"><a href="#cb5-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-138"><a href="#cb5-138" aria-hidden="true" tabindex="-1"></a>Flipped FCBK from 0/2 → 2/2 but dropped Zigzag from 2/2 → 0/2. Same overall 6/8. The rule is decisive for FCBK but ambiguous for Zigzag, which is *also* rectangular and trips the same branch unless the "visible zigzag pattern" term Falcon cannot ground is independently confirmed.</span>
-<span id="cb5-139"><a href="#cb5-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-140"><a href="#cb5-140" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant C — Richer visual descriptors, no rule</span></span>
-<span id="cb5-141"><a href="#cb5-141" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-142"><a href="#cb5-142" aria-hidden="true" tabindex="-1"></a>Prompt: a detailed visual description per class — *CFCBK = circular/oval ring 80-200 m with central chimney; FCBK = small-to-medium rectangular kiln body (aspect 1:2–1:4) with single tall chimney and external brick-curing yards; Zigzag = LARGE rectangle dominating the frame, internal parallel rows of stacked curing bricks, often no standalone chimney.* No hard rule, no required tool — let Gemma decide.</span>
-<span id="cb5-143"><a href="#cb5-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-144"><a href="#cb5-144" aria-hidden="true" tabindex="-1"></a>Result: CFCBK 2/2, FCBK 0/2, Zigzag 2/2, none 2/2. **Back to 6/8.**</span>
-<span id="cb5-145"><a href="#cb5-145" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-146"><a href="#cb5-146" aria-hidden="true" tabindex="-1"></a><span class="fu">### Summary across all three variants</span></span>
-<span id="cb5-147"><a href="#cb5-147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-148"><a href="#cb5-148" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Class <span class="pp">|</span> Baseline <span class="pp">|</span> Variant B (rule) <span class="pp">|</span> Variant C (features) <span class="pp">|</span></span>
-<span id="cb5-149"><a href="#cb5-149" aria-hidden="true" tabindex="-1"></a><span class="pp">|-------|---------:|-----------------:|---------------------:|</span></span>
-<span id="cb5-150"><a href="#cb5-150" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CFCBK <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span></span>
-<span id="cb5-151"><a href="#cb5-151" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> FCBK  <span class="pp">|</span> 0/2 <span class="pp">|</span> **2/2** <span class="pp">|</span> 0/2 <span class="pp">|</span></span>
-<span id="cb5-152"><a href="#cb5-152" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Zigzag <span class="pp">|</span> 2/2 <span class="pp">|</span> 0/2 <span class="pp">|</span> 2/2 <span class="pp">|</span></span>
-<span id="cb5-153"><a href="#cb5-153" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> none  <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span></span>
-<span id="cb5-154"><a href="#cb5-154" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Total** | **6/8** | **6/8** | **6/8** <span class="pp">|</span></span>
-<span id="cb5-155"><a href="#cb5-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-156"><a href="#cb5-156" aria-hidden="true" tabindex="-1"></a>The ceiling is 6/8 (75%) *across all three variants*. The confusion moves around but doesn't shrink. Put another way: the 2 FCBK tiles I happened to sample are visually ambiguous in ways the prompt alone can't fix. Looking at them afterwards, one is a small kiln embedded in a large brick-curing complex that looks more like a production yard than a single kiln; the other has rows of packed bricks that read as Zigzag stripes to the VLM. Both would trip a non-expert human too.</span>
-<span id="cb5-157"><a href="#cb5-157" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-158"><a href="#cb5-158" aria-hidden="true" tabindex="-1"></a><span class="fu">### What it would take to actually hit 100%</span></span>
-<span id="cb5-159"><a href="#cb5-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-160"><a href="#cb5-160" aria-hidden="true" tabindex="-1"></a>Zero-shot prompting is not going to get us there on SentinelKilnDB's hard cases. The honest next steps:</span>
-<span id="cb5-161"><a href="#cb5-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-162"><a href="#cb5-162" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Fine-tune a detection head on the dataset's DOTA labels.** 62,671 labelled kilns, three classes, oriented bounding boxes — this is textbook supervised learning. Drop the fine-tuned head into the agent as a replacement for <span class="in">`ground_expression`</span>'s callee. The orchestration loop itself stays the same.</span>
-<span id="cb5-163"><a href="#cb5-163" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Add a `texture_relation(mask_id)` tool.** Compute FFT-peak periodicity of the masked region; a Zigzag kiln has strong periodic internal texture, an FCBK does not. Surface that as JSON metadata the agent can read.</span>
-<span id="cb5-164"><a href="#cb5-164" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Multi-scale ensemble.** Run the loop at z=17, z=18, z=19 and majority-vote. No model change, just an outer loop — cheap insurance against single-scale failures.</span>
-<span id="cb5-165"><a href="#cb5-165" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Chimney-based tiebreaker.** Ground <span class="in">`"chimney"`</span> independently, count and locate; CFCBK has one central, FCBK has one at an end, Zigzag often has none. Requires Falcon to reliably segment a brick chimney from overhead — probably also needs fine-tuning.</span>
-<span id="cb5-166"><a href="#cb5-166" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Larger, more diverse sample.** Two tiles per class is noisy; with 16+ per class the 75% becomes a much tighter confidence interval, and outliers like my stubborn FCBK pair stop dominating the headline.</span>
-<span id="cb5-167"><a href="#cb5-167" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-168"><a href="#cb5-168" aria-hidden="true" tabindex="-1"></a>The encouraging part: all of these are mechanical changes to a small set of files. The orchestration loop itself — the thing PR #926 lands — is fine. What needs swapping is the perception backbone and the tool palette.</span>
-<span id="cb5-169"><a href="#cb5-169" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-170"><a href="#cb5-170" aria-hidden="true" tabindex="-1"></a><span class="fu">## Where this needs to go: segmentation, OD, and explained predictions</span></span>
-<span id="cb5-171"><a href="#cb5-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-172"><a href="#cb5-172" aria-hidden="true" tabindex="-1"></a>For real downstream use (air-quality regulation, emissions accounting, longitudinal monitoring), three capabilities have to come together:</span>
-<span id="cb5-173"><a href="#cb5-173" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-174"><a href="#cb5-174" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Pixel-accurate segmentation** of each kiln, not just a presence flag. Required for area / capacity estimation and for distinguishing two adjacent kilns from one large structure.</span>
-<span id="cb5-175"><a href="#cb5-175" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Object detection with class labels** (oriented bounding boxes). The dataset already provides DOTA / YOLO-OBB labels; the right tool is a fine-tuned OBB detector keyed to SentinelKilnDB's three classes, callable from inside the agent loop in place of (or alongside) Falcon Perception.</span>
-<span id="cb5-176"><a href="#cb5-176" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Explained predictions.** "This region is a Zigzag kiln **because** the chimney/footprint ratio is X, the internal zigzag pattern has period Y, the surrounding brick-curing yards span Z m²." The PR #926 agent already produces <span class="in">`supporting_mask_ids`</span>; what is missing is a structured *justification* alongside that — a few sentences citing the measurements that drove the call. That is a system-prompt change plus a small <span class="in">`explanation`</span> field on the <span class="in">`answer(...)`</span> schema.</span>
-<span id="cb5-177"><a href="#cb5-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-178"><a href="#cb5-178" aria-hidden="true" tabindex="-1"></a>Together those three close the loop from "the model thinks there's a kiln here" to "the model thinks there's a Zigzag kiln of approximately 12,000 m² capacity here, classified by the following measurements, with the following uncertainty." That is the form a regulator can act on.</span>
-<span id="cb5-179"><a href="#cb5-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-180"><a href="#cb5-180" aria-hidden="true" tabindex="-1"></a><span class="fu">## Files in this post's folder</span></span>
-<span id="cb5-181"><a href="#cb5-181" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-182"><a href="#cb5-182" aria-hidden="true" tabindex="-1"></a><span class="in">```text</span></span>
-<span id="cb5-183"><a href="#cb5-183" aria-hidden="true" tabindex="-1"></a><span class="in">posts/sentinelkilndb/</span></span>
-<span id="cb5-184"><a href="#cb5-184" aria-hidden="true" tabindex="-1"></a><span class="in">├── agent_flow.svg</span></span>
-<span id="cb5-185"><a href="#cb5-185" aria-hidden="true" tabindex="-1"></a><span class="in">├── scripts/</span></span>
-<span id="cb5-186"><a href="#cb5-186" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── sample_dataset.py</span></span>
-<span id="cb5-187"><a href="#cb5-187" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── fetch_hires.py</span></span>
-<span id="cb5-188"><a href="#cb5-188" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── eval_hires.py        # independent probes</span></span>
-<span id="cb5-189"><a href="#cb5-189" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── agent_loop.py        # one-shot run_agent demo</span></span>
-<span id="cb5-190"><a href="#cb5-190" aria-hidden="true" tabindex="-1"></a><span class="in">│   └── improved_agent.py    # kiln-aware system prompt + aspect-ratio rule</span></span>
-<span id="cb5-191"><a href="#cb5-191" aria-hidden="true" tabindex="-1"></a><span class="in">├── hires/                # ESRI z=17 wide + z=18 tight + manifest.json</span></span>
-<span id="cb5-192"><a href="#cb5-192" aria-hidden="true" tabindex="-1"></a><span class="in">└── results/              # Falcon overlays + agent-loop trace + JSON</span></span>
-<span id="cb5-193"><a href="#cb5-193" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb5-194"><a href="#cb5-194" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-195"><a href="#cb5-195" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
-<span id="cb5-196"><a href="#cb5-196" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-197"><a href="#cb5-197" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Dataset: <span class="co">[</span><span class="ot">`SustainabilityLabIITGN/SentinelKilnDB`</span><span class="co">](https://huggingface.co/datasets/SustainabilityLabIITGN/SentinelKilnDB)</span> · <span class="co">[</span><span class="ot">paper (NeurIPS 2025 D&amp;B)</span><span class="co">](https://openreview.net/forum?id=efGzsxVSEC)</span></span>
-<span id="cb5-198"><a href="#cb5-198" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>ESRI tile service: <span class="co">[</span><span class="ot">`World_Imagery/MapServer`</span><span class="co">](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)</span></span>
-<span id="cb5-199"><a href="#cb5-199" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Agent code: <span class="co">[</span><span class="ot">Blaizzy/mlx-vlm#926 — `agents/grounded_reasoning/`</span><span class="co">](https://github.com/Blaizzy/mlx-vlm/pull/926)</span></span>
-<span id="cb5-200"><a href="#cb5-200" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Companion: <span class="co">[</span><span class="ot">Grounded Visual Reasoning on a Mac</span><span class="co">](2026-04-16-mlx-vlm-pr926.html)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Brick Kilns from Above: Gemma 4 Calling Falcon Perception in a Loop"</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-04-16"</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [LLM, Falcon-Perception, Gemma-4, MLX, satellite, remote-sensing, brick-kilns, SentinelKilnDB, agent-loop]</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Hi-resolution ESRI imagery + Gemma 4 in the PR #926 agent loop on three brick-kiln classes from SentinelKilnDB. 75% zero-shot, an evidence-backed CFCBK identification, and a candid look at what would actually move the needle next."</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/scripts/*.py</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/results/*.jpg</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/hires/*.jpg</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">  - sentinelkilndb/agent_flow.svg</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">`SentinelKilnDB`</span><span class="co">](https://huggingface.co/datasets/SustainabilityLabIITGN/SentinelKilnDB)</span> (NeurIPS 2025 D&amp;B) is a 114,300-tile labelled dataset of brick kilns across South Asia. Three classes:</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Class <span class="pp">|</span> Full name <span class="pp">|</span> Visual signature <span class="pp">|</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="pp">|-------|-----------|------------------|</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **CFCBK** <span class="pp">|</span> Continuous Fixed-Chimney Bull's-Trench Kiln <span class="pp">|</span> Circular/oval ring, central chimney <span class="pp">|</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **FCBK** <span class="pp">|</span> Fixed-Chimney Bull's-Trench Kiln <span class="pp">|</span> Rectangular, single chimney, brick stacks <span class="pp">|</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Zigzag** <span class="pp">|</span> Zigzag Kiln <span class="pp">|</span> Large rectangle, internal zigzag wall pattern <span class="pp">|</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>The tiles ship as 128×128 Sentinel-2 patches at 10 m/pixel, which is great for a benchmark but too coarse for a frontier VLM to do real visual reasoning — kilns end up as 4-pixel smudges. The clever bit: every filename is <span class="in">`{lat}_{lon}.png`</span>, so I can re-pair each labelled location with **higher-resolution ESRI World Imagery** at zoom 18 (~0.6 m/pixel) and run the actual <span class="co">[</span><span class="ot">PR #926 agent loop</span><span class="co">](https://github.com/Blaizzy/mlx-vlm/pull/926)</span> on the result.</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **Code lives in this post's folder.** All scripts under </span><span class="co">[</span><span class="ot">`posts/sentinelkilndb/scripts/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/sentinelkilndb/scripts)</span><span class="at">:</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`sample_dataset.py`</span><span class="at"> — stream SentinelKilnDB, balance by class, save 16 tiles</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`fetch_hires.py`</span><span class="at"> — convert each </span><span class="in">`(lat, lon)`</span><span class="at"> to an ESRI tile stitch (z=17 wide + z=18 tight)</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`eval_hires.py`</span><span class="at"> — Falcon Perception + Gemma 4 zero-shot, independent probes</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; - </span><span class="in">`agent_loop.py`</span><span class="at"> — Gemma 4 in </span><span class="in">`run_agent`</span><span class="at">, calling Falcon Perception as a tool</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="fu">## What does the loop actually look like?</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a><span class="al">![PR #926 agent loop. Gemma 4 sees the image and the user query, calls `ground_expression` to ask Falcon Perception for masks, optionally calls `compute_relations` or `get_crop`, and finally emits `answer(...)` with `supporting_mask_ids` so the human gets a receipt.](sentinelkilndb/agent_flow.svg)</span>{fig-alt="Agent flowchart"}</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>Two roles. The **VLM is the orchestrator** — Gemma 4 31B 4-bit running locally via mlx-vlm. The **tools are deterministic callees** — Falcon Perception for grounding, plus small numpy helpers for spatial relations and cropping. Gemma never does arithmetic; it asks the right tool, reads the JSON metadata back, and decides the next step.</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>The contract is the <span class="in">`answer(response, supporting_mask_ids)`</span> call: the final classification comes with mask IDs that point at the pixels Gemma reasoned over. If the answer is wrong, you can open the mask. With independent probes there is nothing to open.</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a><span class="fu">## Higher-res in: same dataset, sharper picture</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>For each labelled tile, I compute the kiln's true <span class="in">`(lat, lon)`</span> (patch centre + GT-box offset) and stitch a 250 m × 250 m crop at z=18. That's the same scene the dataset annotates, just at 17× the resolution. The visual difference is the entire post:</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a><span class="al">![CFCBK — circular ring + central chimney](sentinelkilndb/hires/00_CFCBK_tight_z18_ann.jpg)</span>{fig-alt="CFCBK z18"}</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a><span class="al">![FCBK — rectangular kiln with brick-curing yards](sentinelkilndb/hires/02_FCBK_tight_z18_ann.jpg)</span>{fig-alt="FCBK z18"}</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a><span class="al">![Zigzag — large rectangle with internal zigzag wall pattern](sentinelkilndb/hires/04_Zigzag_tight_z18_ann.jpg)</span>{fig-alt="Zigzag z18"}</span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>The annotations on each image (red/blue/yellow ring + class label) are ground truth from the dataset, projected onto the high-res view via the <span class="in">`(lat, lon)`</span> and the GT box centroid.</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a><span class="fu">## Three ways to wire Gemma + Falcon</span></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>I built three variants of the classifier and tested each. Flowchart per variant, then the side-by-side numbers below.</span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant A — Independent probes (`eval_hires.py`)</span></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a><span class="al">![Variant A: two parallel one-shot calls, no interaction between models.](sentinelkilndb/flow_A_independent.svg)</span>{fig-alt="Variant A flowchart"}</span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>Two separate forward passes per image. Falcon outputs masks; Gemma outputs a class. Neither sees the other.</span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>masks_kiln  <span class="op">=</span> run_ground_expression(fp_model, fp_processor, tile, <span class="st">"brick kiln"</span>)</span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>gemma_class <span class="op">=</span> run_baseline(tile, GEMMA_PROMPT, vlm)</span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant B — Aspect-ratio rule (`improved_agent.py` v1)</span></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a><span class="al">![Variant B: agent loop with a deterministic classification rule on bounding-box geometry.](sentinelkilndb/flow_B_rule.svg)</span>{fig-alt="Variant B flowchart"}</span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>Gemma is the orchestrator. It grounds multi-query expressions with Falcon, reads bbox aspect via <span class="in">`compute_relations`</span>, and applies a hard rule (<span class="in">`&lt; 1.4`</span> → CFCBK; <span class="in">`1.4–2.5`</span> + chimney → FCBK; <span class="in">`&gt; 2.5`</span> → Zigzag) in its own reasoning.</span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant C — Visual-feature descriptors (`improved_agent.py` v2)</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a><span class="al">![Variant C: agent loop with per-class visual signatures in the prompt; no hard rule.](sentinelkilndb/flow_C_features.svg)</span>{fig-alt="Variant C flowchart"}</span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a>Same agent loop, but instead of a rule, the prompt carries **per-class visual signatures** (*CFCBK = circular ring; FCBK = oval/stadium-track; Zigzag = rectangular with internal zigzag*) and lets Gemma decide which one it's looking at.</span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a><span class="fu">### The full agent loop underneath all three</span></span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a><span class="al">![Underlying PR #926 loop — any of the variants is a specialisation of this.](sentinelkilndb/agent_flow.svg)</span>{fig-alt="Full agent flowchart"}</span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a><span class="fu">### Independent-probe results on 8 tiles</span></span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> # <span class="pp">|</span> True <span class="pp">|</span> Falcon <span class="in">`"brick kiln"`</span> <span class="pp">|</span> Falcon <span class="in">`"circular kiln"`</span> <span class="pp">|</span> Gemma class <span class="pp">|</span> Confidence <span class="pp">|</span></span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|------|----:|----:|--------|--------|</span></span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 00 <span class="pp">|</span> CFCBK <span class="pp">|</span> 0 <span class="pp">|</span> 1 <span class="pp">|</span> **CFCBK ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 01 <span class="pp">|</span> CFCBK <span class="pp">|</span> 0 <span class="pp">|</span> 1 <span class="pp">|</span> **CFCBK ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 02 <span class="pp">|</span> FCBK <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> Zigzag ✗ <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 03 <span class="pp">|</span> FCBK <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> CFCBK ✗ <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 04 <span class="pp">|</span> Zigzag <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **Zigzag ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 05 <span class="pp">|</span> Zigzag <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **Zigzag ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 06 <span class="pp">|</span> none <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **none ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 07 <span class="pp">|</span> none <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> **none ✓** <span class="pp">|</span> high <span class="pp">|</span></span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a>**Gemma overall: 6/8 = 75%.** Per class: CFCBK 2/2, FCBK 0/2, Zigzag 2/2, negative 2/2. The class Gemma can't disambiguate is **FCBK** — confused with CFCBK (similar oval-ish layout from above) and Zigzag (similar rectangle + brick stacks). The same 8 tiles at the original 128 px Sentinel resolution scored 31% in an earlier probe, so the resolution upgrade alone bought 44 absolute points.</span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a>Falcon Perception alone: <span class="in">`"brick kiln"`</span> returns no detections on any of the 6 positives; <span class="in">`"circular kiln"`</span> finds the two CFCBKs and nothing else. Falcon's vocabulary doesn't carry "Zigzag kiln" or "FCBK" as a recognisable concept.</span>
+<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a><span class="fu">### Agent-loop run on the first CFCBK</span></span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a>I ran <span class="in">`run_agent`</span> once with the prompt:</span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *This is a high-resolution aerial image (~0.6 m/pixel) of a small area in India. I'm looking for a brick kiln. Specifically, the dataset SentinelKilnDB recognises three types: CFCBK (circular/oval, central chimney), FCBK (rectangular with a single chimney), and Zigzag (large rectangle, internal zigzag walls). Identify whether a brick kiln is visible, and if so, classify it.*</span></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a>Gemma's <span class="in">`&lt;think&gt;`</span> block (verbatim):</span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *Looking at the image, there is a prominent circular structure in the center with a central point, which matches the description of a CFCBK …*</span></span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a>Then the tool call:</span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a><span class="in">```text</span></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a><span class="in">ground_expression(expression="circular brick kiln", slot="kiln")  →  1 mask</span></span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>The supporting mask Falcon returned, drawn on the image:</span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a><span class="al">![Final overlay from `run_agent`. Falcon Perception's mask of the kiln structure, with mask `#1` cited as the supporting evidence for Gemma's classification.](sentinelkilndb/results/agent_loop_final.jpg)</span>{fig-alt="Agent loop final" width=520}</span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a>Gemma's answer:</span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **A brick kiln is visible in the image. Based on its circular shape and central chimney, it is classified as a CFCBK.**</span></span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>Stats: **2 VLM calls, 1 Falcon call, 76.6 seconds** on an M2 Max. Same model, same image, same resolution as the independent probe — but now the answer arrives with <span class="in">`supporting_mask_ids=[1]`</span>, an actual region of pixels Gemma reasoned over.</span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a><span class="fu">## Pushing for higher accuracy — three attempts, same ceiling</span></span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a>The independent probe landed at 6/8 (75%). Can we push it higher by making the agent smarter?</span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a>I tried three variants of an "improved" agent (<span class="in">`scripts/improved_agent.py`</span>), each keeping the PR's full SYSTEM_PROMPT (with tool schema) and adding a domain-specific user-prompt addendum.</span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant A — Independent probe (baseline)</span></span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>One Falcon call for grounding, one Gemma call for classification, neither sees the other. 6/8.</span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant B — Hard rule on aspect ratio</span></span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a>Prompt: "ground <span class="in">`circular brick kiln`</span> / <span class="in">`rectangular brick kiln`</span> / <span class="in">`chimney`</span>, then call <span class="in">`compute_relations`</span> on each grounded mask to read its bounding-box aspect ratio, then apply the rule *&lt; 1.4 → CFCBK*, *1.4–2.5 + chimney → FCBK*, *&gt; 2.5 or visible zigzag → Zigzag*."</span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a>Flipped FCBK from 0/2 → 2/2 but dropped Zigzag from 2/2 → 0/2. Same overall 6/8. The rule is decisive for FCBK but ambiguous for Zigzag, which is *also* rectangular and trips the same branch unless the "visible zigzag pattern" term Falcon cannot ground is independently confirmed.</span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant C — Richer visual descriptors, no rule</span></span>
+<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a>Prompt: a detailed visual description per class — *CFCBK = circular/oval ring 80-200 m with central chimney; FCBK = small-to-medium rectangular kiln body (aspect 1:2–1:4) with single tall chimney and external brick-curing yards; Zigzag = LARGE rectangle dominating the frame, internal parallel rows of stacked curing bricks, often no standalone chimney.* No hard rule, no required tool — let Gemma decide.</span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a>Result: CFCBK 2/2, FCBK 0/2, Zigzag 2/2, none 2/2. **Back to 6/8.**</span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a><span class="fu">### Summary across all three variants</span></span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Class <span class="pp">|</span> Baseline <span class="pp">|</span> Variant B (rule) <span class="pp">|</span> Variant C (features) <span class="pp">|</span></span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a><span class="pp">|-------|---------:|-----------------:|---------------------:|</span></span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CFCBK <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span></span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> FCBK  <span class="pp">|</span> 0/2 <span class="pp">|</span> **2/2** <span class="pp">|</span> 0/2 <span class="pp">|</span></span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Zigzag <span class="pp">|</span> 2/2 <span class="pp">|</span> 0/2 <span class="pp">|</span> 2/2 <span class="pp">|</span></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> none  <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span> 2/2 <span class="pp">|</span></span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Total** | **6/8** | **6/8** | **6/8** <span class="pp">|</span></span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a>The ceiling is 6/8 (75%) *across all three variants*. The confusion moves around but doesn't shrink. Put another way: the 2 FCBK tiles I happened to sample are visually ambiguous in ways the prompt alone can't fix. Looking at them afterwards, one is a small kiln embedded in a large brick-curing complex that looks more like a production yard than a single kiln; the other has rows of packed bricks that read as Zigzag stripes to the VLM. Both would trip a non-expert human too.</span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a><span class="fu">### What it would take to actually hit 100%</span></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a>Zero-shot prompting is not going to get us there on SentinelKilnDB's hard cases. The honest next steps:</span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Fine-tune a detection head on the dataset's DOTA labels.** 62,671 labelled kilns, three classes, oriented bounding boxes — this is textbook supervised learning. Drop the fine-tuned head into the agent as a replacement for <span class="in">`ground_expression`</span>'s callee. The orchestration loop itself stays the same.</span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Add a `texture_relation(mask_id)` tool.** Compute FFT-peak periodicity of the masked region; a Zigzag kiln has strong periodic internal texture, an FCBK does not. Surface that as JSON metadata the agent can read.</span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Multi-scale ensemble.** Run the loop at z=17, z=18, z=19 and majority-vote. No model change, just an outer loop — cheap insurance against single-scale failures.</span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Chimney-based tiebreaker.** Ground <span class="in">`"chimney"`</span> independently, count and locate; CFCBK has one central, FCBK has one at an end, Zigzag often has none. Requires Falcon to reliably segment a brick chimney from overhead — probably also needs fine-tuning.</span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Larger, more diverse sample.** Two tiles per class is noisy; with 16+ per class the 75% becomes a much tighter confidence interval, and outliers like my stubborn FCBK pair stop dominating the headline.</span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a>The encouraging part: all of these are mechanical changes to a small set of files. The orchestration loop itself — the thing PR #926 lands — is fine. What needs swapping is the perception backbone and the tool palette.</span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a><span class="fu">## A footnote on shape descriptions</span></span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a>While writing this up I noticed I had the three kiln shapes wrong in the early prompts: I was calling FCBK "rectangular" when it is in fact **oval / stadium-track** (like CFCBK but elongated). Zigzag is the one that's angular-rectangular. After correcting the prompt (<span class="in">`scripts/eval_all_variants.py`</span>) and running on a larger, freshly-sampled set of 8 FCBK tiles from the test split, the picture is:</span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="pp">|</span> Independent probe (A) <span class="pp">|</span> Visual features (C) <span class="pp">|</span></span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|</span>:-:<span class="pp">|</span>:-:<span class="pp">|</span></span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> FCBK (8 new tiles) <span class="pp">|</span> **3/8** correct | **2–3/8** correct <span class="pp">|</span></span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a>Two things to take from that:</span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**The shape description matters a lot.** Before the correction, the "rectangular FCBK" prompt pushed Gemma toward Zigzag or CFCBK; afterwards, more tiles land on FCBK.</span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**On a larger, more diverse sample the ceiling is still ~40% on FCBK alone** — not the 100% we'd want. The two remaining failure modes: (a) tiles where the kiln is embedded in a busy brick-curing complex (Gemma reads the whole complex as something else), (b) tiles where the oval looks sufficiently round that CFCBK wins. Both are shape-ambiguity problems that a fine-tuned detector would fix by pattern-matching the whole structure class, not by describing it in words.</span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a><span class="fu">## Where this needs to go: segmentation, OD, and explained predictions</span></span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a>For real downstream use (air-quality regulation, emissions accounting, longitudinal monitoring), three capabilities have to come together:</span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Pixel-accurate segmentation** of each kiln, not just a presence flag. Required for area / capacity estimation and for distinguishing two adjacent kilns from one large structure.</span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Object detection with class labels** (oriented bounding boxes). The dataset already provides DOTA / YOLO-OBB labels; the right tool is a fine-tuned OBB detector keyed to SentinelKilnDB's three classes, callable from inside the agent loop in place of (or alongside) Falcon Perception.</span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Explained predictions.** "This region is a Zigzag kiln **because** the chimney/footprint ratio is X, the internal zigzag pattern has period Y, the surrounding brick-curing yards span Z m²." The PR #926 agent already produces <span class="in">`supporting_mask_ids`</span>; what is missing is a structured *justification* alongside that — a few sentences citing the measurements that drove the call. That is a system-prompt change plus a small <span class="in">`explanation`</span> field on the <span class="in">`answer(...)`</span> schema.</span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a>Together those three close the loop from "the model thinks there's a kiln here" to "the model thinks there's a Zigzag kiln of approximately 12,000 m² capacity here, classified by the following measurements, with the following uncertainty." That is the form a regulator can act on.</span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a><span class="fu">## Files in this post's folder</span></span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a><span class="in">```text</span></span>
+<span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a><span class="in">posts/sentinelkilndb/</span></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a><span class="in">├── agent_flow.svg</span></span>
+<span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a><span class="in">├── scripts/</span></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── sample_dataset.py</span></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── fetch_hires.py</span></span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── eval_hires.py        # independent probes</span></span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a><span class="in">│   ├── agent_loop.py        # one-shot run_agent demo</span></span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a><span class="in">│   └── improved_agent.py    # kiln-aware system prompt + aspect-ratio rule</span></span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a><span class="in">├── hires/                # ESRI z=17 wide + z=18 tight + manifest.json</span></span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a><span class="in">└── results/              # Falcon overlays + agent-loop trace + JSON</span></span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Dataset: <span class="co">[</span><span class="ot">`SustainabilityLabIITGN/SentinelKilnDB`</span><span class="co">](https://huggingface.co/datasets/SustainabilityLabIITGN/SentinelKilnDB)</span> · <span class="co">[</span><span class="ot">paper (NeurIPS 2025 D&amp;B)</span><span class="co">](https://openreview.net/forum?id=efGzsxVSEC)</span></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>ESRI tile service: <span class="co">[</span><span class="ot">`World_Imagery/MapServer`</span><span class="co">](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer)</span></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Agent code: <span class="co">[</span><span class="ot">Blaizzy/mlx-vlm#926 — `agents/grounded_reasoning/`</span><span class="co">](https://github.com/Blaizzy/mlx-vlm/pull/926)</span></span>
+<span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Companion: <span class="co">[</span><span class="ot">Grounded Visual Reasoning on a Mac</span><span class="co">](2026-04-16-mlx-vlm-pr926.html)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">
