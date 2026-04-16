@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.36">
+<meta name="generator" content="quarto-1.9.37">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -64,7 +64,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <script src="../site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="../site_libs/quarto-nav/headroom.min.js"></script>
 <script src="../site_libs/clipboard/clipboard.min.js"></script>
 <script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
 <script src="../site_libs/quarto-search/fuse.min.js"></script>
@@ -76,14 +75,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-8573f446804c0a15c9c94b3afc156dc2.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-8573f446804c0a15c9c94b3afc156dc2.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-8573f446804c0a15c9c94b3afc156dc2.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-09f93c55ab6b7f852a50a8f40287560b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="../site_libs/bootstrap/bootstrap-dark-79633cc1677eca2f8303e497ad5e1b1c.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="../site_libs/bootstrap/bootstrap-09f93c55ab6b7f852a50a8f40287560b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-65134723179f14920ce7c68a7bda9332.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-d9928a89043c971d5047e2981424b57a.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-65134723179f14920ce7c68a7bda9332.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -111,11 +110,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
+<style>html{ scroll-behavior: smooth; }</style>
 
 
+<meta property="og:title" content="VLM Compression: Quantization, Pruning, and Distillation – Nipun Batra Blog">
+<meta property="og:description" content="Notes on machine learning, VLMs, and building things.">
+<meta property="og:image" content="vlm-compression.png">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="VLM Compression: Quantization, Pruning, and Distillation – Nipun Batra Blog">
+<meta name="twitter:description" content="Notes on machine learning, VLMs, and building things.">
+<meta name="twitter:image" content="vlm-compression.png">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 
-<body class="nav-fixed fullcontent quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
     const toggleBodyColorMode = (bsSheetEl) => {
       const mode = bsSheetEl.getAttribute("data-mode");
       const bodyEl = window.document.querySelector("body");
@@ -346,7 +354,47 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#vlm-compression-making-models-smaller-and-faster" id="toc-vlm-compression-making-models-smaller-and-faster" class="nav-link active" data-scroll-target="#vlm-compression-making-models-smaller-and-faster">VLM Compression: Making Models Smaller and Faster</a>
+  <ul class="collapse">
+  <li><a href="#why-compress-vlms" id="toc-why-compress-vlms" class="nav-link" data-scroll-target="#why-compress-vlms">Why Compress VLMs?</a></li>
+  <li><a href="#our-baseline-model" id="toc-our-baseline-model" class="nav-link" data-scroll-target="#our-baseline-model">Our Baseline Model</a></li>
+  <li><a href="#target-compression-results" id="toc-target-compression-results" class="nav-link" data-scroll-target="#target-compression-results">Target Compression Results</a></li>
+  <li><a href="#load-pre-trained-vlm-baseline" id="toc-load-pre-trained-vlm-baseline" class="nav-link" data-scroll-target="#load-pre-trained-vlm-baseline">Load Pre-trained VLM (Baseline)</a></li>
+  <li><a href="#prepare-dataset-for-evaluation" id="toc-prepare-dataset-for-evaluation" class="nav-link" data-scroll-target="#prepare-dataset-for-evaluation">Prepare Dataset for Evaluation</a></li>
+  <li><a href="#baseline-evaluation" id="toc-baseline-evaluation" class="nav-link" data-scroll-target="#baseline-evaluation">Baseline Evaluation</a></li>
+  <li><a href="#int8-quantization" id="toc-int8-quantization" class="nav-link" data-scroll-target="#int8-quantization">1. INT8 Quantization</a>
+  <ul class="collapse">
+  <li><a href="#how-it-works" id="toc-how-it-works" class="nav-link" data-scroll-target="#how-it-works">How it works:</a></li>
+  </ul></li>
+  <li><a href="#structured-pruning" id="toc-structured-pruning" class="nav-link" data-scroll-target="#structured-pruning">2. Structured Pruning</a>
+  <ul class="collapse">
+  <li><a href="#types-of-pruning" id="toc-types-of-pruning" class="nav-link" data-scroll-target="#types-of-pruning">Types of Pruning:</a></li>
+  </ul></li>
+  <li><a href="#knowledge-distillation" id="toc-knowledge-distillation" class="nav-link" data-scroll-target="#knowledge-distillation">3. Knowledge Distillation</a>
+  <ul class="collapse">
+  <li><a href="#distillation-loss" id="toc-distillation-loss" class="nav-link" data-scroll-target="#distillation-loss">Distillation Loss:</a></li>
+  </ul></li>
+  <li><a href="#combined-compression-quantization-distillation" id="toc-combined-compression-quantization-distillation" class="nav-link" data-scroll-target="#combined-compression-quantization-distillation">Combined Compression: Quantization + Distillation</a></li>
+  <li><a href="#compression-comparison-table" id="toc-compression-comparison-table" class="nav-link" data-scroll-target="#compression-comparison-table">Compression Comparison Table</a></li>
+  <li><a href="#key-takeaways" id="toc-key-takeaways" class="nav-link" data-scroll-target="#key-takeaways">Key Takeaways</a>
+  <ul class="collapse">
+  <li><a href="#quantization-easiest" id="toc-quantization-easiest" class="nav-link" data-scroll-target="#quantization-easiest">1. <strong>Quantization (Easiest)</strong></a></li>
+  <li><a href="#pruning-most-complex" id="toc-pruning-most-complex" class="nav-link" data-scroll-target="#pruning-most-complex">2. <strong>Pruning (Most Complex)</strong></a></li>
+  <li><a href="#distillation-best-accuracy" id="toc-distillation-best-accuracy" class="nav-link" data-scroll-target="#distillation-best-accuracy">3. <strong>Distillation (Best Accuracy)</strong></a></li>
+  <li><a href="#combined-best-overall" id="toc-combined-best-overall" class="nav-link" data-scroll-target="#combined-best-overall">4. <strong>Combined (Best Overall)</strong></a></li>
+  </ul></li>
+  <li><a href="#practical-recommendations" id="toc-practical-recommendations" class="nav-link" data-scroll-target="#practical-recommendations">Practical Recommendations</a></li>
+  <li><a href="#gpu-memory-cleanup" id="toc-gpu-memory-cleanup" class="nav-link" data-scroll-target="#gpu-memory-cleanup">GPU Memory Cleanup</a></li>
+  <li><a href="#next-steps" id="toc-next-steps" class="nav-link" data-scroll-target="#next-steps">Next Steps</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
 <!-- main -->
 <main class="content quarto-banner-title-block" id="quarto-document-content">
 
@@ -1356,6 +1404,11 @@ In practice, you would run: train_distillation(student_model, baseline_model, tr
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
@@ -1610,25 +1663,66 @@ In practice, you would run: train_distillation(student_model, baseline_model, tr
           }
         };
       }
-        // Attach click handler to the DT
-        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
-        for (const annoteDlNode of annoteDls) {
-          annoteDlNode.addEventListener('click', (event) => {
-            const clickedEl = event.target;
-            if (clickedEl !== selectedAnnoteEl) {
-              unselectCodeLines();
-              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
-              if (activeEl) {
-                activeEl.classList.remove('code-annotation-active');
-              }
-              selectCodeLines(clickedEl);
-              clickedEl.classList.add('code-annotation-active');
-            } else {
-              // Unselect the line
-              unselectCodeLines();
-              clickedEl.classList.remove('code-annotation-active');
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
             }
-          });
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
         }
     const findCites = (el) => {
       const parentEl = el.parentElement;
@@ -1670,8 +1764,29 @@ In practice, you would run: train_distillation(student_model, baseline_model, tr
   });
   </script>
 </div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
 
 
 
 
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
 </body></html>
