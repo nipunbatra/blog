@@ -1,5 +1,12 @@
-"""Improved kiln classifier — keeps the PR's full SYSTEM_PROMPT (with tool schema)
-and *appends* a brick-kiln-specific addendum at the user-prompt layer."""
+"""Improved kiln classifier v3 — better visual features, no hard-coded rules.
+
+Key changes vs v2:
+  - Emphasise the SIZE of the kiln structure in the frame (Zigzag is large, FCBK smaller)
+  - Emphasise the INTERNAL texture (zigzag has striated rows of bricks filling its interior)
+  - Emphasise CHIMNEY (FCBK/CFCBK have a clear chimney, Zigzag often doesn't)
+  - Do NOT prescribe rules — let Gemma use its vision
+  - Keep multi-query grounding as an OPTION, not a requirement
+"""
 import sys, json, time
 from pathlib import Path
 sys.path.insert(0, "/Users/nipun/git/blog/posts/mlx_vlm_pr926")
@@ -11,32 +18,45 @@ from agent import LocalVLMClient, run_agent
 ROOT = Path("/Users/nipun/git/blog/posts/sentinelkilndb")
 RES = ROOT / "results"
 
-KILN_QUERY = """Classify the brick kiln in this high-resolution overhead image (~0.6 m/pixel, South Asia).
+KILN_QUERY_V3 = """Classify the brick kiln in this high-resolution overhead image (~0.6 m/pixel, South Asia).
 
-There are exactly four labels: CFCBK, FCBK, Zigzag, none.
-  - CFCBK: continuous fixed-chimney bull's-trench kiln. CIRCULAR or oval ring (aspect ratio < 1.4), central chimney.
-  - FCBK:  fixed-chimney bull's-trench kiln. RECTANGULAR (aspect ratio 1.4-2.5), single chimney, brick-curing yards.
-  - Zigzag: zigzag kiln. LARGE RECTANGLE (aspect ratio > 2.5 or visible internal zigzag pattern).
-  - none:  no kiln.
+Four possible labels: CFCBK, FCBK, Zigzag, none.
 
-Plan you SHOULD follow:
-  1. Look at the image. Note the most plausible kiln structure(s).
-  2. Ground at least ONE expression like "circular brick kiln" or "rectangular brick kiln" using ground_expression.
-     If both shapes are plausible, ground both into separate slots ("circular_kiln", "rect_kiln").
-  3. For each grounded mask of interest, call compute_relations on its single id to get its bbox geometry.
-  4. Read the bbox aspect ratio = max(bbox_w, bbox_h) / min(bbox_w, bbox_h) from compute_relations output.
-     - aspect < 1.4 + circular ring  → CFCBK
-     - aspect 1.4-2.5 + single chimney  → FCBK
-     - aspect > 2.5 OR visible zigzag pattern  → Zigzag
-  5. Combine the visual cue with the measured aspect ratio. Call answer with the label and supporting_mask_ids.
+Distinguishing visual features (look for ALL of these, in order):
 
-Use the measurement, not just visual gestalt. Aspect ratio is decisive."""
+1. CFCBK — Continuous Fixed-Chimney Bull's-Trench Kiln
+   - CIRCULAR or OVAL ring shape (aspect ratio ≈ 1:1 to 1:1.3)
+   - Central chimney visible as a small dot at the centre of the ring
+   - Typical diameter 80-200 metres
+   - The ring encloses a cleared interior
+
+2. FCBK — Fixed-Chimney Bull's-Trench Kiln
+   - SMALL-to-medium RECTANGULAR kiln body (aspect 1:2 to 1:4, narrow)
+   - SINGLE tall CHIMNEY at one end or in the middle
+   - Surrounded by separate rectangular brick-curing yards / piles
+   - Kiln body does NOT fill the whole frame — it's one structure among others
+
+3. Zigzag — Zigzag brick kiln
+   - LARGE rectangular footprint (aspect 1:1.5 to 1:3)
+   - DOMINATES the frame (often > 30% of image area)
+   - INTERNAL STRIATION: parallel rows of stacked curing bricks filling the interior
+   - Often NO tall standalone chimney — draft is via the long walls
+   - Surrounded by green fields or villages
+
+4. none — no kiln visible
+
+Steps:
+  - First, describe what you see in one sentence.
+  - Optionally ground an expression if it helps (e.g. "circular brick kiln" or "rectangular kiln").
+  - Choose the label based on the visual features above.
+  - Call answer with just the class name (CFCBK, FCBK, Zigzag, or none)."""
+
 
 if __name__ == "__main__":
     print("[load] Falcon Perception ...")
     fp_model, fp_processor = load("tiiuae/Falcon-Perception")
     print("[load] Gemma 4 31B 4bit ...")
-    vlm = LocalVLMClient("mlx-community/gemma-4-31b-it-4bit", max_tokens=2048)
+    vlm = LocalVLMClient("mlx-community/gemma-4-31b-it-4bit", max_tokens=1024)
 
     manifest = json.loads((ROOT / "hires" / "manifest.json").read_text())
     results = []
@@ -50,35 +70,32 @@ if __name__ == "__main__":
 
         print(f"\n[idx={idx} true={cls}]")
         t = time.time()
-        result = run_agent(img, KILN_QUERY, fp_model, fp_processor, vlm,
-                           max_steps=10, verbose=False)
+        result = run_agent(img, KILN_QUERY_V3, fp_model, fp_processor, vlm,
+                           max_steps=6, verbose=False)
         dt = round(time.time() - t, 1)
 
         if result.final_image is not None:
-            result.final_image.save(RES / f"improved_{idx:02d}_final.jpg", quality=85)
+            result.final_image.save(RES / f"v3_{idx:02d}_final.jpg", quality=85)
 
-        # Parse predicted class from answer text
+        # Parse — check cfcbk before fcbk
+        a = result.answer.lower()
         pred = "??"
-        ans_lower = result.answer.lower()
-        # Search for class names; prefer the one that appears with a strong signal
-        for cand in ["zigzag", "fcbk", "cfcbk", "none"]:
-            if cand in ans_lower:
-                pred = cand.upper() if cand != "none" else "none"
-                # Map zigzag → "Zigzag" canonical
-                pred = {"ZIGZAG": "Zigzag", "FCBK": "FCBK", "CFCBK": "CFCBK", "none": "none"}.get(pred, pred)
+        for cand in ["cfcbk", "zigzag", "fcbk", "none"]:
+            if cand in a:
+                pred = {"cfcbk":"CFCBK","fcbk":"FCBK","zigzag":"Zigzag","none":"none"}[cand]
                 break
 
         rec_out = {"idx": idx, "true": cls, "pred": pred, "answer": result.answer.strip(),
                    "vlm_calls": result.n_vlm_calls, "fp_calls": result.n_fp_calls,
-                   "supporting_mask_ids": result.supporting_mask_ids,
                    "elapsed_s": dt}
         results.append(rec_out)
-        print(f"  → pred={pred:6s} (true={cls})  vlm={result.n_vlm_calls} fp={result.n_fp_calls} {dt}s")
-        print(f"     answer: {result.answer.strip()[:140]}")
+        mark = "✓" if pred == cls else "✗"
+        print(f"  → pred={pred:6s} (true={cls}) {mark}  vlm={result.n_vlm_calls} fp={result.n_fp_calls} {dt}s")
+        print(f"    answer: {result.answer.strip()[:160]}")
 
-    (RES / "improved_results.json").write_text(json.dumps(results, indent=2, default=str))
+    (RES / "v3_results.json").write_text(json.dumps(results, indent=2, default=str))
     correct = sum(1 for r in results if r["pred"] == r["true"])
-    print(f"\nImproved agent accuracy: {correct}/{len(results)} = {correct/len(results)*100:.0f}%")
+    print(f"\nv3 accuracy: {correct}/{len(results)} = {correct/len(results)*100:.0f}%")
     for cls in ["CFCBK", "FCBK", "Zigzag", "none"]:
         sub = [r for r in results if r["true"] == cls]
         c = sum(1 for r in sub if r["pred"] == cls)

@@ -121,39 +121,51 @@ Gemma's answer:
 
 Stats: **2 VLM calls, 1 Falcon call, 76.6 seconds** on an M2 Max. Same model, same image, same resolution as the independent probe — but now the answer arrives with `supporting_mask_ids=[1]`, an actual region of pixels Gemma reasoned over.
 
-## Improving the agent — what I tried, and what actually moved
+## Pushing for higher accuracy — three attempts, same ceiling
 
-The independent probe got FCBK 0/2 wrong. So I built a kiln-aware agent (`scripts/improved_agent.py`) that keeps the PR's full SYSTEM_PROMPT (with tool schema) and adds a domain-specific user-prompt addendum:
+The independent probe landed at 6/8 (75%). Can we push it higher by making the agent smarter?
 
-> *Plan you SHOULD follow:*
->
-> 1. *Note the most plausible kiln structure.*
-> 2. *Ground at least one of `"circular brick kiln"` / `"rectangular brick kiln"` / `"chimney"`. If shape is ambiguous, ground both into separate slots so you can compare.*
-> 3. *For each grounded mask, call `compute_relations` on its id to read the bounding-box aspect ratio.*
-> 4. *Apply the rule:* `< 1.4` *→ CFCBK,* `1.4–2.5 + chimney` *→ FCBK,* `> 2.5 or visible zigzag` *→ Zigzag.*
-> 5. *Combine the visual cue and the measured aspect ratio. Call `answer`.*
+I tried three variants of an "improved" agent (`scripts/improved_agent.py`), each keeping the PR's full SYSTEM_PROMPT (with tool schema) and adding a domain-specific user-prompt addendum.
 
-Same eight tiles. Same Falcon and Gemma. Just a different prompt. Result:
+### Variant A — Independent probe (baseline)
 
-| Class | Independent probe | Improved agent | Δ |
-|-------|------------------:|---------------:|:-:|
-| CFCBK | 2/2 | 2/2 | — |
-| FCBK  | 0/2 | **2/2** | **+2** |
-| Zigzag | 2/2 | 0/2 | **−2** |
-| none  | 2/2 | 2/2 | — |
-| **Total** | **6/8 (75%)** | **6/8 (75%)** | **0** |
+One Falcon call for grounding, one Gemma call for classification, neither sees the other. 6/8.
 
-Same overall accuracy, completely different distribution. The aspect-ratio rule fixed the FCBK confusion (rectangular kilns now reliably labelled FCBK) but introduced a Zigzag failure: Zigzag kilns are *also* rectangular, so they trigger the FCBK branch unless the agent has separately confirmed the internal zigzag pattern. My prompt asked the model to "use the visible zigzag pattern" as a Zigzag tiebreaker, but Falcon Perception cannot ground "zigzag wall pattern" as a noun phrase — it returns nothing — so Gemma has no measurement to back the claim and defaults to FCBK on aspect ratio alone.
+### Variant B — Hard rule on aspect ratio
 
-This is exactly the kind of trade-off you only see by running the change end-to-end on real data. A follow-up that *would* unstick Zigzag without losing the FCBK gains:
+Prompt: "ground `circular brick kiln` / `rectangular brick kiln` / `chimney`, then call `compute_relations` on each grounded mask to read its bounding-box aspect ratio, then apply the rule *< 1.4 → CFCBK*, *1.4–2.5 + chimney → FCBK*, *> 2.5 or visible zigzag → Zigzag*."
 
-1. **Fine-tune Falcon Perception (or swap the backbone) to recognise `"zigzag pattern"`.** The dataset's OBB annotations contain Zigzag bounding boxes — a few hundred crops are enough to teach a small detection head that "zigzag" is a real visual concept.
-2. **Add a `texture_relation(mask_id)` tool.** Compute the periodicity of the masked patch (FFT peak / autocorrelation) and surface it as JSON metadata. Aspect ratio alone is not enough; a Zigzag kiln is a *long rectangle with periodic texture*, and that periodicity is a number the agent can read.
-3. **Tile + zoom on every plausible kiln.** For wide z=17 views the kiln is a small fraction of the image. The agent already has `get_crop`; re-running `ground_expression` on each crop catches kilns the global pass missed.
-4. **Voting over scales.** Run the loop independently at z=17, z=18, z=19 and majority-vote — no model change, just an outer loop.
-5. **Replace the perception backbone for this domain.** The honest fix. Falcon Perception was trained on natural images; it neither knows nor cares about brick kilns. A small fine-tuned head on SentinelKilnDB's labels would unblock all of the above. The agent loop survives intact — only the `ground_expression` callee swaps.
+Flipped FCBK from 0/2 → 2/2 but dropped Zigzag from 2/2 → 0/2. Same overall 6/8. The rule is decisive for FCBK but ambiguous for Zigzag, which is *also* rectangular and trips the same branch unless the "visible zigzag pattern" term Falcon cannot ground is independently confirmed.
 
-The encouraging part is that all of these are mechanical changes to a small set of files; the orchestration loop itself is fine.
+### Variant C — Richer visual descriptors, no rule
+
+Prompt: a detailed visual description per class — *CFCBK = circular/oval ring 80-200 m with central chimney; FCBK = small-to-medium rectangular kiln body (aspect 1:2–1:4) with single tall chimney and external brick-curing yards; Zigzag = LARGE rectangle dominating the frame, internal parallel rows of stacked curing bricks, often no standalone chimney.* No hard rule, no required tool — let Gemma decide.
+
+Result: CFCBK 2/2, FCBK 0/2, Zigzag 2/2, none 2/2. **Back to 6/8.**
+
+### Summary across all three variants
+
+| Class | Baseline | Variant B (rule) | Variant C (features) |
+|-------|---------:|-----------------:|---------------------:|
+| CFCBK | 2/2 | 2/2 | 2/2 |
+| FCBK  | 0/2 | **2/2** | 0/2 |
+| Zigzag | 2/2 | 0/2 | 2/2 |
+| none  | 2/2 | 2/2 | 2/2 |
+| **Total** | **6/8** | **6/8** | **6/8** |
+
+The ceiling is 6/8 (75%) *across all three variants*. The confusion moves around but doesn't shrink. Put another way: the 2 FCBK tiles I happened to sample are visually ambiguous in ways the prompt alone can't fix. Looking at them afterwards, one is a small kiln embedded in a large brick-curing complex that looks more like a production yard than a single kiln; the other has rows of packed bricks that read as Zigzag stripes to the VLM. Both would trip a non-expert human too.
+
+### What it would take to actually hit 100%
+
+Zero-shot prompting is not going to get us there on SentinelKilnDB's hard cases. The honest next steps:
+
+1. **Fine-tune a detection head on the dataset's DOTA labels.** 62,671 labelled kilns, three classes, oriented bounding boxes — this is textbook supervised learning. Drop the fine-tuned head into the agent as a replacement for `ground_expression`'s callee. The orchestration loop itself stays the same.
+2. **Add a `texture_relation(mask_id)` tool.** Compute FFT-peak periodicity of the masked region; a Zigzag kiln has strong periodic internal texture, an FCBK does not. Surface that as JSON metadata the agent can read.
+3. **Multi-scale ensemble.** Run the loop at z=17, z=18, z=19 and majority-vote. No model change, just an outer loop — cheap insurance against single-scale failures.
+4. **Chimney-based tiebreaker.** Ground `"chimney"` independently, count and locate; CFCBK has one central, FCBK has one at an end, Zigzag often has none. Requires Falcon to reliably segment a brick chimney from overhead — probably also needs fine-tuning.
+5. **Larger, more diverse sample.** Two tiles per class is noisy; with 16+ per class the 75% becomes a much tighter confidence interval, and outliers like my stubborn FCBK pair stop dominating the headline.
+
+The encouraging part: all of these are mechanical changes to a small set of files. The orchestration loop itself — the thing PR #926 lands — is fine. What needs swapping is the perception backbone and the tool palette.
 
 ## Where this needs to go: segmentation, OD, and explained predictions
 
