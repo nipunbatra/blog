@@ -55,28 +55,36 @@ For each labelled tile, I compute the kiln's true `(lat, lon)` (patch centre + G
 
 The annotations on each image (red/blue/yellow ring + class label) are ground truth from the dataset, projected onto the high-res view via the `(lat, lon)` and the GT box centroid.
 
-## Two ways to wire Gemma + Falcon
+## Three ways to wire Gemma + Falcon
 
-::: {.callout-note}
-### Independent probes — `eval_hires.py`
+I built three variants of the classifier and tested each. Flowchart per variant, then the side-by-side numbers below.
+
+### Variant A — Independent probes (`eval_hires.py`)
+
+![Variant A: two parallel one-shot calls, no interaction between models.](sentinelkilndb/flow_A_independent.svg){fig-alt="Variant A flowchart"}
+
 Two separate forward passes per image. Falcon outputs masks; Gemma outputs a class. Neither sees the other.
 
 ```python
 masks_kiln  = run_ground_expression(fp_model, fp_processor, tile, "brick kiln")
 gemma_class = run_baseline(tile, GEMMA_PROMPT, vlm)
 ```
-:::
 
-::: {.callout-tip}
-### Agent loop — `agent_loop.py`
-Gemma sees the image, decides what to ground, calls Falcon as a tool, reasons over the JSON metadata, then emits an `answer(...)` with mask IDs.
+### Variant B — Aspect-ratio rule (`improved_agent.py` v1)
 
-```python
-result = run_agent(tile, query, fp_model, fp_processor, vlm, max_steps=8)
-print(result.answer)
-print(result.supporting_mask_ids)   # the mask IDs that backed the answer
-```
-:::
+![Variant B: agent loop with a deterministic classification rule on bounding-box geometry.](sentinelkilndb/flow_B_rule.svg){fig-alt="Variant B flowchart"}
+
+Gemma is the orchestrator. It grounds multi-query expressions with Falcon, reads bbox aspect via `compute_relations`, and applies a hard rule (`< 1.4` → CFCBK; `1.4–2.5` + chimney → FCBK; `> 2.5` → Zigzag) in its own reasoning.
+
+### Variant C — Visual-feature descriptors (`improved_agent.py` v2)
+
+![Variant C: agent loop with per-class visual signatures in the prompt; no hard rule.](sentinelkilndb/flow_C_features.svg){fig-alt="Variant C flowchart"}
+
+Same agent loop, but instead of a rule, the prompt carries **per-class visual signatures** (*CFCBK = circular ring; FCBK = oval/stadium-track; Zigzag = rectangular with internal zigzag*) and lets Gemma decide which one it's looking at.
+
+### The full agent loop underneath all three
+
+![Underlying PR #926 loop — any of the variants is a specialisation of this.](sentinelkilndb/agent_flow.svg){fig-alt="Full agent flowchart"}
 
 ### Independent-probe results on 8 tiles
 
@@ -166,6 +174,19 @@ Zero-shot prompting is not going to get us there on SentinelKilnDB's hard cases.
 5. **Larger, more diverse sample.** Two tiles per class is noisy; with 16+ per class the 75% becomes a much tighter confidence interval, and outliers like my stubborn FCBK pair stop dominating the headline.
 
 The encouraging part: all of these are mechanical changes to a small set of files. The orchestration loop itself — the thing PR #926 lands — is fine. What needs swapping is the perception backbone and the tool palette.
+
+## A footnote on shape descriptions
+
+While writing this up I noticed I had the three kiln shapes wrong in the early prompts: I was calling FCBK "rectangular" when it is in fact **oval / stadium-track** (like CFCBK but elongated). Zigzag is the one that's angular-rectangular. After correcting the prompt (`scripts/eval_all_variants.py`) and running on a larger, freshly-sampled set of 8 FCBK tiles from the test split, the picture is:
+
+| | Independent probe (A) | Visual features (C) |
+|---|:-:|:-:|
+| FCBK (8 new tiles) | **3/8** correct | **2–3/8** correct |
+
+Two things to take from that:
+
+1. **The shape description matters a lot.** Before the correction, the "rectangular FCBK" prompt pushed Gemma toward Zigzag or CFCBK; afterwards, more tiles land on FCBK.
+2. **On a larger, more diverse sample the ceiling is still ~40% on FCBK alone** — not the 100% we'd want. The two remaining failure modes: (a) tiles where the kiln is embedded in a busy brick-curing complex (Gemma reads the whole complex as something else), (b) tiles where the oval looks sufficiently round that CFCBK wins. Both are shape-ambiguity problems that a fine-tuned detector would fix by pattern-matching the whole structure class, not by describing it in words.
 
 ## Where this needs to go: segmentation, OD, and explained predictions
 
