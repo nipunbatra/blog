@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" font-family="-apple-system, Helvetica, Arial, sans-serif">
+  <style>
+    .title { font-size: 14px; font-weight: 600; }
+    .lab   { font-size: 12px; }
+    .small { font-size: 10.5px; fill: #555; }
+    .op    { fill: #f4ece5; stroke: #c44536; stroke-width: 1.3; }
+    .buf   { fill: #eef3fb; stroke: #3a86ff; stroke-width: 1.3; }
+    .fused { fill: #f7e7e3; stroke: #c44536; stroke-width: 1.6; }
+    .arr   { stroke: #444; stroke-width: 1.3; fill: none; marker-end: url(#tri); }
+  </style>
+  <defs>
+    <marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="26" class="title">Eager: one Metal kernel per op, each writing back to global memory</text>
+
+  <!-- eager row -->
+  <rect class="op"  x="30"  y="60" width="80" height="40" rx="6"/>
+  <text x="70" y="85" class="lab" text-anchor="middle">x*x</text>
+  <rect class="buf" x="120" y="60" width="64" height="40" rx="6"/>
+  <text x="152" y="85" class="lab" text-anchor="middle">tmp1</text>
+
+  <rect class="op"  x="194" y="60" width="80" height="40" rx="6"/>
+  <text x="234" y="85" class="lab" text-anchor="middle">tmp1*x</text>
+  <rect class="buf" x="284" y="60" width="64" height="40" rx="6"/>
+  <text x="316" y="85" class="lab" text-anchor="middle">tmp2</text>
+
+  <rect class="op"  x="358" y="60" width="80" height="40" rx="6"/>
+  <text x="398" y="85" class="lab" text-anchor="middle">α·tmp2</text>
+  <rect class="buf" x="448" y="60" width="64" height="40" rx="6"/>
+  <text x="480" y="85" class="lab" text-anchor="middle">tmp3</text>
+
+  <rect class="op"  x="522" y="60" width="80" height="40" rx="6"/>
+  <text x="562" y="85" class="lab" text-anchor="middle">tmp3+x</text>
+  <rect class="buf" x="612" y="60" width="64" height="40" rx="6"/>
+  <text x="644" y="85" class="lab" text-anchor="middle">tmp4</text>
+
+  <rect class="op"  x="686" y="60" width="80" height="40" rx="6"/>
+  <text x="726" y="85" class="lab" text-anchor="middle">tanh(·)</text>
+  <rect class="buf" x="776" y="60" width="74" height="40" rx="6"/>
+  <text x="813" y="85" class="lab" text-anchor="middle">y</text>
+
+  <path d="M110,80 L120,80" class="arr"/>
+  <path d="M184,80 L194,80" class="arr"/>
+  <path d="M274,80 L284,80" class="arr"/>
+  <path d="M348,80 L358,80" class="arr"/>
+  <path d="M438,80 L448,80" class="arr"/>
+  <path d="M512,80 L522,80" class="arr"/>
+  <path d="M602,80 L612,80" class="arr"/>
+  <path d="M676,80 L686,80" class="arr"/>
+  <path d="M766,80 L776,80" class="arr"/>
+
+  <text x="20" y="135" class="small">Each blue rectangle is a temporary tensor materialised in GPU memory.</text>
+  <text x="20" y="150" class="small">For a 4k×4k float32 tensor, every intermediate is 64 MB written and read.</text>
+
+  <line x1="20" y1="180" x2="860" y2="180" stroke="#ddd"/>
+
+  <text x="20" y="210" class="title">@mx.compile: fuse the whole composite into a single kernel</text>
+
+  <rect class="fused" x="30" y="240" width="640" height="60" rx="8"/>
+  <text x="350" y="278" class="lab" text-anchor="middle">
+    one Metal kernel: y = 0.5·x·(1 + tanh(c·(x + 0.044715·x³)))
+  </text>
+
+  <rect class="buf" x="690" y="245" width="74" height="50" rx="6"/>
+  <text x="727" y="275" class="lab" text-anchor="middle">y</text>
+  <path d="M670,270 L690,270" class="arr"/>
+
+  <text x="20" y="325" class="small">No intermediate writes. The kernel reads x once and writes y once.</text>
+  <text x="20" y="340" class="small">For element-wise composites this turns memory-bandwidth–bound work into compute-bound work.</text>
+</svg>

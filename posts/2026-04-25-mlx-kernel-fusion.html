@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-04-25">
+<meta name="description" content="An educational walkthrough of MLX’s three kernel-fusion paths — graph compile, the mx.fast.* fused primitives, and custom Metal kernels — with measured speedups for training and inference on an M2 Max.">
+
+<title>Kernel Fusion in MLX: What mx.compile and mx.fast.* Actually Do – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-a0680038e68ea2633f289488c29b2724.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<meta property="og:title" content="Kernel Fusion in MLX: What mx.compile and mx.fast.* Actually Do – Nipun Batra Blog">
+<meta property="og:description" content="An educational walkthrough of MLX’s three kernel-fusion paths — graph compile, the mx.fast.* fused primitives, and custom Metal kernels — with measured speedups for training and inference on an M2 Max.">
+<meta property="og:image" content="mlx_kernel_fusion/figs/fig_concept.svg">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta property="og:image:alt" content="Concept diagram">
+<meta name="twitter:title" content="Kernel Fusion in MLX: What mx.compile and mx.fast.* Actually Do – Nipun Batra Blog">
+<meta name="twitter:description" content="An educational walkthrough of MLX’s three kernel-fusion paths — graph compile, the mx.fast.* fused primitives, and custom Metal kernels — with measured speedups for training and inference on an M2 Max.">
+<meta name="twitter:image" content="mlx_kernel_fusion/figs/fig_concept.svg">
+<meta name="twitter:image:alt" content="Concept diagram">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <div class="quarto-title-block"><div><h1 class="title">Kernel Fusion in MLX: What <code>mx.compile</code> and <code>mx.fast.*</code> Actually Do</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+                  <div>
+        <div class="description">
+          An educational walkthrough of MLX’s three kernel-fusion paths — graph compile, the mx.fast.* fused primitives, and custom Metal kernels — with measured speedups for training and inference on an M2 Max.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">MLX</div>
+                <div class="quarto-category">Apple-Silicon</div>
+                <div class="quarto-category">performance</div>
+                <div class="quarto-category">kernel-fusion</div>
+                <div class="quarto-category">training</div>
+                <div class="quarto-category">inference</div>
+                <div class="quarto-category">GPU</div>
+                <div class="quarto-category">Metal</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">April 25, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#why-fusion-matters-bandwidth-not-flops" id="toc-why-fusion-matters-bandwidth-not-flops" class="nav-link active" data-scroll-target="#why-fusion-matters-bandwidth-not-flops">Why fusion matters: bandwidth, not flops</a></li>
+  <li><a href="#door-1-mx.compile-automatic-graph-fusion" id="toc-door-1-mx.compile-automatic-graph-fusion" class="nav-link" data-scroll-target="#door-1-mx.compile-automatic-graph-fusion">Door #1 — <code>mx.compile</code>: automatic graph fusion</a>
+  <ul class="collapse">
+  <li><a href="#what-compile-wont-fuse" id="toc-what-compile-wont-fuse" class="nav-link" data-scroll-target="#what-compile-wont-fuse">What compile won’t fuse</a></li>
+  <li><a href="#capturing-state-for-training" id="toc-capturing-state-for-training" class="nav-link" data-scroll-target="#capturing-state-for-training">Capturing state for training</a></li>
+  </ul></li>
+  <li><a href="#door-2-mx.fast.-the-four-fused-primitives-mlx-ships" id="toc-door-2-mx.fast.-the-four-fused-primitives-mlx-ships" class="nav-link" data-scroll-target="#door-2-mx.fast.-the-four-fused-primitives-mlx-ships">Door #2 — <code>mx.fast.*</code>: the four fused primitives MLX ships</a>
+  <ul class="collapse">
+  <li><a href="#layernorm-three-implementations" id="toc-layernorm-three-implementations" class="nav-link" data-scroll-target="#layernorm-three-implementations">LayerNorm — three implementations</a></li>
+  <li><a href="#attention-the-flash-style-fused-kernel" id="toc-attention-the-flash-style-fused-kernel" class="nav-link" data-scroll-target="#attention-the-flash-style-fused-kernel">Attention — the Flash-style fused kernel</a></li>
+  <li><a href="#rope-and-rms_norm" id="toc-rope-and-rms_norm" class="nav-link" data-scroll-target="#rope-and-rms_norm"><code>rope</code> and <code>rms_norm</code></a></li>
+  </ul></li>
+  <li><a href="#training-how-much-does-this-buy-in-a-real-step" id="toc-training-how-much-does-this-buy-in-a-real-step" class="nav-link" data-scroll-target="#training-how-much-does-this-buy-in-a-real-step">Training: how much does this buy in a real step?</a></li>
+  <li><a href="#inference-where-the-gains-are-smaller" id="toc-inference-where-the-gains-are-smaller" class="nav-link" data-scroll-target="#inference-where-the-gains-are-smaller">Inference: where the gains are smaller</a></li>
+  <li><a href="#door-3-mx.fast.metal_kernel-write-your-own" id="toc-door-3-mx.fast.metal_kernel-write-your-own" class="nav-link" data-scroll-target="#door-3-mx.fast.metal_kernel-write-your-own">Door #3 — <code>mx.fast.metal_kernel</code>: write your own</a></li>
+  <li><a href="#a-decision-tree-you-can-carry-around" id="toc-a-decision-tree-you-can-carry-around" class="nav-link" data-scroll-target="#a-decision-tree-you-can-carry-around">A decision tree you can carry around</a></li>
+  <li><a href="#what-id-reach-for-in-a-transformer-today" id="toc-what-id-reach-for-in-a-transformer-today" class="nav-link" data-scroll-target="#what-id-reach-for-in-a-transformer-today">What I’d reach for in a transformer today</a></li>
+  <li><a href="#caveats" id="toc-caveats" class="nav-link" data-scroll-target="#caveats">Caveats</a></li>
+  <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<p>A fused GPU kernel is one Metal program that does the work of several. Instead of <code>op1</code> writing a temporary tensor to global memory so that <code>op2</code> can read it back, the compiler stitches the two ops into a single kernel that keeps the value in registers. Less DRAM traffic, fewer kernel launches, less Python overhead.</p>
+<p>MLX exposes kernel fusion through three doors. This post opens each one, shows exactly what changes, and measures it on an M2 Max (MLX 0.31.1, macOS 15.5):</p>
+<ol type="1">
+<li><strong><code>mx.compile</code></strong> — automatic graph fusion of any Python function of <code>mx.array</code>s.</li>
+<li><strong><code>mx.fast.*</code></strong> — handwritten fused kernels for the operations that show up in every transformer: <code>layer_norm</code>, <code>rms_norm</code>, <code>rope</code>, <code>scaled_dot_product_attention</code>.</li>
+<li><strong><code>mx.fast.metal_kernel</code></strong> — write the Metal yourself, from a Python string.</li>
+</ol>
+<blockquote class="blockquote">
+<p>Code for every benchmark in this post: <a href="https://github.com/nipunbatra/blog/tree/master/posts/mlx_kernel_fusion/scripts"><code>posts/mlx_kernel_fusion/scripts/</code></a>.</p>
+</blockquote>
+<section id="why-fusion-matters-bandwidth-not-flops" class="level2">
+<h2 class="anchored" data-anchor-id="why-fusion-matters-bandwidth-not-flops">Why fusion matters: bandwidth, not flops</h2>
+<p>Most element-wise composites in deep learning are <strong>memory-bandwidth-bound</strong>, not compute-bound. The arithmetic intensity is tiny — you do a couple of FLOPs per element you read. The GPU sits idle waiting for DRAM.</p>
+<p>Take GELU’s tanh approximation:</p>
+<p><span class="math display">\[\mathrm{GELU}(x) = 0.5\,x\,\bigl(1 + \tanh\bigl(\sqrt{2/\pi}\,(x + 0.044715\,x^3)\bigr)\bigr)\]</span></p>
+<p>Written naively, every sub-expression (<code>x*x</code>, <code>x*x*x</code>, <code>0.044715*…</code>, <code>x+…</code>, <code>c*…</code>, <code>tanh(…)</code>, <code>1+…</code>, <code>0.5*x*…</code>) is its own kernel. Each one reads its operands from DRAM and writes its output back. For a 4k×4k float32 tensor, every intermediate is <strong>64 MB of writes you didn’t need</strong>.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="mlx_kernel_fusion/figs/fig_concept.svg" class="img-fluid figure-img" alt="Concept diagram"></p>
+<figcaption>Eager: each op is a separate Metal kernel that round-trips through DRAM. <code>mx.compile</code> collapses the whole composite into a single kernel that reads <code>x</code> once and writes <code>y</code> once.</figcaption>
+</figure>
+</div>
+<p>That picture is the mental model for everything below.</p>
+</section>
+<section id="door-1-mx.compile-automatic-graph-fusion" class="level2">
+<h2 class="anchored" data-anchor-id="door-1-mx.compile-automatic-graph-fusion">Door #1 — <code>mx.compile</code>: automatic graph fusion</h2>
+<p><code>mx.compile</code> takes a Python function of <code>mx.array</code>s and returns a function with the same signature whose first call records the trace and emits a fused kernel. Subsequent calls dispatch the kernel directly.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mlx.core <span class="im">as</span> mx</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gelu(x):</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    c <span class="op">=</span> math.sqrt(<span class="fl">2.0</span> <span class="op">/</span> math.pi)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">0.5</span> <span class="op">*</span> x <span class="op">*</span> (<span class="fl">1.0</span> <span class="op">+</span> mx.tanh(c <span class="op">*</span> (x <span class="op">+</span> <span class="fl">0.044715</span> <span class="op">*</span> x <span class="op">*</span> x <span class="op">*</span> x)))</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>gelu_compiled <span class="op">=</span> mx.<span class="bu">compile</span>(gelu)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Functionally identical. Operationally not even close:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="mlx_kernel_fusion/figs/fig_compile_gelu.png" class="img-fluid figure-img" alt="GELU compile speedup"></p>
+<figcaption>GELU on float32 tensors of various sizes. Eager (grey) launches eight kernels and materialises seven intermediates; compiled (red) launches one. The 4k×4k case in particular goes from 12 ms to 0.7 ms — a 17× speedup that is essentially the ratio of memory traffic.</figcaption>
+</figure>
+</div>
+<p>The pattern matters more than the exact numbers. Every speedup here comes from <strong>avoiding intermediate DRAM writes</strong>. The bigger the tensor, the more bandwidth you save. The 4k×4k anomaly (17× vs ~4× elsewhere) is real but fragile — it depends on caches and the specific shape; the <em>trend</em> of large speedups for memory-bound element-wise composites is the load-bearing claim, not any single number.</p>
+<section id="what-compile-wont-fuse" class="level3">
+<h3 class="anchored" data-anchor-id="what-compile-wont-fuse">What compile won’t fuse</h3>
+<p><code>mx.compile</code> fuses element-wise ops and reductions into a single kernel. It does <strong>not</strong> rewrite a matmul or change algorithmic complexity. So a function that’s already one big matmul gets nothing. A function that’s a chain of element-wise ops between two matmuls gets its element-wise tail collapsed into the first matmul’s epilogue or the next op’s prologue.</p>
+</section>
+<section id="capturing-state-for-training" class="level3">
+<h3 class="anchored" data-anchor-id="capturing-state-for-training">Capturing state for training</h3>
+<p>If your function reads or modifies shared state (model parameters, optimizer state, an RNG key), you must declare it via the <code>inputs=</code> and <code>outputs=</code> arguments — otherwise compile sees a stale snapshot.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>state <span class="op">=</span> [model.state, opt.state, mx.random.state]</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>step  <span class="op">=</span> mx.<span class="bu">compile</span>(step, inputs<span class="op">=</span>state, outputs<span class="op">=</span>state)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This is exactly the pattern I use in the training benchmark below.</p>
+</section>
+</section>
+<section id="door-2-mx.fast.-the-four-fused-primitives-mlx-ships" class="level2">
+<h2 class="anchored" data-anchor-id="door-2-mx.fast.-the-four-fused-primitives-mlx-ships">Door #2 — <code>mx.fast.*</code>: the four fused primitives MLX ships</h2>
+<p><code>import mlx.core.fast as F</code> exposes:</p>
+<pre class="text"><code>F.layer_norm  F.rms_norm  F.rope  F.scaled_dot_product_attention
+F.metal_kernel  F.cuda_kernel  F.precompiled_cuda_kernel</code></pre>
+<p>The first four are handwritten fused Metal kernels for the operations that dominate every transformer. They aren’t <em>general</em> — <code>layer_norm</code> knows it’s normalising the last axis, <code>scaled_dot_product_attention</code> knows the softmax is over keys — but inside that scope they beat what either eager or <code>mx.compile</code> can produce, because they exploit reductions, shared memory, and tiling that a generic compiler can’t infer.</p>
+<section id="layernorm-three-implementations" class="level3">
+<h3 class="anchored" data-anchor-id="layernorm-three-implementations">LayerNorm — three implementations</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> layernorm_composite(x, weight, bias, eps<span class="op">=</span><span class="fl">1e-5</span>):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    mean  <span class="op">=</span> x.mean(axis<span class="op">=-</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    var   <span class="op">=</span> x.var (axis<span class="op">=-</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    x_hat <span class="op">=</span> (x <span class="op">-</span> mean) <span class="op">*</span> mx.rsqrt(var <span class="op">+</span> eps)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x_hat <span class="op">*</span> weight <span class="op">+</span> bias</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>layernorm_compiled <span class="op">=</span> mx.<span class="bu">compile</span>(layernorm_composite)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> layernorm_fast(x, weight, bias, eps<span class="op">=</span><span class="fl">1e-5</span>):</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> mx.fast.layer_norm(x, weight, bias, eps)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Same maths, three speeds:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="mlx_kernel_fusion/figs/fig_layernorm.png" class="img-fluid figure-img" alt="LayerNorm benchmark"></p>
+<figcaption>LayerNorm on float32 tensors. The composite materialises <code>mean</code>, <code>var</code>, <code>x-mean</code>, <code>1/√(var+eps)</code>, and so on. <code>mx.compile</code> fuses several of those; <code>mx.fast.layer_norm</code> does the whole thing in one pass with a parallel reduction. The red number above each group is the ratio of composite time to <code>mx.fast</code> time.</figcaption>
+</figure>
+</div>
+<p><code>mx.fast.layer_norm</code> is consistently 2–7× the eager composite, and ~2–4× compile. The gap widens with tensor size — exactly because the composite’s wasted bandwidth scales with the tensor and the fused kernel’s doesn’t.</p>
+</section>
+<section id="attention-the-flash-style-fused-kernel" class="level3">
+<h3 class="anchored" data-anchor-id="attention-the-flash-style-fused-kernel">Attention — the Flash-style fused kernel</h3>
+<p>Attention is the textbook case. The composite implementation:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> attention_composite(q, k, v, scale):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># q, k, v: (B, H, T, D)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    scores  <span class="op">=</span> (q <span class="op">*</span> scale) <span class="op">@</span> k.swapaxes(<span class="op">-</span><span class="dv">1</span>, <span class="op">-</span><span class="dv">2</span>)   <span class="co"># (B, H, T, T) -- materialised</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    weights <span class="op">=</span> mx.softmax(scores, axis<span class="op">=-</span><span class="dv">1</span>)        <span class="co"># (B, H, T, T) -- materialised</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> weights <span class="op">@</span> v                           <span class="co"># (B, H, T, D)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>For <code>B=1, H=16, T=8192</code>, the <code>scores</code> tensor alone is <strong>4.3 GB</strong>. Even before you reach the softmax, you have written and read 4.3 GB of intermediate memory. That is what <code>mx.fast.scaled_dot_product_attention</code> (a Flash-style kernel) avoids: it tiles the computation so the <code>T×T</code> block is computed, used, and discarded inside on-chip memory — never written to DRAM.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="mlx_kernel_fusion/figs/fig_attention.png" class="img-fluid figure-img" alt="Attention benchmark"></p>
+<figcaption>Left: per-call latency for a single attention layer at varying sequence lengths (B=1, H=16, D=64, log–log axes). Composite and compiled are nearly identical because compile cannot fuse across a softmax reduction in the way a hand-tuned tiled kernel can. The fast SDPA kernel is consistently ~1.4–1.5× faster on compute. Right: the size of the attention matrix the composite materialises but the fast kernel does not. At T=8192 that is 4.3 GB <em>per layer per call</em> you stop allocating — usually the difference between fitting a long context and OOMing.</figcaption>
+</figure>
+</div>
+<p>The wall-clock speedup looks modest until you reach lengths where the composite simply will not fit. The <strong>memory</strong> difference is what makes long-context generation possible at all.</p>
+</section>
+<section id="rope-and-rms_norm" class="level3">
+<h3 class="anchored" data-anchor-id="rope-and-rms_norm"><code>rope</code> and <code>rms_norm</code></h3>
+<p><code>mx.fast.rope</code> fuses the rotary position embedding (a small element-wise op that’s nonetheless launched per layer per token in decoding loops); <code>mx.fast.rms_norm</code> does for RMSNorm what <code>layer_norm</code> does for LayerNorm. Same story as above.</p>
+</section>
+</section>
+<section id="training-how-much-does-this-buy-in-a-real-step" class="level2">
+<h2 class="anchored" data-anchor-id="training-how-much-does-this-buy-in-a-real-step">Training: how much does this buy in a real step?</h2>
+<p>The above are micro-benchmarks. A real training step is dominated by matmuls, which are already a single tuned kernel — there is nothing to fuse. The fusion wins live in the <em>non-matmul</em> part: norms, activations, residual adds, the attention surface.</p>
+<p>I built a single transformer block (LayerNorm → QKV → SDPA → output proj → LayerNorm → MLP), wired it to <code>AdamW</code>, and benchmarked the per-step time eager vs compiled, with the optimizer state captured properly so the compiled step persists weight updates. Source: <a href="https://github.com/nipunbatra/blog/tree/master/posts/mlx_kernel_fusion/scripts/bench_train.py"><code>bench_train.py</code></a>.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="mlx_kernel_fusion/figs/fig_train.png" class="img-fluid figure-img" alt="Train step benchmark"></p>
+<figcaption>Training step time, batch=2, varying (T/D/H/FF). The model already uses <code>mx.fast.scaled_dot_product_attention</code> for both eager and compiled — the compile gain comes from fusing the norms, GELU, residual adds, and the optimizer’s element-wise updates into the surrounding compute. ~1.2× across the configs I tried.</figcaption>
+</figure>
+</div>
+<p>A 1.2× per-step speedup might not sound dramatic, but it is <em>free</em>: same code, one decorator. Over a 24-hour training run, that is 5 hours of wall-clock back. And it stacks on top of the SDPA fusion, which is doing the heavier lifting silently inside the model.</p>
+<p>The non-pattern is also informative: don’t expect compile to magically speed up a matmul-bound network. Profile first; fuse what’s actually on the critical path.</p>
+</section>
+<section id="inference-where-the-gains-are-smaller" class="level2">
+<h2 class="anchored" data-anchor-id="inference-where-the-gains-are-smaller">Inference: where the gains are smaller</h2>
+<p>I expected <code>mx.compile</code> to be a bigger inference win. It mostly isn’t — at least not in the simple “one token at a time, sync after each step” loop. Once <code>mx.fast.scaled_dot_product_attention</code> and matmul are doing the heavy lifting, the rest of a single decode step is small enough that Python and dispatch overhead dominate, and compile’s amortisation has little to chew on:</p>
+<pre class="text"><code>(layers,B,T,D,H,FF)    eager (ms/tok)   compiled (ms/tok)   speedup
+(4, 1, 1, 512, 8, 2048)         0.66                0.64      1.04×
+(8, 1, 1, 512, 8, 2048)         1.03                0.94      1.10×
+(8, 1, 1, 768, 12, 3072)        1.37                1.31      1.04×
+(12, 1, 1, 768, 12, 3072)       1.92                1.83      1.05×</code></pre>
+<p>The honest framing: <strong>inference benefits from MLX’s kernel fusion mostly via <code>mx.fast.scaled_dot_product_attention</code></strong> — that one primitive is what makes the long-context KV-cache scenarios feasible at all (see the 4 GB attention-matrix figure above). The marginal <code>mx.compile</code> gain on top is a few percent.</p>
+<p>If you want big inference wins, look at the layer above kernel fusion: KV-cache reuse, batched prefill, and <code>mlx-lm</code>’s prompt processing — none of which this post touches.</p>
+</section>
+<section id="door-3-mx.fast.metal_kernel-write-your-own" class="level2">
+<h2 class="anchored" data-anchor-id="door-3-mx.fast.metal_kernel-write-your-own">Door #3 — <code>mx.fast.metal_kernel</code>: write your own</h2>
+<p>For everything <code>mx.fast.*</code> doesn’t ship, MLX gives you the escape hatch: define a Metal kernel from a Python source string. Here is element-wise SiLU as a (deliberately tiny) custom kernel:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>silu_kernel <span class="op">=</span> mx.fast.metal_kernel(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"silu_kernel"</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    input_names<span class="op">=</span>[<span class="st">"x"</span>],</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    output_names<span class="op">=</span>[<span class="st">"y"</span>],</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    source<span class="op">=</span><span class="st">"""</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="st">        uint tid = thread_position_in_grid.x;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="st">        if (tid &gt;= x_shape[0]) return;</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="st">        float xv = x[tid];</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="st">        y[tid] = xv / (1.0f + metal::exp(-xv));</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="st">    """</span>,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> silu_metal(x):</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    flat <span class="op">=</span> x.reshape(<span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    (out,) <span class="op">=</span> silu_kernel(</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        inputs<span class="op">=</span>[flat],</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        grid<span class="op">=</span>(flat.size, <span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        threadgroup<span class="op">=</span>(<span class="dv">256</span>, <span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        output_shapes<span class="op">=</span>[flat.shape],</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        output_dtypes<span class="op">=</span>[flat.dtype],</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out.reshape(x.shape)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Numerical sanity check (<code>max |python − metal|</code> for a random tensor): <code>2.4e-7</code> — within float32 noise.</p>
+<p>Performance, on three tensor sizes:</p>
+<pre class="text"><code>shape           python (ms)    compiled (ms)    metal (ms)
+1M elements        0.292            0.175          0.200
+16M elements       1.098            0.529          0.725
+64M elements       4.137            1.679          2.337</code></pre>
+<p><code>mx.compile</code> actually wins here over the hand-rolled kernel. That is the <strong>important lesson</strong>: writing Metal yourself is rarely the right answer for element-wise ops. The compiler does this well already. The escape hatch is for things <code>mx.compile</code> cannot express — multi-stage reductions with shared memory, atomics, custom tiling for a one-off operator the rest of the world doesn’t have.</p>
+<p>If you find yourself writing <code>metal_kernel</code> for a stock element-wise composite, try <code>mx.compile</code> first.</p>
+</section>
+<section id="a-decision-tree-you-can-carry-around" class="level2">
+<h2 class="anchored" data-anchor-id="a-decision-tree-you-can-carry-around">A decision tree you can carry around</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 64%">
+<col style="width: 35%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>If your hot path is…</th>
+<th>Reach for…</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Element-wise composite (activations, norm-without-stats, residual chains)</td>
+<td><code>@mx.compile</code></td>
+</tr>
+<tr class="even">
+<td>LayerNorm, RMSNorm, RoPE, attention</td>
+<td><code>mx.fast.*</code> (and let <code>compile</code> fuse around them)</td>
+</tr>
+<tr class="odd">
+<td>A reduction or scan that doesn’t fit any <code>mx.fast.*</code> primitive</td>
+<td><code>mx.fast.metal_kernel</code></td>
+</tr>
+<tr class="even">
+<td>A single big matmul</td>
+<td>Nothing — it’s already one kernel. Profile first.</td>
+</tr>
+<tr class="odd">
+<td>A whole training step</td>
+<td><code>mx.compile(step, inputs=state, outputs=state)</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="what-id-reach-for-in-a-transformer-today" class="level2">
+<h2 class="anchored" data-anchor-id="what-id-reach-for-in-a-transformer-today">What I’d reach for in a transformer today</h2>
+<p>A dense transformer block in MLX, written for performance, is roughly:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mlx.core <span class="im">as</span> mx</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mlx.nn <span class="im">as</span> nn</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Block(nn.Module):</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, d, n_heads, ff):</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>()</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ln1 <span class="op">=</span> nn.LayerNorm(d)         <span class="co"># uses mx.fast.layer_norm under the hood</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.q   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.k   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.v   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.o   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ln2 <span class="op">=</span> nn.LayerNorm(d)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ff1 <span class="op">=</span> nn.Linear(d, ff)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ff2 <span class="op">=</span> nn.Linear(ff, d)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head <span class="op">=</span> n_heads, d <span class="op">//</span> n_heads</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.scale <span class="op">=</span> <span class="fl">1.0</span> <span class="op">/</span> math.sqrt(<span class="va">self</span>.d_head)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>        B, T, D <span class="op">=</span> x.shape</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>        h <span class="op">=</span> <span class="va">self</span>.ln1(x)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>        q <span class="op">=</span> <span class="va">self</span>.q(h).reshape(B, T, <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head).swapaxes(<span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        k <span class="op">=</span> <span class="va">self</span>.k(h).reshape(B, T, <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head).swapaxes(<span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        v <span class="op">=</span> <span class="va">self</span>.v(h).reshape(B, T, <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head).swapaxes(<span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>        a <span class="op">=</span> mx.fast.scaled_dot_product_attention(q, k, v, scale<span class="op">=</span><span class="va">self</span>.scale)</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>        a <span class="op">=</span> a.swapaxes(<span class="dv">1</span>, <span class="dv">2</span>).reshape(B, T, D)</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x <span class="op">+</span> <span class="va">self</span>.o(a)</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x <span class="op">+</span> <span class="va">self</span>.ff2(nn.gelu(<span class="va">self</span>.ff1(<span class="va">self</span>.ln2(x))))</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>nn.LayerNorm</code> calls <code>mx.fast.layer_norm</code>. <code>mx.fast.scaled_dot_product_attention</code> is the attention. Wrap the training step in <code>mx.compile(step, inputs=state, outputs=state)</code> to fuse the rest. That is the whole story — three primitives doing the heavy lifting, one decorator stitching the leftovers.</p>
+</section>
+<section id="caveats" class="level2">
+<h2 class="anchored" data-anchor-id="caveats">Caveats</h2>
+<ul>
+<li>Numbers above are M2 Max, MLX 0.31.1. The <em>shape</em> of the wins generalises; the magnitudes will move on different hardware (M3/M4 Pro/Max) and as MLX’s fast paths evolve.</li>
+<li>Compile-related pitfalls: avoid Python control flow that depends on the <em>values</em> of inputs (only on shapes/dtypes); declare <code>inputs=</code>/<code>outputs=</code> for any captured state; recompile on shape change unless you pass <code>shapeless=True</code>.</li>
+<li>These are micro-benchmarks. Real training/inference also pays for data loading, host-device sync, prefill vs decode asymmetries, KV cache management, and so on. Kernel fusion is one layer in a stack.</li>
+</ul>
+</section>
+<section id="links" class="level2">
+<h2 class="anchored" data-anchor-id="links">Links</h2>
+<ul>
+<li>MLX: <a href="https://github.com/ml-explore/mlx">github.com/ml-explore/mlx</a> · <a href="https://ml-explore.github.io/mlx/build/html/index.html">docs.mlx.dev</a></li>
+<li><code>mx.compile</code> reference: <a href="https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.compile.html"><code>mx.compile</code></a></li>
+<li><code>mx.fast</code> namespace: <a href="https://ml-explore.github.io/mlx/build/html/python/fast.html"><code>mx.fast</code></a></li>
+<li>Custom Metal kernels: <a href="https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.fast.metal_kernel.html"><code>mx.fast.metal_kernel</code></a></li>
+</ul>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Kernel Fusion in MLX: What `mx.compile` and `mx.fast.*` Actually Do"</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-04-25"</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [MLX, Apple-Silicon, performance, kernel-fusion, training, inference, GPU, Metal]</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "An educational walkthrough of MLX's three kernel-fusion paths — graph compile, the mx.fast.* fused primitives, and custom Metal kernels — with measured speedups for training and inference on an M2 Max."</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co">  - mlx_kernel_fusion/scripts/*.py</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - mlx_kernel_fusion/figs/*.png</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - mlx_kernel_fusion/figs/*.svg</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>A fused GPU kernel is one Metal program that does the work of several. Instead of <span class="in">`op1`</span> writing a temporary tensor to global memory so that <span class="in">`op2`</span> can read it back, the compiler stitches the two ops into a single kernel that keeps the value in registers. Less DRAM traffic, fewer kernel launches, less Python overhead.</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>MLX exposes kernel fusion through three doors. This post opens each one, shows exactly what changes, and measures it on an M2 Max (MLX 0.31.1, macOS 15.5):</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**`mx.compile`** — automatic graph fusion of any Python function of <span class="in">`mx.array`</span>s.</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**`mx.fast.*`** — handwritten fused kernels for the operations that show up in every transformer: <span class="in">`layer_norm`</span>, <span class="in">`rms_norm`</span>, <span class="in">`rope`</span>, <span class="in">`scaled_dot_product_attention`</span>.</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**`mx.fast.metal_kernel`** — write the Metal yourself, from a Python string.</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Code for every benchmark in this post: </span><span class="co">[</span><span class="ot">`posts/mlx_kernel_fusion/scripts/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/mlx_kernel_fusion/scripts)</span><span class="at">.</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why fusion matters: bandwidth, not flops</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>Most element-wise composites in deep learning are **memory-bandwidth-bound**, not compute-bound. The arithmetic intensity is tiny — you do a couple of FLOPs per element you read. The GPU sits idle waiting for DRAM.</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>Take GELU's tanh approximation:</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>$$\mathrm{GELU}(x) = 0.5\,x\,\bigl(1 + \tanh\bigl(\sqrt{2/\pi}\,(x + 0.044715\,x^3)\bigr)\bigr)$$</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>Written naively, every sub-expression (<span class="in">`x*x`</span>, <span class="in">`x*x*x`</span>, <span class="in">`0.044715*…`</span>, <span class="in">`x+…`</span>, <span class="in">`c*…`</span>, <span class="in">`tanh(…)`</span>, <span class="in">`1+…`</span>, <span class="in">`0.5*x*…`</span>) is its own kernel. Each one reads its operands from DRAM and writes its output back. For a 4k×4k float32 tensor, every intermediate is **64 MB of writes you didn't need**.</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a><span class="al">![Eager: each op is a separate Metal kernel that round-trips through DRAM. `mx.compile` collapses the whole composite into a single kernel that reads `x` once and writes `y` once.](mlx_kernel_fusion/figs/fig_concept.svg)</span>{fig-alt="Concept diagram"}</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>That picture is the mental model for everything below.</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a><span class="fu">## Door #1 — `mx.compile`: automatic graph fusion</span></span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a><span class="in">`mx.compile`</span> takes a Python function of <span class="in">`mx.array`</span>s and returns a function with the same signature whose first call records the trace and emits a fused kernel. Subsequent calls dispatch the kernel directly.</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a><span class="in">```{.python}</span></span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mlx.core <span class="im">as</span> mx</span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gelu(x):</span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>    c <span class="op">=</span> math.sqrt(<span class="fl">2.0</span> <span class="op">/</span> math.pi)</span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fl">0.5</span> <span class="op">*</span> x <span class="op">*</span> (<span class="fl">1.0</span> <span class="op">+</span> mx.tanh(c <span class="op">*</span> (x <span class="op">+</span> <span class="fl">0.044715</span> <span class="op">*</span> x <span class="op">*</span> x <span class="op">*</span> x)))</span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>gelu_compiled <span class="op">=</span> mx.<span class="bu">compile</span>(gelu)</span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a>Functionally identical. Operationally not even close:</span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a><span class="al">![GELU on float32 tensors of various sizes. Eager (grey) launches eight kernels and materialises seven intermediates; compiled (red) launches one. The 4k×4k case in particular goes from 12 ms to 0.7 ms — a 17× speedup that is essentially the ratio of memory traffic.](mlx_kernel_fusion/figs/fig_compile_gelu.png)</span>{fig-alt="GELU compile speedup"}</span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a>The pattern matters more than the exact numbers. Every speedup here comes from **avoiding intermediate DRAM writes**. The bigger the tensor, the more bandwidth you save. The 4k×4k anomaly (17× vs ~4× elsewhere) is real but fragile — it depends on caches and the specific shape; the *trend* of large speedups for memory-bound element-wise composites is the load-bearing claim, not any single number.</span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a><span class="fu">### What compile won't fuse</span></span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a><span class="in">`mx.compile`</span> fuses element-wise ops and reductions into a single kernel. It does **not** rewrite a matmul or change algorithmic complexity. So a function that's already one big matmul gets nothing. A function that's a chain of element-wise ops between two matmuls gets its element-wise tail collapsed into the first matmul's epilogue or the next op's prologue.</span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a><span class="fu">### Capturing state for training</span></span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-69"><a href="#cb10-69" aria-hidden="true" tabindex="-1"></a>If your function reads or modifies shared state (model parameters, optimizer state, an RNG key), you must declare it via the <span class="in">`inputs=`</span> and <span class="in">`outputs=`</span> arguments — otherwise compile sees a stale snapshot.</span>
+<span id="cb10-70"><a href="#cb10-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-71"><a href="#cb10-71" aria-hidden="true" tabindex="-1"></a><span class="in">```{.python}</span></span>
+<span id="cb10-72"><a href="#cb10-72" aria-hidden="true" tabindex="-1"></a>state <span class="op">=</span> [model.state, opt.state, mx.random.state]</span>
+<span id="cb10-73"><a href="#cb10-73" aria-hidden="true" tabindex="-1"></a>step  <span class="op">=</span> mx.<span class="bu">compile</span>(step, inputs<span class="op">=</span>state, outputs<span class="op">=</span>state)</span>
+<span id="cb10-74"><a href="#cb10-74" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-75"><a href="#cb10-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-76"><a href="#cb10-76" aria-hidden="true" tabindex="-1"></a>This is exactly the pattern I use in the training benchmark below.</span>
+<span id="cb10-77"><a href="#cb10-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-78"><a href="#cb10-78" aria-hidden="true" tabindex="-1"></a><span class="fu">## Door #2 — `mx.fast.*`: the four fused primitives MLX ships</span></span>
+<span id="cb10-79"><a href="#cb10-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-80"><a href="#cb10-80" aria-hidden="true" tabindex="-1"></a><span class="in">`import mlx.core.fast as F`</span> exposes:</span>
+<span id="cb10-81"><a href="#cb10-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-82"><a href="#cb10-82" aria-hidden="true" tabindex="-1"></a><span class="in">```text</span></span>
+<span id="cb10-83"><a href="#cb10-83" aria-hidden="true" tabindex="-1"></a><span class="in">F.layer_norm  F.rms_norm  F.rope  F.scaled_dot_product_attention</span></span>
+<span id="cb10-84"><a href="#cb10-84" aria-hidden="true" tabindex="-1"></a><span class="in">F.metal_kernel  F.cuda_kernel  F.precompiled_cuda_kernel</span></span>
+<span id="cb10-85"><a href="#cb10-85" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-86"><a href="#cb10-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-87"><a href="#cb10-87" aria-hidden="true" tabindex="-1"></a>The first four are handwritten fused Metal kernels for the operations that dominate every transformer. They aren't *general* — <span class="in">`layer_norm`</span> knows it's normalising the last axis, <span class="in">`scaled_dot_product_attention`</span> knows the softmax is over keys — but inside that scope they beat what either eager or <span class="in">`mx.compile`</span> can produce, because they exploit reductions, shared memory, and tiling that a generic compiler can't infer.</span>
+<span id="cb10-88"><a href="#cb10-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-89"><a href="#cb10-89" aria-hidden="true" tabindex="-1"></a><span class="fu">### LayerNorm — three implementations</span></span>
+<span id="cb10-90"><a href="#cb10-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-91"><a href="#cb10-91" aria-hidden="true" tabindex="-1"></a><span class="in">```{.python}</span></span>
+<span id="cb10-92"><a href="#cb10-92" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> layernorm_composite(x, weight, bias, eps<span class="op">=</span><span class="fl">1e-5</span>):</span>
+<span id="cb10-93"><a href="#cb10-93" aria-hidden="true" tabindex="-1"></a>    mean  <span class="op">=</span> x.mean(axis<span class="op">=-</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-94"><a href="#cb10-94" aria-hidden="true" tabindex="-1"></a>    var   <span class="op">=</span> x.var (axis<span class="op">=-</span><span class="dv">1</span>, keepdims<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-95"><a href="#cb10-95" aria-hidden="true" tabindex="-1"></a>    x_hat <span class="op">=</span> (x <span class="op">-</span> mean) <span class="op">*</span> mx.rsqrt(var <span class="op">+</span> eps)</span>
+<span id="cb10-96"><a href="#cb10-96" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x_hat <span class="op">*</span> weight <span class="op">+</span> bias</span>
+<span id="cb10-97"><a href="#cb10-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-98"><a href="#cb10-98" aria-hidden="true" tabindex="-1"></a>layernorm_compiled <span class="op">=</span> mx.<span class="bu">compile</span>(layernorm_composite)</span>
+<span id="cb10-99"><a href="#cb10-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-100"><a href="#cb10-100" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> layernorm_fast(x, weight, bias, eps<span class="op">=</span><span class="fl">1e-5</span>):</span>
+<span id="cb10-101"><a href="#cb10-101" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> mx.fast.layer_norm(x, weight, bias, eps)</span>
+<span id="cb10-102"><a href="#cb10-102" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-103"><a href="#cb10-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-104"><a href="#cb10-104" aria-hidden="true" tabindex="-1"></a>Same maths, three speeds:</span>
+<span id="cb10-105"><a href="#cb10-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-106"><a href="#cb10-106" aria-hidden="true" tabindex="-1"></a><span class="al">![LayerNorm on float32 tensors. The composite materialises `mean`, `var`, `x-mean`, `1/√(var+eps)`, and so on. `mx.compile` fuses several of those; `mx.fast.layer_norm` does the whole thing in one pass with a parallel reduction. The red number above each group is the ratio of composite time to `mx.fast` time.](mlx_kernel_fusion/figs/fig_layernorm.png)</span>{fig-alt="LayerNorm benchmark"}</span>
+<span id="cb10-107"><a href="#cb10-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-108"><a href="#cb10-108" aria-hidden="true" tabindex="-1"></a><span class="in">`mx.fast.layer_norm`</span> is consistently 2–7× the eager composite, and ~2–4× compile. The gap widens with tensor size — exactly because the composite's wasted bandwidth scales with the tensor and the fused kernel's doesn't.</span>
+<span id="cb10-109"><a href="#cb10-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-110"><a href="#cb10-110" aria-hidden="true" tabindex="-1"></a><span class="fu">### Attention — the Flash-style fused kernel</span></span>
+<span id="cb10-111"><a href="#cb10-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-112"><a href="#cb10-112" aria-hidden="true" tabindex="-1"></a>Attention is the textbook case. The composite implementation:</span>
+<span id="cb10-113"><a href="#cb10-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-114"><a href="#cb10-114" aria-hidden="true" tabindex="-1"></a><span class="in">```{.python}</span></span>
+<span id="cb10-115"><a href="#cb10-115" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> attention_composite(q, k, v, scale):</span>
+<span id="cb10-116"><a href="#cb10-116" aria-hidden="true" tabindex="-1"></a>    <span class="co"># q, k, v: (B, H, T, D)</span></span>
+<span id="cb10-117"><a href="#cb10-117" aria-hidden="true" tabindex="-1"></a>    scores  <span class="op">=</span> (q <span class="op">*</span> scale) <span class="op">@</span> k.swapaxes(<span class="op">-</span><span class="dv">1</span>, <span class="op">-</span><span class="dv">2</span>)   <span class="co"># (B, H, T, T) -- materialised</span></span>
+<span id="cb10-118"><a href="#cb10-118" aria-hidden="true" tabindex="-1"></a>    weights <span class="op">=</span> mx.softmax(scores, axis<span class="op">=-</span><span class="dv">1</span>)        <span class="co"># (B, H, T, T) -- materialised</span></span>
+<span id="cb10-119"><a href="#cb10-119" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> weights <span class="op">@</span> v                           <span class="co"># (B, H, T, D)</span></span>
+<span id="cb10-120"><a href="#cb10-120" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-121"><a href="#cb10-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-122"><a href="#cb10-122" aria-hidden="true" tabindex="-1"></a>For <span class="in">`B=1, H=16, T=8192`</span>, the <span class="in">`scores`</span> tensor alone is **4.3 GB**. Even before you reach the softmax, you have written and read 4.3 GB of intermediate memory. That is what <span class="in">`mx.fast.scaled_dot_product_attention`</span> (a Flash-style kernel) avoids: it tiles the computation so the <span class="in">`T×T`</span> block is computed, used, and discarded inside on-chip memory — never written to DRAM.</span>
+<span id="cb10-123"><a href="#cb10-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-124"><a href="#cb10-124" aria-hidden="true" tabindex="-1"></a><span class="al">![Left: per-call latency for a single attention layer at varying sequence lengths (B=1, H=16, D=64, log–log axes). Composite and compiled are nearly identical because compile cannot fuse across a softmax reduction in the way a hand-tuned tiled kernel can. The fast SDPA kernel is consistently ~1.4–1.5× faster on compute. Right: the size of the attention matrix the composite materialises but the fast kernel does not. At T=8192 that is 4.3 GB *per layer per call* you stop allocating — usually the difference between fitting a long context and OOMing.](mlx_kernel_fusion/figs/fig_attention.png)</span>{fig-alt="Attention benchmark"}</span>
+<span id="cb10-125"><a href="#cb10-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-126"><a href="#cb10-126" aria-hidden="true" tabindex="-1"></a>The wall-clock speedup looks modest until you reach lengths where the composite simply will not fit. The **memory** difference is what makes long-context generation possible at all.</span>
+<span id="cb10-127"><a href="#cb10-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-128"><a href="#cb10-128" aria-hidden="true" tabindex="-1"></a><span class="fu">### `rope` and `rms_norm`</span></span>
+<span id="cb10-129"><a href="#cb10-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-130"><a href="#cb10-130" aria-hidden="true" tabindex="-1"></a><span class="in">`mx.fast.rope`</span> fuses the rotary position embedding (a small element-wise op that's nonetheless launched per layer per token in decoding loops); <span class="in">`mx.fast.rms_norm`</span> does for RMSNorm what <span class="in">`layer_norm`</span> does for LayerNorm. Same story as above.</span>
+<span id="cb10-131"><a href="#cb10-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-132"><a href="#cb10-132" aria-hidden="true" tabindex="-1"></a><span class="fu">## Training: how much does this buy in a real step?</span></span>
+<span id="cb10-133"><a href="#cb10-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-134"><a href="#cb10-134" aria-hidden="true" tabindex="-1"></a>The above are micro-benchmarks. A real training step is dominated by matmuls, which are already a single tuned kernel — there is nothing to fuse. The fusion wins live in the *non-matmul* part: norms, activations, residual adds, the attention surface.</span>
+<span id="cb10-135"><a href="#cb10-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-136"><a href="#cb10-136" aria-hidden="true" tabindex="-1"></a>I built a single transformer block (LayerNorm → QKV → SDPA → output proj → LayerNorm → MLP), wired it to <span class="in">`AdamW`</span>, and benchmarked the per-step time eager vs compiled, with the optimizer state captured properly so the compiled step persists weight updates. Source: <span class="co">[</span><span class="ot">`bench_train.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/mlx_kernel_fusion/scripts/bench_train.py)</span>.</span>
+<span id="cb10-137"><a href="#cb10-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-138"><a href="#cb10-138" aria-hidden="true" tabindex="-1"></a><span class="al">![Training step time, batch=2, varying (T/D/H/FF). The model already uses `mx.fast.scaled_dot_product_attention` for both eager and compiled — the compile gain comes from fusing the norms, GELU, residual adds, and the optimizer's element-wise updates into the surrounding compute. ~1.2× across the configs I tried.](mlx_kernel_fusion/figs/fig_train.png)</span>{fig-alt="Train step benchmark"}</span>
+<span id="cb10-139"><a href="#cb10-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-140"><a href="#cb10-140" aria-hidden="true" tabindex="-1"></a>A 1.2× per-step speedup might not sound dramatic, but it is *free*: same code, one decorator. Over a 24-hour training run, that is 5 hours of wall-clock back. And it stacks on top of the SDPA fusion, which is doing the heavier lifting silently inside the model.</span>
+<span id="cb10-141"><a href="#cb10-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-142"><a href="#cb10-142" aria-hidden="true" tabindex="-1"></a>The non-pattern is also informative: don't expect compile to magically speed up a matmul-bound network. Profile first; fuse what's actually on the critical path.</span>
+<span id="cb10-143"><a href="#cb10-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-144"><a href="#cb10-144" aria-hidden="true" tabindex="-1"></a><span class="fu">## Inference: where the gains are smaller</span></span>
+<span id="cb10-145"><a href="#cb10-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-146"><a href="#cb10-146" aria-hidden="true" tabindex="-1"></a>I expected <span class="in">`mx.compile`</span> to be a bigger inference win. It mostly isn't — at least not in the simple "one token at a time, sync after each step" loop. Once <span class="in">`mx.fast.scaled_dot_product_attention`</span> and matmul are doing the heavy lifting, the rest of a single decode step is small enough that Python and dispatch overhead dominate, and compile's amortisation has little to chew on:</span>
+<span id="cb10-147"><a href="#cb10-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-148"><a href="#cb10-148" aria-hidden="true" tabindex="-1"></a><span class="in">```text</span></span>
+<span id="cb10-149"><a href="#cb10-149" aria-hidden="true" tabindex="-1"></a><span class="in">(layers,B,T,D,H,FF)    eager (ms/tok)   compiled (ms/tok)   speedup</span></span>
+<span id="cb10-150"><a href="#cb10-150" aria-hidden="true" tabindex="-1"></a><span class="in">(4, 1, 1, 512, 8, 2048)         0.66                0.64      1.04×</span></span>
+<span id="cb10-151"><a href="#cb10-151" aria-hidden="true" tabindex="-1"></a><span class="in">(8, 1, 1, 512, 8, 2048)         1.03                0.94      1.10×</span></span>
+<span id="cb10-152"><a href="#cb10-152" aria-hidden="true" tabindex="-1"></a><span class="in">(8, 1, 1, 768, 12, 3072)        1.37                1.31      1.04×</span></span>
+<span id="cb10-153"><a href="#cb10-153" aria-hidden="true" tabindex="-1"></a><span class="in">(12, 1, 1, 768, 12, 3072)       1.92                1.83      1.05×</span></span>
+<span id="cb10-154"><a href="#cb10-154" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-155"><a href="#cb10-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-156"><a href="#cb10-156" aria-hidden="true" tabindex="-1"></a>The honest framing: **inference benefits from MLX's kernel fusion mostly via `mx.fast.scaled_dot_product_attention`** — that one primitive is what makes the long-context KV-cache scenarios feasible at all (see the 4 GB attention-matrix figure above). The marginal <span class="in">`mx.compile`</span> gain on top is a few percent.</span>
+<span id="cb10-157"><a href="#cb10-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-158"><a href="#cb10-158" aria-hidden="true" tabindex="-1"></a>If you want big inference wins, look at the layer above kernel fusion: KV-cache reuse, batched prefill, and <span class="in">`mlx-lm`</span>'s prompt processing — none of which this post touches.</span>
+<span id="cb10-159"><a href="#cb10-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-160"><a href="#cb10-160" aria-hidden="true" tabindex="-1"></a><span class="fu">## Door #3 — `mx.fast.metal_kernel`: write your own</span></span>
+<span id="cb10-161"><a href="#cb10-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-162"><a href="#cb10-162" aria-hidden="true" tabindex="-1"></a>For everything <span class="in">`mx.fast.*`</span> doesn't ship, MLX gives you the escape hatch: define a Metal kernel from a Python source string. Here is element-wise SiLU as a (deliberately tiny) custom kernel:</span>
+<span id="cb10-163"><a href="#cb10-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-164"><a href="#cb10-164" aria-hidden="true" tabindex="-1"></a><span class="in">```{.python}</span></span>
+<span id="cb10-165"><a href="#cb10-165" aria-hidden="true" tabindex="-1"></a>silu_kernel <span class="op">=</span> mx.fast.metal_kernel(</span>
+<span id="cb10-166"><a href="#cb10-166" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"silu_kernel"</span>,</span>
+<span id="cb10-167"><a href="#cb10-167" aria-hidden="true" tabindex="-1"></a>    input_names<span class="op">=</span>[<span class="st">"x"</span>],</span>
+<span id="cb10-168"><a href="#cb10-168" aria-hidden="true" tabindex="-1"></a>    output_names<span class="op">=</span>[<span class="st">"y"</span>],</span>
+<span id="cb10-169"><a href="#cb10-169" aria-hidden="true" tabindex="-1"></a>    source<span class="op">=</span><span class="st">"""</span></span>
+<span id="cb10-170"><a href="#cb10-170" aria-hidden="true" tabindex="-1"></a><span class="st">        uint tid = thread_position_in_grid.x;</span></span>
+<span id="cb10-171"><a href="#cb10-171" aria-hidden="true" tabindex="-1"></a><span class="st">        if (tid &gt;= x_shape[0]) return;</span></span>
+<span id="cb10-172"><a href="#cb10-172" aria-hidden="true" tabindex="-1"></a><span class="st">        float xv = x[tid];</span></span>
+<span id="cb10-173"><a href="#cb10-173" aria-hidden="true" tabindex="-1"></a><span class="st">        y[tid] = xv / (1.0f + metal::exp(-xv));</span></span>
+<span id="cb10-174"><a href="#cb10-174" aria-hidden="true" tabindex="-1"></a><span class="st">    """</span>,</span>
+<span id="cb10-175"><a href="#cb10-175" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-176"><a href="#cb10-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-177"><a href="#cb10-177" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> silu_metal(x):</span>
+<span id="cb10-178"><a href="#cb10-178" aria-hidden="true" tabindex="-1"></a>    flat <span class="op">=</span> x.reshape(<span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb10-179"><a href="#cb10-179" aria-hidden="true" tabindex="-1"></a>    (out,) <span class="op">=</span> silu_kernel(</span>
+<span id="cb10-180"><a href="#cb10-180" aria-hidden="true" tabindex="-1"></a>        inputs<span class="op">=</span>[flat],</span>
+<span id="cb10-181"><a href="#cb10-181" aria-hidden="true" tabindex="-1"></a>        grid<span class="op">=</span>(flat.size, <span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb10-182"><a href="#cb10-182" aria-hidden="true" tabindex="-1"></a>        threadgroup<span class="op">=</span>(<span class="dv">256</span>, <span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb10-183"><a href="#cb10-183" aria-hidden="true" tabindex="-1"></a>        output_shapes<span class="op">=</span>[flat.shape],</span>
+<span id="cb10-184"><a href="#cb10-184" aria-hidden="true" tabindex="-1"></a>        output_dtypes<span class="op">=</span>[flat.dtype],</span>
+<span id="cb10-185"><a href="#cb10-185" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb10-186"><a href="#cb10-186" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out.reshape(x.shape)</span>
+<span id="cb10-187"><a href="#cb10-187" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-188"><a href="#cb10-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-189"><a href="#cb10-189" aria-hidden="true" tabindex="-1"></a>Numerical sanity check (<span class="in">`max |python − metal|`</span> for a random tensor): <span class="in">`2.4e-7`</span> — within float32 noise.</span>
+<span id="cb10-190"><a href="#cb10-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-191"><a href="#cb10-191" aria-hidden="true" tabindex="-1"></a>Performance, on three tensor sizes:</span>
+<span id="cb10-192"><a href="#cb10-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-193"><a href="#cb10-193" aria-hidden="true" tabindex="-1"></a><span class="in">```text</span></span>
+<span id="cb10-194"><a href="#cb10-194" aria-hidden="true" tabindex="-1"></a><span class="in">shape           python (ms)    compiled (ms)    metal (ms)</span></span>
+<span id="cb10-195"><a href="#cb10-195" aria-hidden="true" tabindex="-1"></a><span class="in">1M elements        0.292            0.175          0.200</span></span>
+<span id="cb10-196"><a href="#cb10-196" aria-hidden="true" tabindex="-1"></a><span class="in">16M elements       1.098            0.529          0.725</span></span>
+<span id="cb10-197"><a href="#cb10-197" aria-hidden="true" tabindex="-1"></a><span class="in">64M elements       4.137            1.679          2.337</span></span>
+<span id="cb10-198"><a href="#cb10-198" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-199"><a href="#cb10-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-200"><a href="#cb10-200" aria-hidden="true" tabindex="-1"></a><span class="in">`mx.compile`</span> actually wins here over the hand-rolled kernel. That is the **important lesson**: writing Metal yourself is rarely the right answer for element-wise ops. The compiler does this well already. The escape hatch is for things <span class="in">`mx.compile`</span> cannot express — multi-stage reductions with shared memory, atomics, custom tiling for a one-off operator the rest of the world doesn't have.</span>
+<span id="cb10-201"><a href="#cb10-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-202"><a href="#cb10-202" aria-hidden="true" tabindex="-1"></a>If you find yourself writing <span class="in">`metal_kernel`</span> for a stock element-wise composite, try <span class="in">`mx.compile`</span> first.</span>
+<span id="cb10-203"><a href="#cb10-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-204"><a href="#cb10-204" aria-hidden="true" tabindex="-1"></a><span class="fu">## A decision tree you can carry around</span></span>
+<span id="cb10-205"><a href="#cb10-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-206"><a href="#cb10-206" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> If your hot path is… <span class="pp">|</span> Reach for… <span class="pp">|</span></span>
+<span id="cb10-207"><a href="#cb10-207" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------------------|------------|</span></span>
+<span id="cb10-208"><a href="#cb10-208" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Element-wise composite (activations, norm-without-stats, residual chains) <span class="pp">|</span> <span class="in">`@mx.compile`</span> <span class="pp">|</span></span>
+<span id="cb10-209"><a href="#cb10-209" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> LayerNorm, RMSNorm, RoPE, attention <span class="pp">|</span> <span class="in">`mx.fast.*`</span> (and let <span class="in">`compile`</span> fuse around them) <span class="pp">|</span></span>
+<span id="cb10-210"><a href="#cb10-210" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> A reduction or scan that doesn't fit any <span class="in">`mx.fast.*`</span> primitive <span class="pp">|</span> <span class="in">`mx.fast.metal_kernel`</span> <span class="pp">|</span></span>
+<span id="cb10-211"><a href="#cb10-211" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> A single big matmul <span class="pp">|</span> Nothing — it's already one kernel. Profile first. <span class="pp">|</span></span>
+<span id="cb10-212"><a href="#cb10-212" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> A whole training step <span class="pp">|</span> <span class="in">`mx.compile(step, inputs=state, outputs=state)`</span> <span class="pp">|</span></span>
+<span id="cb10-213"><a href="#cb10-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-214"><a href="#cb10-214" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd reach for in a transformer today</span></span>
+<span id="cb10-215"><a href="#cb10-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-216"><a href="#cb10-216" aria-hidden="true" tabindex="-1"></a>A dense transformer block in MLX, written for performance, is roughly:</span>
+<span id="cb10-217"><a href="#cb10-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-218"><a href="#cb10-218" aria-hidden="true" tabindex="-1"></a><span class="in">```{.python}</span></span>
+<span id="cb10-219"><a href="#cb10-219" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb10-220"><a href="#cb10-220" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mlx.core <span class="im">as</span> mx</span>
+<span id="cb10-221"><a href="#cb10-221" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> mlx.nn <span class="im">as</span> nn</span>
+<span id="cb10-222"><a href="#cb10-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-223"><a href="#cb10-223" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Block(nn.Module):</span>
+<span id="cb10-224"><a href="#cb10-224" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, d, n_heads, ff):</span>
+<span id="cb10-225"><a href="#cb10-225" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>()</span>
+<span id="cb10-226"><a href="#cb10-226" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ln1 <span class="op">=</span> nn.LayerNorm(d)         <span class="co"># uses mx.fast.layer_norm under the hood</span></span>
+<span id="cb10-227"><a href="#cb10-227" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.q   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb10-228"><a href="#cb10-228" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.k   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb10-229"><a href="#cb10-229" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.v   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb10-230"><a href="#cb10-230" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.o   <span class="op">=</span> nn.Linear(d, d, bias<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb10-231"><a href="#cb10-231" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ln2 <span class="op">=</span> nn.LayerNorm(d)</span>
+<span id="cb10-232"><a href="#cb10-232" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ff1 <span class="op">=</span> nn.Linear(d, ff)</span>
+<span id="cb10-233"><a href="#cb10-233" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.ff2 <span class="op">=</span> nn.Linear(ff, d)</span>
+<span id="cb10-234"><a href="#cb10-234" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head <span class="op">=</span> n_heads, d <span class="op">//</span> n_heads</span>
+<span id="cb10-235"><a href="#cb10-235" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.scale <span class="op">=</span> <span class="fl">1.0</span> <span class="op">/</span> math.sqrt(<span class="va">self</span>.d_head)</span>
+<span id="cb10-236"><a href="#cb10-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-237"><a href="#cb10-237" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb10-238"><a href="#cb10-238" aria-hidden="true" tabindex="-1"></a>        B, T, D <span class="op">=</span> x.shape</span>
+<span id="cb10-239"><a href="#cb10-239" aria-hidden="true" tabindex="-1"></a>        h <span class="op">=</span> <span class="va">self</span>.ln1(x)</span>
+<span id="cb10-240"><a href="#cb10-240" aria-hidden="true" tabindex="-1"></a>        q <span class="op">=</span> <span class="va">self</span>.q(h).reshape(B, T, <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head).swapaxes(<span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb10-241"><a href="#cb10-241" aria-hidden="true" tabindex="-1"></a>        k <span class="op">=</span> <span class="va">self</span>.k(h).reshape(B, T, <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head).swapaxes(<span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb10-242"><a href="#cb10-242" aria-hidden="true" tabindex="-1"></a>        v <span class="op">=</span> <span class="va">self</span>.v(h).reshape(B, T, <span class="va">self</span>.n_heads, <span class="va">self</span>.d_head).swapaxes(<span class="dv">1</span>, <span class="dv">2</span>)</span>
+<span id="cb10-243"><a href="#cb10-243" aria-hidden="true" tabindex="-1"></a>        a <span class="op">=</span> mx.fast.scaled_dot_product_attention(q, k, v, scale<span class="op">=</span><span class="va">self</span>.scale)</span>
+<span id="cb10-244"><a href="#cb10-244" aria-hidden="true" tabindex="-1"></a>        a <span class="op">=</span> a.swapaxes(<span class="dv">1</span>, <span class="dv">2</span>).reshape(B, T, D)</span>
+<span id="cb10-245"><a href="#cb10-245" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x <span class="op">+</span> <span class="va">self</span>.o(a)</span>
+<span id="cb10-246"><a href="#cb10-246" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x <span class="op">+</span> <span class="va">self</span>.ff2(nn.gelu(<span class="va">self</span>.ff1(<span class="va">self</span>.ln2(x))))</span>
+<span id="cb10-247"><a href="#cb10-247" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x</span>
+<span id="cb10-248"><a href="#cb10-248" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb10-249"><a href="#cb10-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-250"><a href="#cb10-250" aria-hidden="true" tabindex="-1"></a><span class="in">`nn.LayerNorm`</span> calls <span class="in">`mx.fast.layer_norm`</span>. <span class="in">`mx.fast.scaled_dot_product_attention`</span> is the attention. Wrap the training step in <span class="in">`mx.compile(step, inputs=state, outputs=state)`</span> to fuse the rest. That is the whole story — three primitives doing the heavy lifting, one decorator stitching the leftovers.</span>
+<span id="cb10-251"><a href="#cb10-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-252"><a href="#cb10-252" aria-hidden="true" tabindex="-1"></a><span class="fu">## Caveats</span></span>
+<span id="cb10-253"><a href="#cb10-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-254"><a href="#cb10-254" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Numbers above are M2 Max, MLX 0.31.1. The *shape* of the wins generalises; the magnitudes will move on different hardware (M3/M4 Pro/Max) and as MLX's fast paths evolve.</span>
+<span id="cb10-255"><a href="#cb10-255" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Compile-related pitfalls: avoid Python control flow that depends on the *values* of inputs (only on shapes/dtypes); declare <span class="in">`inputs=`</span>/<span class="in">`outputs=`</span> for any captured state; recompile on shape change unless you pass <span class="in">`shapeless=True`</span>.</span>
+<span id="cb10-256"><a href="#cb10-256" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>These are micro-benchmarks. Real training/inference also pays for data loading, host-device sync, prefill vs decode asymmetries, KV cache management, and so on. Kernel fusion is one layer in a stack.</span>
+<span id="cb10-257"><a href="#cb10-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-258"><a href="#cb10-258" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb10-259"><a href="#cb10-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-260"><a href="#cb10-260" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>MLX: <span class="co">[</span><span class="ot">github.com/ml-explore/mlx</span><span class="co">](https://github.com/ml-explore/mlx)</span> · <span class="co">[</span><span class="ot">docs.mlx.dev</span><span class="co">](https://ml-explore.github.io/mlx/build/html/index.html)</span></span>
+<span id="cb10-261"><a href="#cb10-261" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`mx.compile`</span> reference: <span class="co">[</span><span class="ot">`mx.compile`</span><span class="co">](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.compile.html)</span></span>
+<span id="cb10-262"><a href="#cb10-262" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`mx.fast`</span> namespace: <span class="co">[</span><span class="ot">`mx.fast`</span><span class="co">](https://ml-explore.github.io/mlx/build/html/python/fast.html)</span></span>
+<span id="cb10-263"><a href="#cb10-263" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Custom Metal kernels: <span class="co">[</span><span class="ot">`mx.fast.metal_kernel`</span><span class="co">](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.fast.metal_kernel.html)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

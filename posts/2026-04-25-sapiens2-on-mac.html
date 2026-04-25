@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-04-25">
+<meta name="description" content="Two days after Meta’s Sapiens2 release, I run the 0.4B normal, segmentation, and 308-keypoint pose heads on an M2 Max via PyTorch MPS, then build six health-leaning downstream pipelines: joint-angle readout, body symmetry, tele-dermatology ROI extraction, foreground-only relighting, hair recolour, and a 12-frame gait analysis on video.">
+
+<title>Sapiens2 on a Mac: Posture Readouts, Gait Analysis on Video, and Tele-Derm ROIs – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-a0680038e68ea2633f289488c29b2724.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<meta property="og:title" content="Sapiens2 on a Mac: Posture Readouts, Gait Analysis on Video, and Tele-Derm ROIs – Nipun Batra Blog">
+<meta property="og:description" content="Two days after Meta’s Sapiens2 release, I run the 0.4B normal, segmentation, and 308-keypoint pose heads on an M2 Max via PyTorch MPS, then build six health-leaning downstream pipelines: joint-angle readout, body symmetry, tele-dermatology ROI extraction, foreground-only relighting, hair recolour, and a 12-frame gait analysis on video.">
+<meta property="og:image" content="sapiens2/outputs/person1_normal.jpg">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="Sapiens2 on a Mac: Posture Readouts, Gait Analysis on Video, and Tele-Derm ROIs – Nipun Batra Blog">
+<meta name="twitter:description" content="Two days after Meta’s Sapiens2 release, I run the 0.4B normal, segmentation, and 308-keypoint pose heads on an M2 Max via PyTorch MPS, then build six health-leaning downstream pipelines: joint-angle readout, body symmetry, tele-dermatology ROI extraction, foreground-only relighting, hair recolour, and a 12-frame gait analysis on video.">
+<meta name="twitter:image" content="sapiens2/outputs/person1_normal.jpg">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <div class="quarto-title-block"><div><h1 class="title">Sapiens2 on a Mac: Posture Readouts, Gait Analysis on Video, and Tele-Derm ROIs</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+                  <div>
+        <div class="description">
+          Two days after Meta’s Sapiens2 release, I run the 0.4B normal, segmentation, and 308-keypoint pose heads on an M2 Max via PyTorch MPS, then build six health-leaning downstream pipelines: joint-angle readout, body symmetry, tele-dermatology ROI extraction, foreground-only relighting, hair recolour, and a 12-frame gait analysis on video.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">Sapiens2</div>
+                <div class="quarto-category">computer-vision</div>
+                <div class="quarto-category">pose-estimation</div>
+                <div class="quarto-category">surface-normals</div>
+                <div class="quarto-category">segmentation</div>
+                <div class="quarto-category">gait-analysis</div>
+                <div class="quarto-category">posture</div>
+                <div class="quarto-category">tele-medicine</div>
+                <div class="quarto-category">Apple-Silicon</div>
+                <div class="quarto-category">MPS</div>
+                <div class="quarto-category">human-centric</div>
+                <div class="quarto-category">video</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">April 25, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#setup" id="toc-setup" class="nav-link active" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#what-the-three-heads-produce" id="toc-what-the-three-heads-produce" class="nav-link" data-scroll-target="#what-the-three-heads-produce">What the three heads produce</a></li>
+  <li><a href="#application-1-joint-angle-readout" id="toc-application-1-joint-angle-readout" class="nav-link" data-scroll-target="#application-1-joint-angle-readout">Application 1 — Joint-angle readout</a></li>
+  <li><a href="#application-2-body-symmetry" id="toc-application-2-body-symmetry" class="nav-link" data-scroll-target="#application-2-body-symmetry">Application 2 — Body symmetry</a></li>
+  <li><a href="#application-3-tele-dermatology-roi-extraction" id="toc-application-3-tele-dermatology-roi-extraction" class="nav-link" data-scroll-target="#application-3-tele-dermatology-roi-extraction">Application 3 — Tele-dermatology ROI extraction</a></li>
+  <li><a href="#application-4-gait-analysis-on-video" id="toc-application-4-gait-analysis-on-video" class="nav-link" data-scroll-target="#application-4-gait-analysis-on-video">Application 4 — Gait analysis on video</a>
+  <ul class="collapse">
+  <li><a href="#four-sampled-frames-with-the-live-readout" id="toc-four-sampled-frames-with-the-live-readout" class="nav-link" data-scroll-target="#four-sampled-frames-with-the-live-readout">Four sampled frames, with the live readout</a></li>
+  <li><a href="#time-series" id="toc-time-series" class="nav-link" data-scroll-target="#time-series">Time-series</a></li>
+  <li><a href="#annotated-overlay-video" id="toc-annotated-overlay-video" class="nav-link" data-scroll-target="#annotated-overlay-video">Annotated overlay video</a></li>
+  </ul></li>
+  <li><a href="#application-5-foreground-only-lambertian-relighting" id="toc-application-5-foreground-only-lambertian-relighting" class="nav-link" data-scroll-target="#application-5-foreground-only-lambertian-relighting">Application 5 — Foreground-only Lambertian relighting</a></li>
+  <li><a href="#application-6-selective-hair-recolour" id="toc-application-6-selective-hair-recolour" class="nav-link" data-scroll-target="#application-6-selective-hair-recolour">Application 6 — Selective hair recolour</a></li>
+  <li><a href="#what-id-reach-for-next" id="toc-what-id-reach-for-next" class="nav-link" data-scroll-target="#what-id-reach-for-next">What I’d reach for next</a></li>
+  <li><a href="#caveats" id="toc-caveats" class="nav-link" data-scroll-target="#caveats">Caveats</a></li>
+  <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<p><a href="https://huggingface.co/facebook/sapiens2">Sapiens2</a> is Meta’s follow-up to the original <a href="https://huggingface.co/facebook/sapiens">Sapiens</a>, released two days ago (2026-04-23) and accepted at ICLR 26. It’s a family of vision transformers pretrained on <strong>1 billion human images</strong> at up to 4K, with task heads for four human-centric problems:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 19%">
+<col style="width: 25%">
+<col style="width: 54%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Sizes available</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Pose</strong></td>
+<td>308 2D keypoints (body + face + hands + feet)</td>
+<td>0.4B, 0.8B, 1B, 5B</td>
+</tr>
+<tr class="even">
+<td><strong>Body-part segmentation</strong></td>
+<td>29-class per-pixel labels (face, hair, hands, …)</td>
+<td>0.4B, 0.8B, 1B, 5B</td>
+</tr>
+<tr class="odd">
+<td><strong>Surface normals</strong></td>
+<td>per-pixel unit vectors in camera frame</td>
+<td>0.4B, 0.8B, 1B, 5B</td>
+</tr>
+<tr class="even">
+<td><strong>Pointmap</strong></td>
+<td>dense 3D point per pixel</td>
+<td>0.4B, 0.8B, 1B, 5B</td>
+</tr>
+</tbody>
+</table>
+<p>The official inference path is CUDA-only (mmpose-style multi-GPU job sharding, plus an <code>mmdet</code> person detector for pose). I cloned the repo, swapped <code>device='cuda:0'</code> for <code>device='mps'</code>, and (for pose) bypassed the detector with a full-image bounding box. It just works. <strong>0.4B forward pass: ~0.6–1.6 s per 1024×768 image on an M2 Max, no code changes beyond the device string.</strong></p>
+<p>The interesting question isn’t “does it run on a Mac” — it’s <strong>“what can you measure with it once it does?”</strong> This post leans toward health-relevant primitives:</p>
+<ol type="1">
+<li><strong>Joint-angle readout</strong> — knees, hips, elbows, neck flexion, trunk lean from pose keypoints.</li>
+<li><strong>Body symmetry</strong> — left/right shoulder and hip alignment.</li>
+<li><strong>Gait analysis on video</strong> — trunk-lean and stride-asymmetry time-series across a 12-frame walking clip.</li>
+<li><strong>Tele-dermatology ROI</strong> — clean Face/Neck and hand crops from the seg head, ready to feed a downstream lesion classifier.</li>
+<li><strong>Foreground-only relighting</strong> — Lambertian shading using normals + seg mask.</li>
+<li><strong>Selective hair recolour</strong> — HSV rotation confined to the seg “Hair” class.</li>
+</ol>
+<p>None of these are clinical claims. They are <strong>measurement primitives</strong> — the numbers a screening protocol or a physiotherapist would use to decide what to do next.</p>
+<blockquote class="blockquote">
+<p>Code: <a href="https://github.com/nipunbatra/blog/tree/master/posts/sapiens2/scripts"><code>posts/sapiens2/scripts/</code></a> — <code>run_normal.py</code>, <code>run_seg.py</code>, <code>run_pose.py</code>, <code>relight.py</code>, <code>apps.py</code>, <code>health.py</code>, <code>gait_video.py</code>.</p>
+</blockquote>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pure-PyTorch package, no mmcv, no custom CUDA extensions.</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone <span class="at">--depth</span><span class="op">=</span>1 https://github.com/facebookresearch/sapiens2 /tmp/sapiens2</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> /tmp/sapiens2</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Three task checkpoints (smallest size: 1.6 GB each)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="ex">hf</span> download facebook/sapiens2-normal-0.4b sapiens2_0.4b_normal.safetensors <span class="at">--local-dir</span> ~/sapiens2_host/normal</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="ex">hf</span> download facebook/sapiens2-seg-0.4b    sapiens2_0.4b_seg.safetensors    <span class="at">--local-dir</span> ~/sapiens2_host/seg</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">hf</span> download facebook/sapiens2-pose-0.4b   sapiens2_0.4b_pose.safetensors   <span class="at">--local-dir</span> ~/sapiens2_host/pose</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The bundled <code>vis_*.py</code> scripts assume <code>cuda:0</code> and 8 GPUs. The model itself doesn’t care — <code>init_model()</code> accepts any device string. For pose, the bundled driver also calls <code>init_detector</code> from <code>mmdet</code>; my <a href="https://github.com/nipunbatra/blog/tree/master/posts/sapiens2/scripts/run_pose.py"><code>run_pose.py</code></a> skips that and passes the whole image as a single bounding box, which is fine when there’s one centred subject.</p>
+<p>Cold load + one inference takes ~5–7 s the first time per head; subsequent calls are sub-second:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Head</th>
+<th>Image</th>
+<th>Forward (warm)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>normal-0.4b</code></td>
+<td>1024×683</td>
+<td>0.85 s</td>
+</tr>
+<tr class="even">
+<td><code>normal-0.4b</code></td>
+<td>1024×1536</td>
+<td>0.87 s</td>
+</tr>
+<tr class="odd">
+<td><code>seg-0.4b</code></td>
+<td>1024×683</td>
+<td>0.69 s</td>
+</tr>
+<tr class="even">
+<td><code>seg-0.4b</code></td>
+<td>1024×1536</td>
+<td>0.55 s</td>
+</tr>
+<tr class="odd">
+<td><code>pose-0.4b</code></td>
+<td>1024×683</td>
+<td>1.14 s</td>
+</tr>
+<tr class="even">
+<td><code>pose-0.4b</code></td>
+<td>1024×1536</td>
+<td>1.13 s</td>
+</tr>
+</tbody>
+</table>
+<p>That is fast enough for interactive use in a Streamlit / Gradio app. Not video-realtime, but I run pose on 12 sampled video frames below and the whole pipeline finishes in ~17 s.</p>
+</section>
+<section id="what-the-three-heads-produce" class="level2">
+<h2 class="anchored" data-anchor-id="what-the-three-heads-produce">What the three heads produce</h2>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person1_normal.jpg" class="img-fluid figure-img"></p>
+<figcaption>Surface normals — <code>person1</code>. The model gives a unit normal at every pixel; magenta points toward the camera, greens to the right.</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person1_seg.jpg" class="img-fluid figure-img"></p>
+<figcaption>Body-part segmentation, 29 classes. Hair (red), Face_Neck (blue), Upper_Clothing (green), lips (orange/green).</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person2_normal.jpg" class="img-fluid figure-img"></p>
+<figcaption>Surface normals — <code>person2</code>. Sapiens2 was trained on humans, so the backdrop normals are hallucinated; the seg head gives you the foreground mask to filter them.</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person2_seg.jpg" class="img-fluid figure-img"></p>
+<figcaption>Body-part seg picks up the lace blouse, the skirt, and the hand cleanly enough to use directly without morphological cleanup.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="application-1-joint-angle-readout" class="level2">
+<h2 class="anchored" data-anchor-id="application-1-joint-angle-readout">Application 1 — Joint-angle readout</h2>
+<p>For every body keypoint <code>b</code> with neighbours <code>a</code> and <code>c</code> (e.g.&nbsp;knee = hip → knee → ankle), we compute</p>
+<p><span class="math display">\[\theta_b = \arccos\!\left(\frac{(a-b)\cdot(c-b)}{\|a-b\|\,\|c-b\|}\right).\]</span></p>
+<p>Plus a few derived quantities: neck flexion (the angle between the mid-shoulder→nose vector and the vertical), shoulder tilt, hip tilt, and trunk lean. All in <a href="https://github.com/nipunbatra/blog/tree/master/posts/sapiens2/scripts/health.py"><code>health.py</code></a>, all dropouts on missing keypoints become NaN.</p>
+<p>Run on <code>person4</code> (mountain-climber on a yoga mat — picked specifically because every joint angle is informative):</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person4_posture.jpg" class="img-fluid figure-img"></p>
+<figcaption>Posture readout for a mountain-climber pose. Sapiens2’s 308-keypoint output reduces here to the 17 COCO-WholeBody body keypoints, from which we derive joint angles and body-axis tilts. Annotated values on the image are the four most-clinical-looking angles; the side card has the full row.</figcaption>
+</figure>
+</div>
+<p>The numbers — 46° right knee, 107° left knee, 174° right hip — are the kind a physiotherapist would read off a printout. They are <strong>measurements</strong>, not assessments, but they are the numerical inputs that a screening protocol turns into “needs follow-up” / “fine”.</p>
+<p>The same readout on <code>person2</code> (side-view portrait — most lower-body keypoints are occluded, so they correctly drop out as <code>n/a</code>):</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person2_posture.jpg" class="img-fluid figure-img"></p>
+<figcaption>Side view. Lower-body angles are NaN because the right-side keypoints are mostly occluded; the elbow and neck-flexion measurements remain valid.</figcaption>
+</figure>
+</div>
+<p>What this is good for in practice:</p>
+<ul>
+<li><strong>Tele-physiotherapy</strong> — patient performs an exercise on camera; the readout produces joint-angle measurements that a remote clinician interprets.</li>
+<li><strong>Workplace ergonomics</strong> — an office worker hits a “snapshot” button; the readout flags neck-flexion &gt; 30° as a long-term repetitive-strain risk.</li>
+<li><strong>Sports / strength training</strong> — squat depth from knee/hip angles, deadlift hinge from trunk lean. Same primitive, different rubric.</li>
+</ul>
+<p>What it is <strong>not</strong> good for: anything that needs sub-degree precision, anything that needs the depth (z) coordinate, or anything that needs the camera intrinsics. For those you want the pointmap head + a calibrated camera.</p>
+</section>
+<section id="application-2-body-symmetry" class="level2">
+<h2 class="anchored" data-anchor-id="application-2-body-symmetry">Application 2 — Body symmetry</h2>
+<p>Three quantities, all read directly off shoulder + hip keypoints:</p>
+<ul>
+<li><strong>Shoulder tilt</strong> — the angle of the line connecting left and right shoulders (relative to horizontal). For person4 we get 14°, which is huge but matches the photo (he is leaning forward into a plank).</li>
+<li><strong>Hip tilt</strong> — same idea for the hips.</li>
+<li><strong>Trunk lean</strong> — angle between the shoulder–hip axis and the vertical.</li>
+</ul>
+<p>Side-by-side or symmetry checks are useful for <strong>scoliosis screening</strong>, <strong>post-stroke posture monitoring</strong>, and <strong>musculoskeletal assessment after injury</strong>. The key word is <em>screening</em>: these are signals that suggest someone should be seen by a clinician, not diagnoses.</p>
+</section>
+<section id="application-3-tele-dermatology-roi-extraction" class="level2">
+<h2 class="anchored" data-anchor-id="application-3-tele-dermatology-roi-extraction">Application 3 — Tele-dermatology ROI extraction</h2>
+<p>The seg head’s <code>Face_Neck</code> and <code>Right_Hand</code>/<code>Left_Hand</code> classes are essentially free skin-region masks. Cropping just those classes (with a small margin and the background dimmed) gives you the inputs a downstream lesion classifier expects. No new model needed:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> np.isin(seg, [<span class="dv">3</span>])              <span class="co"># Face_Neck class id</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>ys, xs <span class="op">=</span> np.where(m)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>crop <span class="op">=</span> img[ys.<span class="bu">min</span>():ys.<span class="bu">max</span>(), xs.<span class="bu">min</span>():xs.<span class="bu">max</span>()]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The skin-region crops for <code>person2</code> look like this:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person2_skin_rois.jpg" class="img-fluid figure-img"></p>
+<figcaption>Face/Neck and hand ROIs, automatically extracted from the seg head. The background inside each crop is dimmed to 30% so the skin is what gets photometrically normalised by a downstream model.</figcaption>
+</figure>
+</div>
+<p>In a real tele-derm pipeline this becomes the first stage of a two-stage system: Sapiens2 to find skin → a domain-trained lesion classifier (ISIC or similar) on the crop. The Sapiens2 step is doing the work that a dermatologist would otherwise do manually — <em>crop me the patch with the lesion</em>.</p>
+</section>
+<section id="application-4-gait-analysis-on-video" class="level2">
+<h2 class="anchored" data-anchor-id="application-4-gait-analysis-on-video">Application 4 — Gait analysis on video</h2>
+<p>The clip is an 8-second 4K vertical of an elderly man walking with a cane (free Pexels stock, <a href="https://www.pexels.com/video/14801276/">#14801276</a>) — a classic clinical-screening scenario. I sample every 18th frame (12 frames over ~7 s), crop a vertical strip around the subject so he fills enough of the input that the pose lands, and run <code>pose-0.4b</code> on each crop.</p>
+<section id="four-sampled-frames-with-the-live-readout" class="level3">
+<h3 class="anchored" data-anchor-id="four-sampled-frames-with-the-live-readout">Four sampled frames, with the live readout</h3>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/gait_strip.jpg" class="img-fluid figure-img"></p>
+<figcaption>Four frames from the gait clip with Sapiens2’s body skeleton and the per-frame readout. The cane is visible but the model doesn’t track it (it isn’t a body part); the keypoints capture the trunk, the shoulders, and the legs as he walks away from the camera.</figcaption>
+</figure>
+</div>
+</section>
+<section id="time-series" class="level3">
+<h3 class="anchored" data-anchor-id="time-series">Time-series</h3>
+<p>For each frame I compute three quantities:</p>
+<ul>
+<li><strong>Signed trunk lean</strong> — <span class="math inline">\(\arctan2\)</span> of the horizontal vs vertical components of the mid-shoulder→mid-hip vector. Positive ≈ leaning right (subject’s right, camera’s left).</li>
+<li><strong>Head x deviation</strong> — horizontal offset of the nose from the mid-hip, normalised by frame width. Catches lateral sway.</li>
+<li><strong>Stride asymmetry</strong> — difference in normalised vertical position of the two ankles. A periodic signal would be ideal walking gait; a flat signal with a bias suggests an asymmetric step.</li>
+</ul>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/gait_timeseries.png" class="img-fluid figure-img"></p>
+<figcaption>Three gait time-series across the 7-second walking clip, derived purely from per-frame Sapiens2 pose keypoints. The trunk-lean trace oscillates between roughly −3° and +5° — consistent with the mild side-to-side sway you can see in the video. The stride-asymmetry trace at the bottom shows small per-step deltas; with a higher sampling rate you would get a clean cyclic stride signal.</figcaption>
+</figure>
+</div>
+</section>
+<section id="annotated-overlay-video" class="level3">
+<h3 class="anchored" data-anchor-id="annotated-overlay-video">Annotated overlay video</h3>
+<video controls="" loop="" muted="" playsinline="" width="720" src="sapiens2/outputs/gait_overlay.mp4"></video>
+<p>The whole pipeline — model load + 12-frame inference + plotting — runs in <strong>~22 s on M2 Max</strong> with no GPU. That is fast enough that you could rebuild the time-series in real time during a tele-rehab session, just by sampling at 1–2 fps.</p>
+<p>What this <em>almost</em> does:</p>
+<ul>
+<li>A real clinical gait analysis system would track the foot strike events directly from the ankle-y signal (zero-crossings of the velocity), compute stride length from the change in horizontal position between strikes, and report cadence (strides/min). All three derive trivially from the per-frame Sapiens2 outputs above.</li>
+<li>Adding the seg head’s <code>Lower_Clothing</code> and shoe classes lets you isolate the leg silhouette — useful when the keypoints are noisy and you want a backup signal.</li>
+</ul>
+<p>What it doesn’t do:</p>
+<ul>
+<li><strong>No 3D.</strong> All measurements are in the 2D image plane. A stride that’s foreshortened by walking away from the camera will look shorter than it is.</li>
+<li><strong>No cane detection.</strong> Cane usage is visible in the strip but not measured. You’d add a hand-held-object detector or use a per-frame VLM call for that.</li>
+</ul>
+</section>
+</section>
+<section id="application-5-foreground-only-lambertian-relighting" class="level2">
+<h2 class="anchored" data-anchor-id="application-5-foreground-only-lambertian-relighting">Application 5 — Foreground-only Lambertian relighting</h2>
+<p>Surface normals + foreground mask + a chosen light direction = textbook Lambertian shading, applied only to body pixels:</p>
+<p><span class="math display">\[\mathrm{relit}(p) = I(p)\cdot\bigl(0.25 + 0.75\cdot\max(0,\,\mathbf{n}(p)\cdot\mathbf{l})\bigr)\cdot\mathrm{tint}.\]</span></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person1_relit.jpg" class="img-fluid figure-img"></p>
+<figcaption>Lambertian relighting of <code>person1</code> under three light directions. The relighting is confined to the seg-foreground, so the backdrop is untouched and there’s no halo. The shading change reads correctly as 3D — right-cheek shadow under the front-right key, left-rim highlight under top-left, inverted shadow under the chin for under-light.</figcaption>
+</figure>
+</div>
+<p>In a clinical context this is the mechanism behind a <strong>standardised photography pipeline</strong> — patient takes a picture under whatever ambient light, and the downstream system relights to a canonical orientation before passing the image to a classifier (or to a human reviewer who needs a fair before-and-after comparison).</p>
+</section>
+<section id="application-6-selective-hair-recolour" class="level2">
+<h2 class="anchored" data-anchor-id="application-6-selective-hair-recolour">Application 6 — Selective hair recolour</h2>
+<p>A 5-line HSV rotation confined to the seg “Hair” class — included here only because it is the kind of thing UX teams ask for from the same primitives a clinical pipeline uses. Same plumbing, different rubric:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="sapiens2/outputs/person1_hair_recolour.jpg" class="img-fluid figure-img"></p>
+<figcaption>Hair recolour by HSV rotation, applied only to seg-class 4 (Hair). All four are the same one-pass operation with a different target hue.</figcaption>
+</figure>
+</div>
+</section>
+<section id="what-id-reach-for-next" class="level2">
+<h2 class="anchored" data-anchor-id="what-id-reach-for-next">What I’d reach for next</h2>
+<p>Concrete extensions that turn the primitives above into real screening pipelines:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 32%">
+<col style="width: 51%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Pipeline</th>
+<th>Primitive used</th>
+<th>Add</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Tele-physiotherapy joint-angle log</td>
+<td>joint angles</td>
+<td>a per-exercise angle target + tolerance</td>
+</tr>
+<tr class="even">
+<td>Workplace ergonomic snapshot</td>
+<td>neck-flexion + trunk lean</td>
+<td>a webcam-loop daemon and threshold alerts</td>
+</tr>
+<tr class="odd">
+<td>Scoliosis screening (kids)</td>
+<td>shoulder tilt + hip tilt + trunk lean</td>
+<td>a panel-of-N-frames stability check</td>
+</tr>
+<tr class="even">
+<td>Tele-dermatology triage</td>
+<td>seg-derived skin ROIs</td>
+<td>an ISIC-trained lesion classifier on the crop</td>
+</tr>
+<tr class="odd">
+<td>Fall-risk gait screen</td>
+<td>trunk-lean + stride-asymmetry time-series</td>
+<td>longer videos + foot-strike detection</td>
+</tr>
+<tr class="even">
+<td>Standardised before/after photography</td>
+<td>normals-based Lambertian relight + foreground mask</td>
+<td>a fixed light direction and tint</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="caveats" class="level2">
+<h2 class="anchored" data-anchor-id="caveats">Caveats</h2>
+<ul>
+<li><strong>Out-of-distribution background.</strong> The normal head emits “something” everywhere; never trust it on background pixels. Use the seg head’s <code>class &gt; 0</code> mask first.</li>
+<li><strong>Pose without a person detector.</strong> The full-image bbox shortcut works when there’s one centred subject. For multiple people or off-centre subjects you need a real detector — the bundled mmdet RTMDet works on CUDA but is painful to install on Apple Silicon. A standalone YOLO from <code>ultralytics</code> is a simpler swap.</li>
+<li><strong>No 2D→3D lift.</strong> All angles are 2D image-plane angles. A subject angled toward or away from the camera will produce systematically biased readings. Use the pointmap head (or an explicit camera calibration) when you need actual anatomy-frame angles.</li>
+<li><strong>License.</strong> Sapiens2 is released under a custom Meta licence — read <a href="https://github.com/facebookresearch/sapiens2/blob/main/LICENSE.md"><code>LICENSE.md</code></a> before using clinically or commercially. The Pexels photos and the elder-walking video are under the <a href="https://www.pexels.com/license/">Pexels free licence</a>.</li>
+<li><strong>Larger models.</strong> Everything above uses 0.4B. The 0.8B / 1B / 5B variants exist and should give crisper edges and more robust low-confidence keypoints. The 5B will be slow on MPS — for that one you want CUDA.</li>
+</ul>
+</section>
+<section id="links" class="level2">
+<h2 class="anchored" data-anchor-id="links">Links</h2>
+<ul>
+<li>Sapiens2 model collection: <a href="https://huggingface.co/facebook/sapiens2">huggingface.co/facebook/sapiens2</a></li>
+<li>Sapiens2 code: <a href="https://github.com/facebookresearch/sapiens2">github.com/facebookresearch/sapiens2</a></li>
+<li>Project page: <a href="https://rawalkhirodkar.github.io/sapiens2">rawalkhirodkar.github.io/sapiens2</a></li>
+<li>Original Sapiens (v1): <a href="https://arxiv.org/abs/2408.12569">arXiv:2408.12569</a></li>
+<li>Photos used: <a href="https://www.pexels.com/photo/1300402/">Pexels #1300402</a> · <a href="https://www.pexels.com/photo/2065200/">Pexels #2065200</a> · <a href="https://www.pexels.com/photo/2294361/">Pexels #2294361</a></li>
+<li>Video used: <a href="https://www.pexels.com/video/14801276/">Pexels #14801276</a></li>
+</ul>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Sapiens2 on a Mac: Posture Readouts, Gait Analysis on Video, and Tele-Derm ROIs"</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-04-25"</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [Sapiens2, computer-vision, pose-estimation, surface-normals, segmentation, gait-analysis, posture, tele-medicine, Apple-Silicon, MPS, human-centric, video]</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Two days after Meta's Sapiens2 release, I run the 0.4B normal, segmentation, and 308-keypoint pose heads on an M2 Max via PyTorch MPS, then build six health-leaning downstream pipelines: joint-angle readout, body symmetry, tele-dermatology ROI extraction, foreground-only relighting, hair recolour, and a 12-frame gait analysis on video."</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">  - sapiens2/scripts/*.py</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - sapiens2/inputs/*.jpg</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - sapiens2/outputs/*.jpg</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">  - sapiens2/outputs/*.png</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co">  - sapiens2/outputs/*.mp4</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co">  - sapiens2/video/elder_walking.mp4</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Sapiens2</span><span class="co">](https://huggingface.co/facebook/sapiens2)</span> is Meta's follow-up to the original <span class="co">[</span><span class="ot">Sapiens</span><span class="co">](https://huggingface.co/facebook/sapiens)</span>, released two days ago (2026-04-23) and accepted at ICLR 26. It's a family of vision transformers pretrained on **1 billion human images** at up to 4K, with task heads for four human-centric problems:</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Task <span class="pp">|</span> Output <span class="pp">|</span> Sizes available <span class="pp">|</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|--------|-----------------|</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Pose** <span class="pp">|</span> 308 2D keypoints (body + face + hands + feet) <span class="pp">|</span> 0.4B, 0.8B, 1B, 5B <span class="pp">|</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Body-part segmentation** <span class="pp">|</span> 29-class per-pixel labels (face, hair, hands, …) <span class="pp">|</span> 0.4B, 0.8B, 1B, 5B <span class="pp">|</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Surface normals** <span class="pp">|</span> per-pixel unit vectors in camera frame <span class="pp">|</span> 0.4B, 0.8B, 1B, 5B <span class="pp">|</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Pointmap** <span class="pp">|</span> dense 3D point per pixel <span class="pp">|</span> 0.4B, 0.8B, 1B, 5B <span class="pp">|</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>The official inference path is CUDA-only (mmpose-style multi-GPU job sharding, plus an <span class="in">`mmdet`</span> person detector for pose). I cloned the repo, swapped <span class="in">`device='cuda:0'`</span> for <span class="in">`device='mps'`</span>, and (for pose) bypassed the detector with a full-image bounding box. It just works. **0.4B forward pass: ~0.6–1.6 s per 1024×768 image on an M2 Max, no code changes beyond the device string.**</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>The interesting question isn't "does it run on a Mac" — it's **"what can you measure with it once it does?"** This post leans toward health-relevant primitives:</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Joint-angle readout** — knees, hips, elbows, neck flexion, trunk lean from pose keypoints.</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Body symmetry** — left/right shoulder and hip alignment.</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Gait analysis on video** — trunk-lean and stride-asymmetry time-series across a 12-frame walking clip.</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Tele-dermatology ROI** — clean Face/Neck and hand crops from the seg head, ready to feed a downstream lesion classifier.</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Foreground-only relighting** — Lambertian shading using normals + seg mask.</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Selective hair recolour** — HSV rotation confined to the seg "Hair" class.</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>None of these are clinical claims. They are **measurement primitives** — the numbers a screening protocol or a physiotherapist would use to decide what to do next.</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Code: </span><span class="co">[</span><span class="ot">`posts/sapiens2/scripts/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/sapiens2/scripts)</span><span class="at"> — </span><span class="in">`run_normal.py`</span><span class="at">, </span><span class="in">`run_seg.py`</span><span class="at">, </span><span class="in">`run_pose.py`</span><span class="at">, </span><span class="in">`relight.py`</span><span class="at">, </span><span class="in">`apps.py`</span><span class="at">, </span><span class="in">`health.py`</span><span class="at">, </span><span class="in">`gait_video.py`</span><span class="at">.</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="co"># Pure-PyTorch package, no mmcv, no custom CUDA extensions.</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone <span class="at">--depth</span><span class="op">=</span>1 https://github.com/facebookresearch/sapiens2 /tmp/sapiens2</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> /tmp/sapiens2</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Three task checkpoints (smallest size: 1.6 GB each)</span></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a><span class="ex">hf</span> download facebook/sapiens2-normal-0.4b sapiens2_0.4b_normal.safetensors <span class="at">--local-dir</span> ~/sapiens2_host/normal</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="ex">hf</span> download facebook/sapiens2-seg-0.4b    sapiens2_0.4b_seg.safetensors    <span class="at">--local-dir</span> ~/sapiens2_host/seg</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="ex">hf</span> download facebook/sapiens2-pose-0.4b   sapiens2_0.4b_pose.safetensors   <span class="at">--local-dir</span> ~/sapiens2_host/pose</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>The bundled <span class="in">`vis_*.py`</span> scripts assume <span class="in">`cuda:0`</span> and 8 GPUs. The model itself doesn't care — <span class="in">`init_model()`</span> accepts any device string. For pose, the bundled driver also calls <span class="in">`init_detector`</span> from <span class="in">`mmdet`</span>; my <span class="co">[</span><span class="ot">`run_pose.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/sapiens2/scripts/run_pose.py)</span> skips that and passes the whole image as a single bounding box, which is fine when there's one centred subject.</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>Cold load + one inference takes ~5–7 s the first time per head; subsequent calls are sub-second:</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Head <span class="pp">|</span> Image <span class="pp">|</span> Forward (warm) <span class="pp">|</span></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|-------|----------------|</span></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`normal-0.4b`</span> <span class="pp">|</span> 1024×683 <span class="pp">|</span> 0.85 s <span class="pp">|</span></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`normal-0.4b`</span> <span class="pp">|</span> 1024×1536 <span class="pp">|</span> 0.87 s <span class="pp">|</span></span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`seg-0.4b`</span>    <span class="pp">|</span> 1024×683 <span class="pp">|</span> 0.69 s <span class="pp">|</span></span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`seg-0.4b`</span>    <span class="pp">|</span> 1024×1536 <span class="pp">|</span> 0.55 s <span class="pp">|</span></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`pose-0.4b`</span>   <span class="pp">|</span> 1024×683 <span class="pp">|</span> 1.14 s <span class="pp">|</span></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`pose-0.4b`</span>   <span class="pp">|</span> 1024×1536 <span class="pp">|</span> 1.13 s <span class="pp">|</span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>That is fast enough for interactive use in a Streamlit / Gradio app. Not video-realtime, but I run pose on 12 sampled video frames below and the whole pipeline finishes in ~17 s.</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="fu">## What the three heads produce</span></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a><span class="al">![Surface normals — `person1`. The model gives a unit normal at every pixel; magenta points toward the camera, greens to the right.](sapiens2/outputs/person1_normal.jpg)</span></span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a><span class="al">![Body-part segmentation, 29 classes. Hair (red), Face_Neck (blue), Upper_Clothing (green), lips (orange/green).](sapiens2/outputs/person1_seg.jpg)</span></span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="al">![Surface normals — `person2`. Sapiens2 was trained on humans, so the backdrop normals are hallucinated; the seg head gives you the foreground mask to filter them.](sapiens2/outputs/person2_normal.jpg)</span></span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a><span class="al">![Body-part seg picks up the lace blouse, the skirt, and the hand cleanly enough to use directly without morphological cleanup.](sapiens2/outputs/person2_seg.jpg)</span></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="fu">## Application 1 — Joint-angle readout</span></span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>For every body keypoint <span class="in">`b`</span> with neighbours <span class="in">`a`</span> and <span class="in">`c`</span> (e.g. knee = hip → knee → ankle), we compute</span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>$$\theta_b = \arccos<span class="sc">\!</span>\left(\frac{(a-b)\cdot(c-b)}{<span class="sc">\|</span>a-b<span class="sc">\|</span>\,<span class="sc">\|</span>c-b<span class="sc">\|</span>}\right).$$</span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>Plus a few derived quantities: neck flexion (the angle between the mid-shoulder→nose vector and the vertical), shoulder tilt, hip tilt, and trunk lean. All in <span class="co">[</span><span class="ot">`health.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/sapiens2/scripts/health.py)</span>, all dropouts on missing keypoints become NaN.</span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>Run on <span class="in">`person4`</span> (mountain-climber on a yoga mat — picked specifically because every joint angle is informative):</span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a><span class="al">![Posture readout for a mountain-climber pose. Sapiens2's 308-keypoint output reduces here to the 17 COCO-WholeBody body keypoints, from which we derive joint angles and body-axis tilts. Annotated values on the image are the four most-clinical-looking angles; the side card has the full row.](sapiens2/outputs/person4_posture.jpg)</span></span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>The numbers — 46° right knee, 107° left knee, 174° right hip — are the kind a physiotherapist would read off a printout. They are **measurements**, not assessments, but they are the numerical inputs that a screening protocol turns into "needs follow-up" / "fine".</span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a>The same readout on <span class="in">`person2`</span> (side-view portrait — most lower-body keypoints are occluded, so they correctly drop out as <span class="in">`n/a`</span>):</span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a><span class="al">![Side view. Lower-body angles are NaN because the right-side keypoints are mostly occluded; the elbow and neck-flexion measurements remain valid.](sapiens2/outputs/person2_posture.jpg)</span></span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>What this is good for in practice:</span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Tele-physiotherapy** — patient performs an exercise on camera; the readout produces joint-angle measurements that a remote clinician interprets.</span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Workplace ergonomics** — an office worker hits a "snapshot" button; the readout flags neck-flexion &gt; 30° as a long-term repetitive-strain risk.</span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Sports / strength training** — squat depth from knee/hip angles, deadlift hinge from trunk lean. Same primitive, different rubric.</span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>What it is **not** good for: anything that needs sub-degree precision, anything that needs the depth (z) coordinate, or anything that needs the camera intrinsics. For those you want the pointmap head + a calibrated camera.</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a><span class="fu">## Application 2 — Body symmetry</span></span>
+<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a>Three quantities, all read directly off shoulder + hip keypoints:</span>
+<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Shoulder tilt** — the angle of the line connecting left and right shoulders (relative to horizontal). For person4 we get 14°, which is huge but matches the photo (he is leaning forward into a plank).</span>
+<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Hip tilt** — same idea for the hips.</span>
+<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Trunk lean** — angle between the shoulder–hip axis and the vertical.</span>
+<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a>Side-by-side or symmetry checks are useful for **scoliosis screening**, **post-stroke posture monitoring**, and **musculoskeletal assessment after injury**. The key word is *screening*: these are signals that suggest someone should be seen by a clinician, not diagnoses.</span>
+<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a><span class="fu">## Application 3 — Tele-dermatology ROI extraction</span></span>
+<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>The seg head's <span class="in">`Face_Neck`</span> and <span class="in">`Right_Hand`</span>/<span class="in">`Left_Hand`</span> classes are essentially free skin-region masks. Cropping just those classes (with a small margin and the background dimmed) gives you the inputs a downstream lesion classifier expects. No new model needed:</span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> np.isin(seg, [<span class="dv">3</span>])              <span class="co"># Face_Neck class id</span></span>
+<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a>ys, xs <span class="op">=</span> np.where(m)</span>
+<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a>crop <span class="op">=</span> img[ys.<span class="bu">min</span>():ys.<span class="bu">max</span>(), xs.<span class="bu">min</span>():xs.<span class="bu">max</span>()]</span>
+<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>The skin-region crops for <span class="in">`person2`</span> look like this:</span>
+<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a><span class="al">![Face/Neck and hand ROIs, automatically extracted from the seg head. The background inside each crop is dimmed to 30% so the skin is what gets photometrically normalised by a downstream model.](sapiens2/outputs/person2_skin_rois.jpg)</span></span>
+<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a>In a real tele-derm pipeline this becomes the first stage of a two-stage system: Sapiens2 to find skin → a domain-trained lesion classifier (ISIC or similar) on the crop. The Sapiens2 step is doing the work that a dermatologist would otherwise do manually — *crop me the patch with the lesion*.</span>
+<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a><span class="fu">## Application 4 — Gait analysis on video</span></span>
+<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a>The clip is an 8-second 4K vertical of an elderly man walking with a cane (free Pexels stock, <span class="co">[</span><span class="ot">#14801276</span><span class="co">](https://www.pexels.com/video/14801276/)</span>) — a classic clinical-screening scenario. I sample every 18th frame (12 frames over ~7 s), crop a vertical strip around the subject so he fills enough of the input that the pose lands, and run <span class="in">`pose-0.4b`</span> on each crop.</span>
+<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a><span class="fu">### Four sampled frames, with the live readout</span></span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a><span class="al">![Four frames from the gait clip with Sapiens2's body skeleton and the per-frame readout. The cane is visible but the model doesn't track it (it isn't a body part); the keypoints capture the trunk, the shoulders, and the legs as he walks away from the camera.](sapiens2/outputs/gait_strip.jpg)</span></span>
+<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a><span class="fu">### Time-series</span></span>
+<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a>For each frame I compute three quantities:</span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Signed trunk lean** — $\arctan2$ of the horizontal vs vertical components of the mid-shoulder→mid-hip vector. Positive ≈ leaning right (subject's right, camera's left).</span>
+<span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Head x deviation** — horizontal offset of the nose from the mid-hip, normalised by frame width. Catches lateral sway.</span>
+<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Stride asymmetry** — difference in normalised vertical position of the two ankles. A periodic signal would be ideal walking gait; a flat signal with a bias suggests an asymmetric step.</span>
+<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a><span class="al">![Three gait time-series across the 7-second walking clip, derived purely from per-frame Sapiens2 pose keypoints. The trunk-lean trace oscillates between roughly −3° and +5° — consistent with the mild side-to-side sway you can see in the video. The stride-asymmetry trace at the bottom shows small per-step deltas; with a higher sampling rate you would get a clean cyclic stride signal.](sapiens2/outputs/gait_timeseries.png)</span></span>
+<span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a><span class="fu">### Annotated overlay video</span></span>
+<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a><span class="in">```{=html}</span></span>
+<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a><span class="in">&lt;video controls loop muted playsinline width="720" src="sapiens2/outputs/gait_overlay.mp4"&gt;&lt;/video&gt;</span></span>
+<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a>The whole pipeline — model load + 12-frame inference + plotting — runs in **~22 s on M2 Max** with no GPU. That is fast enough that you could rebuild the time-series in real time during a tele-rehab session, just by sampling at 1–2 fps.</span>
+<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a>What this *almost* does:</span>
+<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>A real clinical gait analysis system would track the foot strike events directly from the ankle-y signal (zero-crossings of the velocity), compute stride length from the change in horizontal position between strikes, and report cadence (strides/min). All three derive trivially from the per-frame Sapiens2 outputs above.</span>
+<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Adding the seg head's <span class="in">`Lower_Clothing`</span> and shoe classes lets you isolate the leg silhouette — useful when the keypoints are noisy and you want a backup signal.</span>
+<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a>What it doesn't do:</span>
+<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No 3D.** All measurements are in the 2D image plane. A stride that's foreshortened by walking away from the camera will look shorter than it is.</span>
+<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No cane detection.** Cane usage is visible in the strip but not measured. You'd add a hand-held-object detector or use a per-frame VLM call for that.</span>
+<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a><span class="fu">## Application 5 — Foreground-only Lambertian relighting</span></span>
+<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a>Surface normals + foreground mask + a chosen light direction = textbook Lambertian shading, applied only to body pixels:</span>
+<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a>$$\mathrm{relit}(p) = I(p)\cdot\bigl(0.25 + 0.75\cdot\max(0,\,\mathbf{n}(p)\cdot\mathbf{l})\bigr)\cdot\mathrm{tint}.$$</span>
+<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a><span class="al">![Lambertian relighting of `person1` under three light directions. The relighting is confined to the seg-foreground, so the backdrop is untouched and there's no halo. The shading change reads correctly as 3D — right-cheek shadow under the front-right key, left-rim highlight under top-left, inverted shadow under the chin for under-light.](sapiens2/outputs/person1_relit.jpg)</span></span>
+<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a>In a clinical context this is the mechanism behind a **standardised photography pipeline** — patient takes a picture under whatever ambient light, and the downstream system relights to a canonical orientation before passing the image to a classifier (or to a human reviewer who needs a fair before-and-after comparison).</span>
+<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a><span class="fu">## Application 6 — Selective hair recolour</span></span>
+<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a>A 5-line HSV rotation confined to the seg "Hair" class — included here only because it is the kind of thing UX teams ask for from the same primitives a clinical pipeline uses. Same plumbing, different rubric:</span>
+<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a><span class="al">![Hair recolour by HSV rotation, applied only to seg-class 4 (Hair). All four are the same one-pass operation with a different target hue.](sapiens2/outputs/person1_hair_recolour.jpg)</span></span>
+<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd reach for next</span></span>
+<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a>Concrete extensions that turn the primitives above into real screening pipelines:</span>
+<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pipeline <span class="pp">|</span> Primitive used <span class="pp">|</span> Add <span class="pp">|</span></span>
+<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------|----------------|-----|</span></span>
+<span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tele-physiotherapy joint-angle log <span class="pp">|</span> joint angles <span class="pp">|</span> a per-exercise angle target + tolerance <span class="pp">|</span></span>
+<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Workplace ergonomic snapshot <span class="pp">|</span> neck-flexion + trunk lean <span class="pp">|</span> a webcam-loop daemon and threshold alerts <span class="pp">|</span></span>
+<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Scoliosis screening (kids) <span class="pp">|</span> shoulder tilt + hip tilt + trunk lean <span class="pp">|</span> a panel-of-N-frames stability check <span class="pp">|</span></span>
+<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tele-dermatology triage <span class="pp">|</span> seg-derived skin ROIs <span class="pp">|</span> an ISIC-trained lesion classifier on the crop <span class="pp">|</span></span>
+<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Fall-risk gait screen <span class="pp">|</span> trunk-lean + stride-asymmetry time-series <span class="pp">|</span> longer videos + foot-strike detection <span class="pp">|</span></span>
+<span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Standardised before/after photography <span class="pp">|</span> normals-based Lambertian relight + foreground mask <span class="pp">|</span> a fixed light direction and tint <span class="pp">|</span></span>
+<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a><span class="fu">## Caveats</span></span>
+<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Out-of-distribution background.** The normal head emits "something" everywhere; never trust it on background pixels. Use the seg head's <span class="in">`class &gt; 0`</span> mask first.</span>
+<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Pose without a person detector.** The full-image bbox shortcut works when there's one centred subject. For multiple people or off-centre subjects you need a real detector — the bundled mmdet RTMDet works on CUDA but is painful to install on Apple Silicon. A standalone YOLO from <span class="in">`ultralytics`</span> is a simpler swap.</span>
+<span id="cb3-208"><a href="#cb3-208" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No 2D→3D lift.** All angles are 2D image-plane angles. A subject angled toward or away from the camera will produce systematically biased readings. Use the pointmap head (or an explicit camera calibration) when you need actual anatomy-frame angles.</span>
+<span id="cb3-209"><a href="#cb3-209" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**License.** Sapiens2 is released under a custom Meta licence — read <span class="co">[</span><span class="ot">`LICENSE.md`</span><span class="co">](https://github.com/facebookresearch/sapiens2/blob/main/LICENSE.md)</span> before using clinically or commercially. The Pexels photos and the elder-walking video are under the <span class="co">[</span><span class="ot">Pexels free licence</span><span class="co">](https://www.pexels.com/license/)</span>.</span>
+<span id="cb3-210"><a href="#cb3-210" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Larger models.** Everything above uses 0.4B. The 0.8B / 1B / 5B variants exist and should give crisper edges and more robust low-confidence keypoints. The 5B will be slow on MPS — for that one you want CUDA.</span>
+<span id="cb3-211"><a href="#cb3-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-212"><a href="#cb3-212" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb3-213"><a href="#cb3-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-214"><a href="#cb3-214" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Sapiens2 model collection: <span class="co">[</span><span class="ot">huggingface.co/facebook/sapiens2</span><span class="co">](https://huggingface.co/facebook/sapiens2)</span></span>
+<span id="cb3-215"><a href="#cb3-215" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Sapiens2 code: <span class="co">[</span><span class="ot">github.com/facebookresearch/sapiens2</span><span class="co">](https://github.com/facebookresearch/sapiens2)</span></span>
+<span id="cb3-216"><a href="#cb3-216" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Project page: <span class="co">[</span><span class="ot">rawalkhirodkar.github.io/sapiens2</span><span class="co">](https://rawalkhirodkar.github.io/sapiens2)</span></span>
+<span id="cb3-217"><a href="#cb3-217" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Original Sapiens (v1): <span class="co">[</span><span class="ot">arXiv:2408.12569</span><span class="co">](https://arxiv.org/abs/2408.12569)</span></span>
+<span id="cb3-218"><a href="#cb3-218" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Photos used: <span class="co">[</span><span class="ot">Pexels #1300402</span><span class="co">](https://www.pexels.com/photo/1300402/)</span> · <span class="co">[</span><span class="ot">Pexels #2065200</span><span class="co">](https://www.pexels.com/photo/2065200/)</span> · <span class="co">[</span><span class="ot">Pexels #2294361</span><span class="co">](https://www.pexels.com/photo/2294361/)</span></span>
+<span id="cb3-219"><a href="#cb3-219" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Video used: <span class="co">[</span><span class="ot">Pexels #14801276</span><span class="co">](https://www.pexels.com/video/14801276/)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
