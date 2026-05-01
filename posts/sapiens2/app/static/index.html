@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sapiens2 try-it</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: {
+  brand:  { 50:'#fff5f3', 500:'#c44536', 600:'#a83426', 700:'#8a2a1f' },
+  ink:    { 900:'#1a1a1a', 700:'#3a3a3a', 500:'#6a6a6a', 300:'#bdbdbd', 100:'#f1f1f1' },
+}}}};
+</script>
+<style>
+  body { font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .tab-btn[aria-selected="true"] { background:#fff; color:#c44536; border-bottom:2px solid #c44536; }
+  .tab-btn { color:#6a6a6a; padding: 10px 20px; border-bottom: 2px solid transparent; }
+  .sample-card { transition: transform .12s, box-shadow .12s; cursor:pointer; }
+  .sample-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.08); }
+  .sample-card.selected { outline: 3px solid #c44536; outline-offset: 1px; }
+  .chip[aria-pressed="true"] { background:#c44536; color:#fff; border-color:#c44536; }
+  #pose-tooltip, #seg-tooltip {
+    position: absolute; pointer-events: none;
+    background: rgba(20,20,20,.92); color:#fff;
+    padding: 4px 10px; border-radius: 4px; font-size: 13px;
+    transform: translate(10px, -28px); white-space: nowrap; z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  /* Spinner */
+  .spinner {
+    border: 3px solid rgba(196,69,54,.2); border-top: 3px solid #c44536;
+    border-radius: 50%; width: 28px; height: 28px;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+
+<body class="bg-ink-100 text-ink-900">
+
+<!-- header -->
+<header class="bg-white border-b border-ink-100">
+  <div class="max-w-[1400px] mx-auto px-6 py-4 flex items-baseline justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Sapiens2 <span class="text-brand-500">try-it</span></h1>
+      <p class="text-sm text-ink-500">1B models · pose · seg · normal · pointmap</p>
+    </div>
+    <div id="device-info" class="text-xs text-ink-500 font-mono"></div>
+  </div>
+  <nav class="max-w-[1400px] mx-auto px-6 flex items-end gap-1 -mb-px">
+    <button class="tab-btn font-medium" data-tab="image"  aria-selected="true">Image</button>
+    <button class="tab-btn font-medium" data-tab="video"  aria-selected="false">Video</button>
+    <button class="tab-btn font-medium" data-tab="about"  aria-selected="false">About</button>
+  </nav>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-6 py-6">
+
+<!-- ============================== IMAGE TAB ================================ -->
+<section data-panel="image">
+
+  <!-- task chips -->
+  <div class="mb-4 flex flex-wrap gap-2 items-center">
+    <span class="text-sm text-ink-500 mr-2">Task</span>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium" data-task="pose"     aria-pressed="true">Pose</button>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium" data-task="seg"      aria-pressed="false">Segmentation</button>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium opacity-40 cursor-not-allowed" data-task="normal"   aria-pressed="false" disabled title="Disabled — heavy">Surface normal <span class="text-xs">(off)</span></button>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium opacity-40 cursor-not-allowed" data-task="pointmap" aria-pressed="false" disabled title="Disabled — heavy">Pointmap depth <span class="text-xs">(off)</span></button>
+    <span id="task-blurb" class="text-sm text-ink-500 ml-3"></span>
+  </div>
+
+  <!-- samples -->
+  <div id="image-samples" class="space-y-4 mb-4"></div>
+
+  <!-- upload -->
+  <div class="mb-4 flex items-center gap-3">
+    <label class="border border-dashed border-ink-300 hover:border-brand-500 px-4 py-2 rounded text-sm cursor-pointer">
+      …or upload your own
+      <input id="image-upload" type="file" accept="image/*" hidden>
+    </label>
+    <button id="image-run"
+      class="bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold px-6 py-2 rounded shadow-sm">
+      Run
+    </button>
+    <div id="image-status" class="flex items-center gap-2 text-sm text-ink-500"></div>
+  </div>
+
+  <!-- input / output -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div>
+      <div class="text-xs uppercase tracking-wider text-ink-500 mb-2">Input</div>
+      <div id="image-input-wrap" class="bg-white rounded shadow-sm border border-ink-100 p-2">
+        <div class="text-ink-300 text-sm text-center py-20">No image yet — pick a sample or upload.</div>
+      </div>
+    </div>
+    <div>
+      <div class="text-xs uppercase tracking-wider text-ink-500 mb-2">Output</div>
+      <div id="image-output-wrap" class="relative bg-white rounded shadow-sm border border-ink-100 p-2 min-h-[200px]">
+        <div class="text-ink-300 text-sm text-center py-20">Click <strong class="text-brand-500">Run</strong> to predict.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="image-meta" class="mt-4 text-sm text-ink-700"></div>
+</section>
+
+<!-- ============================== VIDEO TAB ================================ -->
+<section data-panel="video" hidden>
+
+  <div class="mb-4 flex flex-wrap gap-2 items-center">
+    <span class="text-sm text-ink-500 mr-2">Task</span>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium" data-vtask="pose"     aria-pressed="true">Pose</button>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium" data-vtask="seg"      aria-pressed="false">Segmentation</button>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium opacity-40 cursor-not-allowed" data-vtask="normal"   aria-pressed="false" disabled title="Disabled — heavy">Surface normal <span class="text-xs">(off)</span></button>
+    <button class="chip border border-ink-300 px-4 py-1.5 rounded-full text-sm font-medium opacity-40 cursor-not-allowed" data-vtask="pointmap" aria-pressed="false" disabled title="Disabled — heavy">Pointmap <span class="text-xs">(off)</span></button>
+
+    <span class="text-sm text-ink-500 ml-6 mr-2">Sample FPS</span>
+    <input id="video-fps" type="range" min="0.5" max="4" step="0.5" value="1" class="accent-brand-500 w-40">
+    <span id="video-fps-val" class="font-mono text-sm w-10 text-right">1.0</span>
+  </div>
+
+  <div id="video-samples" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4"></div>
+
+  <div class="mb-4 flex items-center gap-3">
+    <label class="border border-dashed border-ink-300 hover:border-brand-500 px-4 py-2 rounded text-sm cursor-pointer">
+      …or upload your own (mp4)
+      <input id="video-upload" type="file" accept="video/*" hidden>
+    </label>
+    <button id="video-run"
+      class="bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold px-6 py-2 rounded shadow-sm">
+      Run
+    </button>
+    <div id="video-status" class="flex items-center gap-2 text-sm text-ink-500"></div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div>
+      <div class="text-xs uppercase tracking-wider text-ink-500 mb-2">Input clip</div>
+      <video id="video-input-el" class="bg-black rounded shadow-sm w-full" controls muted playsinline></video>
+      <div id="video-input-name" class="text-xs text-ink-500 mt-1"></div>
+    </div>
+    <div>
+      <div class="text-xs uppercase tracking-wider text-ink-500 mb-2">Overlay</div>
+      <video id="video-output-el" class="bg-black rounded shadow-sm w-full" controls autoplay muted loop playsinline></video>
+      <div id="video-output-info" class="text-xs text-ink-500 mt-1"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== ABOUT TAB ================================ -->
+<section data-panel="about" hidden class="prose prose-sm max-w-none">
+  <h2 class="text-lg font-semibold">About</h2>
+  <ul class="list-disc pl-6 text-sm text-ink-700 space-y-2">
+    <li><strong>Models</strong>: Sapiens2 1B for pose (308 keypoints), body-part segmentation
+        (29 classes, dome29 palette), surface normals, pointmap depth.
+        Each model loads on first use and is cached on the GPU between requests.</li>
+    <li><strong>Hover</strong>: pose dots show keypoint name + score; seg regions show
+        body-part class names; surface normals and pointmap are plain images.</li>
+    <li><strong>Image samples</strong>: 3 RGB studio + 4 grayscale ThermEval +
+        6 FLIR iron-palette thermals (harder cases) + 2 Wikimedia CC thermals.
+        Upload your own to test.</li>
+    <li><strong>Video samples</strong>: short Pexels CC0 clips of single men
+        (crunches, meditation, downward-dog, walking). Inference at 1 fps by default
+        (~1.2 s/frame on the A5000).</li>
+    <li><strong>Thermal note</strong>: Sapiens2 was trained on RGB human imagery
+        (Shutterstock / RenderPeople). Passing thermal IR through the RGB normalisation
+        is honestly out-of-distribution. Body outline → seg and gross posture → pose
+        tend to survive; surface normals and absolute depth do not.</li>
+  </ul>
+</section>
+
+</main>
+
+<!-- floating tooltip nodes -->
+<div id="pose-tooltip" hidden></div>
+<div id="seg-tooltip"  hidden></div>
+
+<!-- error / log panel (toast at the bottom-right) -->
+<div id="error-panel" hidden
+     class="fixed bottom-4 right-4 max-w-[640px] bg-white border border-brand-500 rounded shadow-lg z-40">
+  <div class="flex items-center justify-between px-3 py-2 bg-brand-50 border-b border-brand-500">
+    <strong class="text-brand-700 text-sm">Server error</strong>
+    <div class="flex gap-2 items-center">
+      <button id="error-copy"  class="text-xs text-ink-700 hover:underline">copy</button>
+      <button id="error-close" class="text-ink-500 hover:text-brand-500 text-lg leading-none">&times;</button>
+    </div>
+  </div>
+  <div id="error-summary" class="px-3 py-2 text-sm text-ink-700"></div>
+  <details class="border-t border-ink-100">
+    <summary class="px-3 py-2 cursor-pointer text-xs text-ink-500 hover:bg-ink-100">traceback</summary>
+    <pre id="error-trace" class="px-3 py-2 max-h-64 overflow-auto text-[11px] text-ink-700 bg-ink-100 leading-tight"></pre>
+  </details>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
