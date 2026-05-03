@@ -624,53 +624,78 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div id="82e0fd8b" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;jupyter&quot;,&quot;value&quot;:{&quot;source_hidden&quot;:true}}" data-tags="[&quot;hide-input&quot;]" data-execution_count="4">
 <details class="code-fold">
 <summary>Show code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---------- 4-paradigm comparison helper ----------</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _quiet(fn, <span class="op">*</span>a, <span class="op">**</span>k):</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    buf <span class="op">=</span> io.StringIO()</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> contextlib.redirect_stdout(buf):</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> fn(<span class="op">*</span>a, <span class="op">**</span>k)</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> direct(question, images<span class="op">=</span><span class="va">None</span>):</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> llm(<span class="ss">f'Answer the question concisely in one short line.</span><span class="ch">\n\n</span><span class="ss">Question: </span><span class="sc">{</span>question<span class="sc">}</span><span class="ch">\n</span><span class="ss">Answer:'</span>,</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>              images<span class="op">=</span>images, max_tokens<span class="op">=</span><span class="dv">160</span>)</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> _strip_leaks(out).split(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>)[<span class="dv">0</span>].strip()</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cot(question, images<span class="op">=</span><span class="va">None</span>):</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> (<span class="st">'Think step by step in plain text, then on the LAST line write '</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>              <span class="st">"'Final answer: &lt;answer&gt;'.</span><span class="ch">\n\n</span><span class="st">Question: "</span> <span class="op">+</span> question <span class="op">+</span> <span class="st">'</span><span class="ch">\n\n</span><span class="st">Reasoning:'</span>)</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> llm(prompt, images<span class="op">=</span>images, max_tokens<span class="op">=</span><span class="dv">1400</span>).strip()</span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> line <span class="kw">in</span> <span class="bu">reversed</span>(out.splitlines()):</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> line.lower().lstrip().startswith(<span class="st">'final answer'</span>):</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> line.split(<span class="st">':'</span>, <span class="dv">1</span>)[<span class="op">-</span><span class="dv">1</span>].strip()</span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out.splitlines()[<span class="op">-</span><span class="dv">1</span>].strip() <span class="cf">if</span> out <span class="cf">else</span> <span class="st">'(no answer)'</span></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> act_only(question, tools, base_system, images<span class="op">=</span><span class="va">None</span>):</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    sys <span class="op">=</span> (<span class="st">'You answer by emitting Action lines only. Do NOT think aloud. '</span></span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>           <span class="st">'Each step is exactly one Action: tool[arg]. Stop with Finish[answer].</span><span class="ch">\n</span><span class="st">'</span></span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>           <span class="st">'Available tools: '</span> <span class="op">+</span> <span class="st">', '</span>.join(<span class="bu">sorted</span>(<span class="bu">set</span>(tools) <span class="op">|</span> {<span class="st">"Finish"</span>})))</span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> _quiet(react, question, tools, sys, images<span class="op">=</span>images,</span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>                  max_steps<span class="op">=</span><span class="dv">4</span>, max_tokens_per_step<span class="op">=</span><span class="dv">120</span>, verbose<span class="op">=</span><span class="va">False</span>) <span class="kw">or</span> <span class="st">'(failed)'</span></span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> react_full(question, tools, system, images<span class="op">=</span><span class="va">None</span>):</span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> _quiet(react, question, tools, system, images<span class="op">=</span>images, verbose<span class="op">=</span><span class="va">False</span>) <span class="kw">or</span> <span class="st">'(failed)'</span></span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> compare(question, tools, system, images<span class="op">=</span><span class="va">None</span>, ground_truth<span class="op">=</span><span class="va">None</span>, image_label<span class="op">=</span><span class="st">''</span>):</span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    rows <span class="op">=</span> [</span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'1. Direct'</span>,   direct(question, images)),</span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'2. CoT'</span>,      cot(question, images)),</span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'3. Act-only'</span>, act_only(question, tools, system, images)),</span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'4. ReAct'</span>,    react_full(question, tools, system, images)),</span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>    ]</span>
-<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>    md <span class="op">=</span> [<span class="st">'**Question:** '</span> <span class="op">+</span> question]</span>
-<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> image_label: md.append(<span class="ss">f'</span><span class="ch">\n</span><span class="ss">*Image: </span><span class="sc">{</span>image_label<span class="sc">}</span><span class="ss">*'</span>)</span>
-<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> ground_truth <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>: md.append(<span class="ss">f'</span><span class="ch">\n</span><span class="ss">*Ground truth:* `</span><span class="sc">{</span>ground_truth<span class="sc">}</span><span class="ss">`'</span>)</span>
-<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>    md.append(<span class="st">'</span><span class="ch">\n</span><span class="st">| Paradigm | Answer |</span><span class="ch">\n</span><span class="st">|---|---|'</span>)</span>
-<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> name, ans <span class="kw">in</span> rows:</span>
-<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>        a <span class="op">=</span> <span class="bu">str</span>(ans).replace(<span class="st">'|'</span>, <span class="st">'</span><span class="ch">\\</span><span class="st">|'</span>).replace(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>, <span class="st">'&lt;br&gt;'</span>)</span>
-<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">len</span>(a) <span class="op">&gt;</span> <span class="dv">220</span>: a <span class="op">=</span> a[:<span class="dv">220</span>] <span class="op">+</span> <span class="st">'…'</span></span>
-<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>        md.append(<span class="ss">f'| **</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">** | </span><span class="sc">{</span>a<span class="sc">}</span><span class="ss"> |'</span>)</span>
-<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>    display(Markdown(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>.join(md)))</span>
-<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> rows</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---------- 4-paradigm comparison helper (full traces shown) ----------</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> html <span class="im">as</span> _html</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _capture(fn, <span class="op">*</span>a, <span class="op">**</span>k):</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Run fn() with stdout redirected; return (return_value, captured_text)."""</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    buf <span class="op">=</span> io.StringIO()</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> contextlib.redirect_stdout(buf):</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        result <span class="op">=</span> fn(<span class="op">*</span>a, <span class="op">**</span>k)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result, buf.getvalue()</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> direct(question, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    raw <span class="op">=</span> llm(<span class="ss">f'Answer the question concisely in one short line.</span><span class="ch">\n\n</span><span class="ss">Question: </span><span class="sc">{</span>question<span class="sc">}</span><span class="ch">\n</span><span class="ss">Answer:'</span>,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>              images<span class="op">=</span>images, max_tokens<span class="op">=</span><span class="dv">160</span>)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    raw <span class="op">=</span> _strip_leaks(raw)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    answer <span class="op">=</span> raw.split(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>)[<span class="dv">0</span>].strip()</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    trace <span class="op">=</span> <span class="ss">f'PROMPT:</span><span class="ch">\n</span><span class="ss">Answer the question concisely in one short line.</span><span class="ch">\n</span><span class="ss">Question: </span><span class="sc">{</span>question<span class="sc">}</span><span class="ch">\n</span><span class="ss">Answer:</span><span class="ch">\n\n</span><span class="ss">MODEL OUTPUT:</span><span class="ch">\n</span><span class="sc">{</span>raw<span class="sc">}</span><span class="ss">'</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> answer, trace</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cot(question, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    prompt <span class="op">=</span> (<span class="st">'Think step by step in plain text, then on the LAST line write '</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>              <span class="st">"'Final answer: &lt;answer&gt;'.</span><span class="ch">\n\n</span><span class="st">Question: "</span> <span class="op">+</span> question <span class="op">+</span> <span class="st">'</span><span class="ch">\n\n</span><span class="st">Reasoning:'</span>)</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    raw <span class="op">=</span> llm(prompt, images<span class="op">=</span>images, max_tokens<span class="op">=</span><span class="dv">1400</span>).strip()</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    answer <span class="op">=</span> <span class="st">'(no answer)'</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> line <span class="kw">in</span> <span class="bu">reversed</span>(raw.splitlines()):</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> line.lower().lstrip().startswith(<span class="st">'final answer'</span>):</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>            answer <span class="op">=</span> line.split(<span class="st">':'</span>, <span class="dv">1</span>)[<span class="op">-</span><span class="dv">1</span>].strip()<span class="op">;</span> <span class="cf">break</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    trace <span class="op">=</span> <span class="ss">f'PROMPT:</span><span class="ch">\n</span><span class="sc">{</span>prompt<span class="sc">}</span><span class="ch">\n\n</span><span class="ss">MODEL OUTPUT:</span><span class="ch">\n</span><span class="sc">{</span>raw<span class="sc">}</span><span class="ss">'</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> answer, trace</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> act_only(question, tools, base_system, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    sys <span class="op">=</span> (<span class="st">'You answer by emitting Action lines only. Do NOT think aloud. '</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>           <span class="st">'Each step is exactly one Action: tool[arg]. Stop with Finish[answer].</span><span class="ch">\n</span><span class="st">'</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>           <span class="st">'Available tools: '</span> <span class="op">+</span> <span class="st">', '</span>.join(<span class="bu">sorted</span>(<span class="bu">set</span>(tools) <span class="op">|</span> {<span class="st">"Finish"</span>})))</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    answer, trace <span class="op">=</span> _capture(react, question, tools, sys, images<span class="op">=</span>images,</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>                             max_steps<span class="op">=</span><span class="dv">4</span>, max_tokens_per_step<span class="op">=</span><span class="dv">120</span>, verbose<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (answer <span class="kw">or</span> <span class="st">'(failed)'</span>), trace</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> react_full(question, tools, system, images<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>    answer, trace <span class="op">=</span> _capture(react, question, tools, system,</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>                             images<span class="op">=</span>images, verbose<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (answer <span class="kw">or</span> <span class="st">'(failed)'</span>), trace</span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _esc(s, max_len<span class="op">=</span><span class="dv">8000</span>):</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>    s <span class="op">=</span> <span class="bu">str</span>(s)</span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(s) <span class="op">&gt;</span> max_len: s <span class="op">=</span> s[:max_len] <span class="op">+</span> <span class="st">'</span><span class="ch">\n</span><span class="st">…(truncated)'</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> _html.escape(s)</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> compare(question, tools, system, images<span class="op">=</span><span class="va">None</span>, ground_truth<span class="op">=</span><span class="va">None</span>, image_label<span class="op">=</span><span class="st">''</span>):</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>    rows <span class="op">=</span> [</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'1. Direct'</span>,   <span class="op">*</span>direct(question, images)),</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'2. CoT'</span>,      <span class="op">*</span>cot(question, images)),</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'3. Act-only'</span>, <span class="op">*</span>act_only(question, tools, system, images)),</span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>        (<span class="st">'4. ReAct'</span>,    <span class="op">*</span>react_full(question, tools, system, images)),</span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>    md <span class="op">=</span> [<span class="st">'**Question:** '</span> <span class="op">+</span> question]</span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> image_label: md.append(<span class="ss">f'</span><span class="ch">\n</span><span class="ss">*Image: </span><span class="sc">{</span>image_label<span class="sc">}</span><span class="ss">*'</span>)</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> ground_truth <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>: md.append(<span class="ss">f'</span><span class="ch">\n</span><span class="ss">*Ground truth:* `</span><span class="sc">{</span>ground_truth<span class="sc">}</span><span class="ss">`'</span>)</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>    md.append(<span class="st">'</span><span class="ch">\n</span><span class="st">| Paradigm | Final answer |</span><span class="ch">\n</span><span class="st">|---|---|'</span>)</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> name, ans, _ <span class="kw">in</span> rows:</span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>        a <span class="op">=</span> <span class="bu">str</span>(ans).replace(<span class="st">'|'</span>, <span class="st">'</span><span class="ch">\\</span><span class="st">|'</span>).replace(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>, <span class="st">'&lt;br&gt;'</span>)</span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">len</span>(a) <span class="op">&gt;</span> <span class="dv">220</span>: a <span class="op">=</span> a[:<span class="dv">220</span>] <span class="op">+</span> <span class="st">'…'</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>        md.append(<span class="ss">f'| **</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">** | </span><span class="sc">{</span>a<span class="sc">}</span><span class="ss"> |'</span>)</span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>    md.append(<span class="st">''</span>)</span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a>    md.append(<span class="st">'### Full traces'</span>)</span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> name, _, trace <span class="kw">in</span> rows:</span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>        md.append(</span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'&lt;details&gt;&lt;summary&gt;&lt;b&gt;</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">&lt;/b&gt; — click to expand trace&lt;/summary&gt;</span><span class="ch">\n\n</span><span class="ss">'</span></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'&lt;pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; '</span></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'background:#f8f8f8; padding:8px; border-radius:4px;"&gt;'</span></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f'</span><span class="sc">{</span>_esc(trace)<span class="sc">}</span><span class="ss">&lt;/pre&gt;</span><span class="ch">\n\n</span><span class="ss">&lt;/details&gt;'</span>)</span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>    display(Markdown(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>.join(md)))</span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> rows</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -687,26 +712,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </details>
 <div class="cell-output cell-output-display">
 <script type="application/vnd.jupyter.widget-view+json">
-{"model_id":"98c03094e5874039a9dfc9b2df67356e","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
+{"model_id":"0775cd99aef241bfbca7c27bf3451d2b","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
 </script>
 </div>
 <div class="cell-output cell-output-display">
 <script type="application/vnd.jupyter.widget-view+json">
-{"model_id":"0086a6f6de264c3a839ccd9f1eb63722","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
+{"model_id":"94823b4a6476420db4f2affa116f07b9","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
 </script>
 </div>
 <div class="cell-output cell-output-display">
 <script type="application/vnd.jupyter.widget-view+json">
-{"model_id":"f8ab67488e694b4fae405b72b13f79b6","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
+{"model_id":"f4d6688eec194a9daf64296f7b3c9b4c","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
 </script>
 </div>
 <div class="cell-output cell-output-display">
 <script type="application/vnd.jupyter.widget-view+json">
-{"model_id":"61a8fc3a33224e5f940a3ec56f1b3368","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
+{"model_id":"7849a7ebbd0449bdaf566b3e449e8ef9","version_major":2,"version_minor":0,"quarto_mimetype":"application/vnd.jupyter.widget-view+json"}
 </script>
 </div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[load] 4.5s</code></pre>
+<pre><code>[load] 5.1s</code></pre>
 </div>
 <div class="cell-output cell-output-display cell-output-markdown">
 <p><strong>Question:</strong> What country was the inventor of the Linux kernel born in, and what is the capital of that country?</p>
@@ -719,7 +744,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <thead>
 <tr class="header">
 <th>Paradigm</th>
-<th>Answer</th>
+<th>Final answer</th>
 </tr>
 </thead>
 <tbody>
@@ -741,6 +766,94 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
+<section id="full-traces" class="level3">
+<h3 class="anchored" data-anchor-id="full-traces">Full traces</h3>
+<details>
+<summary>
+<b>1. Direct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Answer the question concisely in one short line.
+Question: What country was the inventor of the Linux kernel born in, and what is the capital of that country?
+Answer:
+
+MODEL OUTPUT:
+Finland; Helsinki.</pre>
+</details>
+<details>
+<summary>
+<b>2. CoT</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Think step by step in plain text, then on the LAST line write 'Final answer: &lt;answer&gt;'.
+
+Question: What country was the inventor of the Linux kernel born in, and what is the capital of that country?
+
+Reasoning:
+
+MODEL OUTPUT:
+1. Identify the inventor of the Linux kernel: The Linux kernel was created by Linus Torvalds.
+2. Determine the country of birth for Linus Torvalds: Linus Torvalds was born in Finland.
+3. Identify the capital of Finland: The capital of Finland is Helsinki.
+
+Final answer: Finland, Helsinki</pre>
+</details>
+<details>
+<summary>
+<b>3. Act-only</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer by emitting Action lines only. Do NOT think aloud. Each step is exactly one Action: tool[arg]. Stop with Finish[answer].
+Available tools: Finish, calc, date_diff, search, today
+
+Question: What country was the inventor of the Linux kernel born in, and what is the capital of that country?
+
+Thought 1: search[inventor of the Linux kernel]
+Observation 1: Linus Benedict Torvalds (born 28 December 1969) is a Finnish and American software engineer who is the creator and lead developer of the Linux kernel since 1991. He also created the distributed version control system Git.
+Thought 2: search[capital of Finland]
+Observation 2: Helsinki (Swedish: Helsingfors) is the capital and most populous city in Finland. It is on the shore of the Gulf of Finland and is the seat of southern Finland's Uusimaa region.
+Thought 3: Finish[Linus Torvalds, the inventor of the Linux kernel, was born in Finland, and its capital is Helsinki.]
+
+=&gt; Linus Torvalds, the inventor of the Linux kernel, was born in Finland, and its capital is Helsinki.
+</pre>
+</details>
+<details>
+<summary>
+<b>4. ReAct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer the user's question by interleaving Thought, Action, and Observation steps.
+Available tools:
+  search[query]      - returns a short Wikipedia summary
+  calc[expr]         - evaluates a Python arithmetic expression
+  today[]            - returns today's date as YYYY-MM-DD
+  date_diff[d1, d2]  - days from d1 to d2 (both YYYY-MM-DD)
+  Finish[answer]     - emit the final concise answer and stop
+
+Format:
+  Thought N: short reasoning
+  Action N: tool_name[argument]
+Stop within 5 steps via Finish[your answer].
+
+Question: What country was the inventor of the Linux kernel born in, and what is the capital of that country?
+
+Thought 1: The inventor of the Linux kernel is Linus Torvalds. I need to find his birth country and the capital of that country.
+
+Thought 1: Identify the inventor of the Linux kernel and their birth country.
+Action 1: search[Linus Torvalds]
+Observation 1: Linus Benedict Torvalds (born 28 December 1969) is a Finnish and American software engineer who is the creator and lead developer of the Linux kernel since 1991. He also created the distributed version control system Git.
+Thought 2: Linus Torvalds was born in Finland. Now I need to find the capital of Finland.
+Action 2: search[Finland]
+Observation 2: An island or isle is a piece of land, distinct from a continent, completely surrounded by water. There are continental islands, which were formed by being split from a continent by plate tectonics, and oceanic islands, which have never been part of a continent.
+Thought 3: The previous search for "Finland" returned irrelevant information about islands. I need to specifically search for the capital of Finland.
+Action 3: search[capital of Finland]
+Observation 3: Helsinki (Swedish: Helsingfors) is the capital and most populous city in Finland. It is on the shore of the Gulf of Finland and is the seat of southern Finland's Uusimaa region.
+Thought 4: The inventor of the Linux kernel, Linus Torvalds, was born in Finland, and the capital of Finland is Helsinki.
+
+Finish[Finland, Helsinki]
+
+=&gt; Finland, Helsinki
+</pre>
+</details>
+</section>
 </div>
 </div>
 </section>
@@ -762,7 +875,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <thead>
 <tr class="header">
 <th>Paradigm</th>
-<th>Answer</th>
+<th>Final answer</th>
 </tr>
 </thead>
 <tbody>
@@ -784,6 +897,121 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
+<section id="full-traces-1" class="level3">
+<h3 class="anchored" data-anchor-id="full-traces-1">Full traces</h3>
+<details>
+<summary>
+<b>1. Direct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Answer the question concisely in one short line.
+Question: If I invest 47,500 INR at 7.25% annual compound interest for 9 years, how much will it grow to? Round to the nearest rupee.
+Answer:
+
+MODEL OUTPUT:
+92,354 INR</pre>
+</details>
+<details>
+<summary>
+<b>2. CoT</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Think step by step in plain text, then on the LAST line write 'Final answer: &lt;answer&gt;'.
+
+Question: If I invest 47,500 INR at 7.25% annual compound interest for 9 years, how much will it grow to? Round to the nearest rupee.
+
+Reasoning:
+
+MODEL OUTPUT:
+To calculate the future value of an investment with compound interest, we use the formula:
+$A = P(1 + r)^n$
+
+Where:
+- $P$ = Principal amount (47,500 INR)
+- $r$ = Annual interest rate (7.25% or 0.0725)
+- $n$ = Number of years (9)
+
+Step 1: Calculate the growth factor $(1 + r)$.
+$1 + 0.0725 = 1.0725$
+
+Step 2: Raise the growth factor to the power of $n$ (9 years).
+$1.0725^9$
+$1.0725^1 \approx 1.0725$
+$1.0725^2 \approx 1.150256$
+$1.0725^4 \approx (1.150256)^2 \approx 1.323089$
+$1.0725^8 \approx (1.323089)^2 \approx 1.750564$
+$1.0725^9 \approx 1.750564 \times 1.0725 \approx 1.876535$
+
+Step 3: Multiply the principal by the growth factor.
+$A = 47,500 \times 1.876535$
+
+Calculation:
+$47,500 \times 1 = 47,500$
+$47,500 \times 0.8 = 38,000$
+$47,500 \times 0.07 = 3,325$
+$47,500 \times 0.006 = 285$
+$47,500 \times 0.0005 = 23.75$
+$47,500 \times 0.000035 \approx 1.66$
+
+Summing these:
+$47,500 + 38,000 + 3,325 + 285 + 23.75 + 1.66 = 89,135.41$
+
+Rounding to the nearest rupee:
+$89,135$
+
+Final answer: 89135</pre>
+</details>
+<details>
+<summary>
+<b>3. Act-only</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer by emitting Action lines only. Do NOT think aloud. Each step is exactly one Action: tool[arg]. Stop with Finish[answer].
+Available tools: Finish, calc, date_diff, search, today
+
+Question: If I invest 47,500 INR at 7.25% annual compound interest for 9 years, how much will it grow to? Round to the nearest rupee.
+
+Thought 1: tool[calc(47500 * (1 + 0.0725)**9)]
+Act
+Observation 1: 89180.37974900902
+Thought 2: tool[calc(round(89180.37974900902))]
+Act
+Observation 2: 89180
+Thought 3: Finish[89180]
+
+=&gt; 89180
+</pre>
+</details>
+<details>
+<summary>
+<b>4. ReAct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer the user's question by interleaving Thought, Action, and Observation steps.
+Available tools:
+  search[query]      - returns a short Wikipedia summary
+  calc[expr]         - evaluates a Python arithmetic expression
+  today[]            - returns today's date as YYYY-MM-DD
+  date_diff[d1, d2]  - days from d1 to d2 (both YYYY-MM-DD)
+  Finish[answer]     - emit the final concise answer and stop
+
+Format:
+  Thought N: short reasoning
+  Action N: tool_name[argument]
+Stop within 5 steps via Finish[your answer].
+
+Question: If I invest 47,500 INR at 7.25% annual compound interest for 9 years, how much will it grow to? Round to the nearest rupee.
+
+Thought 1: To calculate the future value of an investment with annual compound interest, the formula is $A = P(1 + r)^n$, where $P$ is the principal, $r$ is the annual interest rate, and $n$ is the number of years.
+
+Thought 1: I need to calculate $47,500 \times (1 + 0.0725)^9$.
+Action 1: calc[47500 * (1 + 0.0725)**9]
+Observation 1: 89180.37974900902
+Thought 2: The calculated value is approximately 89,180.38. Rounding to the nearest rupee gives 89,180.
+Action 2: Finish[89,180 INR]
+
+=&gt; 89,180 INR
+</pre>
+</details>
+</section>
 </div>
 </div>
 </section>
@@ -805,7 +1033,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <thead>
 <tr class="header">
 <th>Paradigm</th>
-<th>Answer</th>
+<th>Final answer</th>
 </tr>
 </thead>
 <tbody>
@@ -827,6 +1055,103 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
+<section id="full-traces-2" class="level3">
+<h3 class="anchored" data-anchor-id="full-traces-2">Full traces</h3>
+<details>
+<summary>
+<b>1. Direct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Answer the question concisely in one short line.
+Question: A 42-year-old patient is 178 cm tall and weighs 92 kg. Compute their BMI to one decimal place, then state the WHO weight-status category for that BMI.
+Answer:
+
+MODEL OUTPUT:
+BMI 29.0, Overweight.</pre>
+</details>
+<details>
+<summary>
+<b>2. CoT</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Think step by step in plain text, then on the LAST line write 'Final answer: &lt;answer&gt;'.
+
+Question: A 42-year-old patient is 178 cm tall and weighs 92 kg. Compute their BMI to one decimal place, then state the WHO weight-status category for that BMI.
+
+Reasoning:
+
+MODEL OUTPUT:
+1. Identify the patient's height and weight:
+   Height = 178 cm
+   Weight = 92 kg
+
+2. Convert height from centimeters to meters:
+   178 cm / 100 = 1.78 m
+
+3. Use the BMI formula: BMI = weight (kg) / [height (m)]²
+   BMI = 92 / (1.78 * 1.78)
+   BMI = 92 / 3.1684
+   BMI = 29.036...
+
+4. Round the BMI to one decimal place:
+   BMI = 29.0
+
+5. Determine the WHO weight-status category based on the calculated BMI:
+   - Underweight: &lt; 18.5
+   - Normal weight: 18.5 – 24.9
+   - Overweight: 25.0 – 29.9
+   - Obesity: ≥ 30.0
+   Since 29.0 falls within the 25.0 – 29.9 range, the category is "Overweight".
+
+Final answer: 29.0, Overweight</pre>
+</details>
+<details>
+<summary>
+<b>3. Act-only</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer by emitting Action lines only. Do NOT think aloud. Each step is exactly one Action: tool[arg]. Stop with Finish[answer].
+Available tools: Finish, calc, date_diff, search, today
+
+Question: A 42-year-old patient is 178 cm tall and weighs 92 kg. Compute their BMI to one decimal place, then state the WHO weight-status category for that BMI.
+
+Thought 1: tool[calc(92 / (1.78 * 1.78))]
+Act
+Observation 1: 29.036737785633125
+Thought 2: tool[calc(29.036737785633125)]
+Action
+
+=&gt; BMI 29.0, Overweight
+</pre>
+</details>
+<details>
+<summary>
+<b>4. ReAct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer the user's question by interleaving Thought, Action, and Observation steps.
+Available tools:
+  search[query]      - returns a short Wikipedia summary
+  calc[expr]         - evaluates a Python arithmetic expression
+  today[]            - returns today's date as YYYY-MM-DD
+  date_diff[d1, d2]  - days from d1 to d2 (both YYYY-MM-DD)
+  Finish[answer]     - emit the final concise answer and stop
+
+Format:
+  Thought N: short reasoning
+  Action N: tool_name[argument]
+Stop within 5 steps via Finish[your answer].
+
+Question: A 42-year-old patient is 178 cm tall and weighs 92 kg. Compute their BMI to one decimal place, then state the WHO weight-status category for that BMI.
+
+Thought 1: Calculate BMI using the formula: weight (kg) / (height (m)^2).
+Action 1: calc[92 / (1.78**2)]
+Observation 1: 29.036737785633125
+Thought 2: The BMI is approximately 29.0. According to WHO guidelines, a BMI between 25.0 and 29.9 is categorized as overweight.
+Action 2: Finish[BMI: 29.0, Category: Overweight]
+
+=&gt; BMI: 29.0, Category: Overweight
+</pre>
+</details>
+</section>
 </div>
 </div>
 </section>
@@ -867,7 +1192,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <thead>
 <tr class="header">
 <th>Paradigm</th>
-<th>Answer</th>
+<th>Final answer</th>
 </tr>
 </thead>
 <tbody>
@@ -889,6 +1214,123 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
+<section id="full-traces-3" class="level3">
+<h3 class="anchored" data-anchor-id="full-traces-3">Full traces</h3>
+<details>
+<summary>
+<b>1. Direct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Answer the question concisely in one short line.
+Question: Read the patient height and weight from this vitals chart, compute the BMI to one decimal place, note the trend in heart rate and blood pressure across the four readings, and recommend whether to escalate.
+Answer:
+
+MODEL OUTPUT:
+BMI is 29.1; HR and BP are both trending upward; escalate.</pre>
+</details>
+<details>
+<summary>
+<b>2. CoT</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">PROMPT:
+Think step by step in plain text, then on the LAST line write 'Final answer: &lt;answer&gt;'.
+
+Question: Read the patient height and weight from this vitals chart, compute the BMI to one decimal place, note the trend in heart rate and blood pressure across the four readings, and recommend whether to escalate.
+
+Reasoning:
+
+MODEL OUTPUT:
+1. **Identify Height and Weight**:
+   - Height: 178 cm (1.78 meters)
+   - Weight: 92 kg
+
+2. **Compute BMI**:
+   - Formula: $\text{BMI} = \frac{\text{weight (kg)}}{\text{height (m)}^2}$
+   - Calculation: $92 / (1.78 \times 1.78) = 92 / 3.1684 \approx 29.037$
+   - To one decimal place: 29.0
+
+3. **Analyze Trends**:
+   - **Heart Rate (HR)**: 76 $\rightarrow$ 82 $\rightarrow$ 91 $\rightarrow$ 104 bpm (Consistently increasing).
+   - **Blood Pressure (BP)**: 128/82 $\rightarrow$ 134/85 $\rightarrow$ 142/88 $\rightarrow$ 156/95 mmHg (Consistently increasing).
+
+4. **Recommendation**:
+   - The patient's heart rate and blood pressure are both trending upwards.
+   - The temperature is also rising (36.7 $\rightarrow$ 38.1).
+   - The notes explicitly state "trending fever, rising BP - escalate if next reading worsens."
+   - Given that the most recent readings (14:00) show a significant increase in HR, BP, and Temp, the patient's condition is worsening.
+
+Final answer: BMI is 29.0; heart rate and blood pressure are both trending upwards; recommendation is to escalate.</pre>
+</details>
+<details>
+<summary>
+<b>3. Act-only</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer by emitting Action lines only. Do NOT think aloud. Each step is exactly one Action: tool[arg]. Stop with Finish[answer].
+Available tools: Finish, calc, crop, describe
+
+Question: Read the patient height and weight from this vitals chart, compute the BMI to one decimal place, note the trend in heart rate and blood pressure across the four readings, and recommend whether to escalate.
+
+Thought 1: &lt;|tool_call&gt;call:crop[{"box_2d": [258, 45, 336,
+Observation 1: tool error: ValueError: could not convert string to float: '{"box_2d": [258'
+Thought 2: &lt;|tool_call&gt;call:crop[{"box_2d": [258, 45, 33
+Observation 2: tool error: ValueError: could not convert string to float: '{"box_2d": [258'
+Thought 3: &lt;|tool_call&gt;call:crop[{"box_2d": [258, 45, 336,
+Observation 3: tool error: ValueError: could not convert string to float: '{"box_2d": [258'
+Thought 4: &lt;|tool_call&gt;call:crop[{"box_2d": [258, 45, 336,
+Observation 4: tool error: ValueError: could not convert string to float: '{"box_2d": [258'
+[max steps]
+</pre>
+</details>
+<details>
+<summary>
+<b>4. ReAct</b> — click to expand trace
+</summary>
+<pre style="font-size:11px; line-height:1.35; white-space:pre-wrap; background:#f8f8f8; padding:8px; border-radius:4px;">You answer a question about an image by interleaving Thought, Action, and Observation.
+Available tools:
+  describe[]            - one full description of the image
+  crop[x1,y1,x2,y2]     - re-look at a region (normalised 0..1 OR pixels)
+  calc[expr]            - evaluate a numerical expression
+  Finish[answer]        - final concise answer, stop
+
+Format:
+  Thought N: short reasoning
+  Action N: tool_name[argument]
+Use describe[] first; use crop[] to inspect a region. Stop within 5 steps with Finish[answer].
+
+Question: Read the patient height and weight from this vitals chart, compute the BMI to one decimal place, note the trend in heart rate and blood pressure across the four readings, and recommend whether to escalate.
+
+Thought 1: I will first extract the patient's height and weight, then calculate the BMI, and finally analyze the trends in heart rate and blood pressure to determine if escalation is recommended.
+
+Thought 1: I need to find the patient's height and weight from the image.
+Action 1: describe[]
+Observation 1: A document titled "PATIENT VITALS — ICU bed 7" is displayed against a light blue header background. The rest of the document is white with black text.
+
+Below the header, there is a section of patient identification:
+*   **Patient ID:** P-04829
+*   **Name:** Rajesh Kumar
+*   **DOB:** 1981-08-14 (age 44)
+*   **Sex:** Male
+*   **Height:** 178 cm
+*   **Weight:** 92 kg
+
+A horizontal black line separates the identification from the "OBSERVATION SHEET – last 4 readings" section. This section contains a table with five columns:
+*   **time:** 08:00, 10:00, 12:00, 14:00
+*   **HR(bpm):** 76, 82, 91, 104
+
+Thought 2: I have the height (178 cm) and weight (92 kg). Now I need to calculate the BMI. BMI = weight(kg) / (height(m)^2).
+Action 2: calc[92 / (1.78 * 1.78)]
+Observation 2: 29.036737785633125
+Thought 3: The BMI is approximately 29.0. Now I need to analyze the trends in heart rate (HR) and blood pressure (BP) from the observation sheet.
+- HR (bpm): 76 -&gt; 82 -&gt; 91 -&gt; 104 (Increasing)
+- BP (mmHg): 128/82 -&gt; 134/85 -&gt; 142/88 -&gt; 156/95 (Increasing)
+The notes also explicitly state "trending fever, rising BP - escalate if next reading worsens." Since both HR and BP are steadily increasing, and the BP is rising, escalation is recommended.
+
+Finish[The patient's height is 178 cm and weight is 92 kg, resulting in a BMI of 29.0. Both the heart rate (76 to 104 bpm) and blood pressure (128/82 to 156/95 mmHg) are trending upwards. Based on the notes stating "rising BP - escalate if next reading worsens," escalation is recommended.]
+
+=&gt; The patient's height is 178 cm and weight is 92 kg, resulting in a BMI of 29.0. Both the heart rate (76 to 104 bpm) and blood pressure (128/82 to 156/95 mmHg) are trending upwards. Based on the notes stating "rising BP - escalate if next reading worsens," escalation is recommended.
+</pre>
+</details>
+</section>
 </div>
 </div>
 </section>
@@ -916,7 +1358,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 </main> <!-- /main -->
 <script type="application/vnd.jupyter.widget-state+json">
-{"state":{"0086a6f6de264c3a839ccd9f1eb63722":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_60bf5ac9a7f6488f8398c4369049cef9","IPY_MODEL_a2dd61c53d204dc58e8c54fabef12d28","IPY_MODEL_3bbb91facf2f44eb95bc83e7641b4b24"],"layout":"IPY_MODEL_425e92bf1c86492fbac6f69cc4cb46bb","tabbable":null,"tooltip":null}},"03a4849a19894781a868d84d2980d271":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"08f6a9994a784d0a9bdd17f8aa2aa0b8":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_af1a09870a3c4e2388bbfcc9ec5e3e7b","placeholder":"​","style":"IPY_MODEL_311d2bb409484314a2e4c5b37029baab","tabbable":null,"tooltip":null,"value":" 0.00/0.00 [00:00&lt;?, ?B/s]"}},"116446049ba24a958c7046c481db9ebb":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"14fe6c3487a647ee9ff1d64ff3aa0f43":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"1619912e0085432690560b968104dae4":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"1b7fe4447e2d46a4a319e4d9a6566469":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"2ddf646a7a914065ad145fadeb88441f":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_e2d7b2f24b1f47478353100395b26a4a","placeholder":"​","style":"IPY_MODEL_1619912e0085432690560b968104dae4","tabbable":null,"tooltip":null,"value":"Download complete: "}},"311d2bb409484314a2e4c5b37029baab":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"3bbb91facf2f44eb95bc83e7641b4b24":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_8ee20123c9624b04bc054cb1a81cbe4e","placeholder":"​","style":"IPY_MODEL_1b7fe4447e2d46a4a319e4d9a6566469","tabbable":null,"tooltip":null,"value":" 11/11 [00:00&lt;00:00, 3675.40it/s]"}},"425e92bf1c86492fbac6f69cc4cb46bb":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"47320ffd14314519a04bbf51bbf2723e":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"60bf5ac9a7f6488f8398c4369049cef9":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_d13b3b0fd172440c95571f0923c9cd82","placeholder":"​","style":"IPY_MODEL_c1a2f1b17df64df2a6d80af42d115600","tabbable":null,"tooltip":null,"value":"Fetching 11 files: 100%"}},"61a8fc3a33224e5f940a3ec56f1b3368":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_dd65d35039d74ebbb5eebc33a9184a3a","IPY_MODEL_e41ab0f986114bf4a8df4d0de2748994","IPY_MODEL_d9591257ad06466b9aa13e2ccbc09a80"],"layout":"IPY_MODEL_c23c16cb72c94ca496dbe6f02c504bee","tabbable":null,"tooltip":null}},"71b3f82cd3de4fc08dbd4dc4fb535bea":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"740abca4dfc34c9999ea483ca02c7a79":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"80ae56fbaefe48ba999949d40ebd089c":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"81623e8ed94141b28772c54a81985447":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"86b482b38be041a897f489c68a580c25":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"8dc51dfeab4b4cf49a8b48704a4d340d":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_9b7a055a88cd4fbe8f4a2006c2cf40d0","max":1,"min":0,"orientation":"horizontal","style":"IPY_MODEL_c440d80b9fb84c7d9c59ff4931e4aff5","tabbable":null,"tooltip":null,"value":0}},"8ee20123c9624b04bc054cb1a81cbe4e":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"8f2cb6a2488f4029a5726f254122ba40":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_d2eb918f0b014df1a676350d9a7dc5d8","max":1,"min":0,"orientation":"horizontal","style":"IPY_MODEL_80ae56fbaefe48ba999949d40ebd089c","tabbable":null,"tooltip":null,"value":0}},"96b256cffb6349f4a7297717998cb401":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_db5bce749d324946bc5ef6a0dde592aa","placeholder":"​","style":"IPY_MODEL_47320ffd14314519a04bbf51bbf2723e","tabbable":null,"tooltip":null,"value":" 0.00/0.00 [04:30&lt;?, ?B/s]"}},"98c03094e5874039a9dfc9b2df67356e":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_dd46522d99134a2db5c7151553365264","IPY_MODEL_8f2cb6a2488f4029a5726f254122ba40","IPY_MODEL_08f6a9994a784d0a9bdd17f8aa2aa0b8"],"layout":"IPY_MODEL_740abca4dfc34c9999ea483ca02c7a79","tabbable":null,"tooltip":null}},"9b7a055a88cd4fbe8f4a2006c2cf40d0":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":"20px"}},"a2dd61c53d204dc58e8c54fabef12d28":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_03a4849a19894781a868d84d2980d271","max":11,"min":0,"orientation":"horizontal","style":"IPY_MODEL_d7bc68ff19154df3a77176a41d649086","tabbable":null,"tooltip":null,"value":11}},"adc408e51cd8478bbbda47c849a9b99e":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"af1a09870a3c4e2388bbfcc9ec5e3e7b":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"be6866d5f9c248cba0d6fce16be0e893":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"c1a2f1b17df64df2a6d80af42d115600":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"c23c16cb72c94ca496dbe6f02c504bee":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"c440d80b9fb84c7d9c59ff4931e4aff5":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"c81a0ca7e0fa4d97a13cebb4a501a23a":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"d13b3b0fd172440c95571f0923c9cd82":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"d2eb918f0b014df1a676350d9a7dc5d8":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":"20px"}},"d7bc68ff19154df3a77176a41d649086":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"d9591257ad06466b9aa13e2ccbc09a80":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_adc408e51cd8478bbbda47c849a9b99e","placeholder":"​","style":"IPY_MODEL_86b482b38be041a897f489c68a580c25","tabbable":null,"tooltip":null,"value":" 11/11 [00:00&lt;00:00, 1500.26it/s]"}},"db5bce749d324946bc5ef6a0dde592aa":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"dd46522d99134a2db5c7151553365264":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_be6866d5f9c248cba0d6fce16be0e893","placeholder":"​","style":"IPY_MODEL_f9dd22a132b540329181578760b19139","tabbable":null,"tooltip":null,"value":"Download complete: "}},"dd65d35039d74ebbb5eebc33a9184a3a":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_14fe6c3487a647ee9ff1d64ff3aa0f43","placeholder":"​","style":"IPY_MODEL_71b3f82cd3de4fc08dbd4dc4fb535bea","tabbable":null,"tooltip":null,"value":"Fetching 11 files: 100%"}},"e2d7b2f24b1f47478353100395b26a4a":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"e41ab0f986114bf4a8df4d0de2748994":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_116446049ba24a958c7046c481db9ebb","max":11,"min":0,"orientation":"horizontal","style":"IPY_MODEL_c81a0ca7e0fa4d97a13cebb4a501a23a","tabbable":null,"tooltip":null,"value":11}},"f8ab67488e694b4fae405b72b13f79b6":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_2ddf646a7a914065ad145fadeb88441f","IPY_MODEL_8dc51dfeab4b4cf49a8b48704a4d340d","IPY_MODEL_96b256cffb6349f4a7297717998cb401"],"layout":"IPY_MODEL_81623e8ed94141b28772c54a81985447","tabbable":null,"tooltip":null}},"f9dd22a132b540329181578760b19139":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}}},"version_major":2,"version_minor":0}
+{"state":{"018fdf2d62c14a8cae647d140f52ae4e":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"0775cd99aef241bfbca7c27bf3451d2b":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_8d05d95fbe5340db9dbb7260386f370b","IPY_MODEL_1cedbfe3c1854da2b2747d47967d8787","IPY_MODEL_6051046bed3b4a4ca1bd01a385cc2399"],"layout":"IPY_MODEL_3b4de4be843043158d7d7938e930269f","tabbable":null,"tooltip":null}},"19ca66abc4874ad99cc591289a89024b":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_fced59cbcb8c4a06bedc7876f7355cd0","placeholder":"​","style":"IPY_MODEL_b1ef59e842404021b58435612e61bbcb","tabbable":null,"tooltip":null,"value":" 11/11 [00:00&lt;00:00, 4224.64it/s]"}},"1cedbfe3c1854da2b2747d47967d8787":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_43ea2d53b4c942de870b3f3c0f773353","max":1,"min":0,"orientation":"horizontal","style":"IPY_MODEL_9ec311ae3ffa45fd92f562ecdaad9ee8","tabbable":null,"tooltip":null,"value":0}},"1e5122f013d644fbbea860a61d04d8ab":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"2167dfc0bb4a469cb4f35848fdbb0afc":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"25a1881f0515479da2ee6dae82eeface":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_2167dfc0bb4a469cb4f35848fdbb0afc","max":11,"min":0,"orientation":"horizontal","style":"IPY_MODEL_8638305a82a44602aab019ac6753f279","tabbable":null,"tooltip":null,"value":11}},"2b7ce043dd364f04aa19c668a6373a5f":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"3217ef4b96054e51af737c341f8bad47":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_a6f88ba67b394252bf8ebeb151c64243","placeholder":"​","style":"IPY_MODEL_018fdf2d62c14a8cae647d140f52ae4e","tabbable":null,"tooltip":null,"value":" 0.00/0.00 [03:10&lt;?, ?B/s]"}},"39f45ae074524568b0885da34f523620":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":"20px"}},"3b4de4be843043158d7d7938e930269f":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"43ea2d53b4c942de870b3f3c0f773353":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":"20px"}},"49dc7bdf3fa8413e9ebe121499daeef5":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"50c4ebb3a3b542678817cbcd8fafaa3b":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"6051046bed3b4a4ca1bd01a385cc2399":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_77b49e12c4b74fc582911fee28e77477","placeholder":"​","style":"IPY_MODEL_8feb8f234d31482995a06ef446f35e8d","tabbable":null,"tooltip":null,"value":" 0.00/0.00 [00:03&lt;?, ?B/s]"}},"77b49e12c4b74fc582911fee28e77477":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"7849a7ebbd0449bdaf566b3e449e8ef9":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_e9ed9ac1629a408a9b0345bda121e392","IPY_MODEL_25a1881f0515479da2ee6dae82eeface","IPY_MODEL_ff674601ad9d4f169658c25f4682fafe"],"layout":"IPY_MODEL_df7d556a703d40f3a4229971f9dc589c","tabbable":null,"tooltip":null}},"7b5a58e334234eda8a4676c91f692fc1":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"804ab288d1e54b849293d46d12a16dcc":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"8638305a82a44602aab019ac6753f279":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"8964530b022a4e2f9dffb1d4cac28a06":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_cda3a56f3ea94ab7adc37b74253f3298","placeholder":"​","style":"IPY_MODEL_7b5a58e334234eda8a4676c91f692fc1","tabbable":null,"tooltip":null,"value":"Fetching 11 files: 100%"}},"8d05d95fbe5340db9dbb7260386f370b":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_f238efc6564e4bc39dbc70e8ac83d5ea","placeholder":"​","style":"IPY_MODEL_cd806282490840308dcc2e2a80ba2c12","tabbable":null,"tooltip":null,"value":"Download complete: "}},"8feb8f234d31482995a06ef446f35e8d":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"94823b4a6476420db4f2affa116f07b9":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_8964530b022a4e2f9dffb1d4cac28a06","IPY_MODEL_b711eee89fa94331b19f51e8e9a77ee6","IPY_MODEL_19ca66abc4874ad99cc591289a89024b"],"layout":"IPY_MODEL_ee5d0bded482486390cbec056c16b828","tabbable":null,"tooltip":null}},"9ec311ae3ffa45fd92f562ecdaad9ee8":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"a6f88ba67b394252bf8ebeb151c64243":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"b1ef59e842404021b58435612e61bbcb":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"b30908640bb641fcb34e553fd4e6889d":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"b711eee89fa94331b19f51e8e9a77ee6":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_e617290017ef43d5ae94fd128e5a30da","max":11,"min":0,"orientation":"horizontal","style":"IPY_MODEL_b30908640bb641fcb34e553fd4e6889d","tabbable":null,"tooltip":null,"value":11}},"c7a75ea42c1e49c5885ba339b74c9aff":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"ProgressStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"ProgressStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","bar_color":null,"description_width":""}},"cb92120070044866b90b7391598e70e4":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"FloatProgressModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"FloatProgressModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"ProgressView","bar_style":"success","description":"","description_allow_html":false,"layout":"IPY_MODEL_39f45ae074524568b0885da34f523620","max":1,"min":0,"orientation":"horizontal","style":"IPY_MODEL_c7a75ea42c1e49c5885ba339b74c9aff","tabbable":null,"tooltip":null,"value":0}},"cd806282490840308dcc2e2a80ba2c12":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"cda3a56f3ea94ab7adc37b74253f3298":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"d272ea2bafe54a71aeb7597d9824d781":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_804ab288d1e54b849293d46d12a16dcc","placeholder":"​","style":"IPY_MODEL_f458482dfa654b6dbbcb2beabd04ff41","tabbable":null,"tooltip":null,"value":"Download complete: "}},"df7d556a703d40f3a4229971f9dc589c":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"e617290017ef43d5ae94fd128e5a30da":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"e9ed9ac1629a408a9b0345bda121e392":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_50c4ebb3a3b542678817cbcd8fafaa3b","placeholder":"​","style":"IPY_MODEL_2b7ce043dd364f04aa19c668a6373a5f","tabbable":null,"tooltip":null,"value":"Fetching 11 files: 100%"}},"ee5d0bded482486390cbec056c16b828":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"f238efc6564e4bc39dbc70e8ac83d5ea":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"f458482dfa654b6dbbcb2beabd04ff41":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLStyleModel","state":{"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLStyleModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"StyleView","background":null,"description_width":"","font_size":null,"text_color":null}},"f4d6688eec194a9daf64296f7b3c9b4c":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HBoxModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HBoxModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HBoxView","box_style":"","children":["IPY_MODEL_d272ea2bafe54a71aeb7597d9824d781","IPY_MODEL_cb92120070044866b90b7391598e70e4","IPY_MODEL_3217ef4b96054e51af737c341f8bad47"],"layout":"IPY_MODEL_f8e1d28024f84bb587af5757e4f7b13b","tabbable":null,"tooltip":null}},"f8e1d28024f84bb587af5757e4f7b13b":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"fced59cbcb8c4a06bedc7876f7355cd0":{"model_module":"@jupyter-widgets/base","model_module_version":"2.0.0","model_name":"LayoutModel","state":{"_model_module":"@jupyter-widgets/base","_model_module_version":"2.0.0","_model_name":"LayoutModel","_view_count":null,"_view_module":"@jupyter-widgets/base","_view_module_version":"2.0.0","_view_name":"LayoutView","align_content":null,"align_items":null,"align_self":null,"border_bottom":null,"border_left":null,"border_right":null,"border_top":null,"bottom":null,"display":null,"flex":null,"flex_flow":null,"grid_area":null,"grid_auto_columns":null,"grid_auto_flow":null,"grid_auto_rows":null,"grid_column":null,"grid_gap":null,"grid_row":null,"grid_template_areas":null,"grid_template_columns":null,"grid_template_rows":null,"height":null,"justify_content":null,"justify_items":null,"left":null,"margin":null,"max_height":null,"max_width":null,"min_height":null,"min_width":null,"object_fit":null,"object_position":null,"order":null,"overflow":null,"padding":null,"right":null,"top":null,"visibility":null,"width":null}},"ff674601ad9d4f169658c25f4682fafe":{"model_module":"@jupyter-widgets/controls","model_module_version":"2.0.0","model_name":"HTMLModel","state":{"_dom_classes":[],"_model_module":"@jupyter-widgets/controls","_model_module_version":"2.0.0","_model_name":"HTMLModel","_view_count":null,"_view_module":"@jupyter-widgets/controls","_view_module_version":"2.0.0","_view_name":"HTMLView","description":"","description_allow_html":false,"layout":"IPY_MODEL_1e5122f013d644fbbea860a61d04d8ab","placeholder":"​","style":"IPY_MODEL_49dc7bdf3fa8413e9ebe121499daeef5","tabbable":null,"tooltip":null,"value":" 11/11 [00:00&lt;00:00, 1461.20it/s]"}}},"version_major":2,"version_minor":0}
 </script>
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
