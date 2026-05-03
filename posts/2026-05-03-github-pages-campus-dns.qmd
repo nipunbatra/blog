@@ -1,0 +1,239 @@
+---
+title: "Fixing Slow GitHub Pages on a Campus Network with Split DNS"
+date: "2026-05-03"
+description: "GitHub Pages was painfully slow on a campus network even without Tailscale. The root cause was partial reachability to GitHub Pages IPs, and the clean fix was split DNS with a local forwarder."
+author: "Nipun Batra"
+categories: [dns, github-pages, networking, macos, performance]
+format:
+  html:
+    toc: true
+---
+
+## The Problem
+
+On April 21, 2026, I noticed something oddly specific on the IIT Gandhinagar network: **GitHub Pages was extremely slow**, but `github.com` itself was fine.
+
+This happened:
+
+- with Tailscale enabled
+- with Tailscale disabled
+- across browser sessions
+
+The obvious first guess was DNS. But switching away from the campus DNS broke local IITGN applications, which strongly suggested there was some site-local DNS behavior I did not want to lose.
+
+So the problem became:
+
+> Keep IITGN DNS for campus resources, but make GitHub Pages load normally.
+
+## What Was Actually Slow?
+
+The first useful check was to compare `github.com` and `pages.github.com` directly.
+
+```bash
+curl -L -4 -o /dev/null -sS \
+  -w 'pages connect=%{time_connect} total=%{time_total} ip=%{remote_ip}\n' \
+  https://pages.github.com
+
+curl -L -4 -o /dev/null -sS \
+  -w 'github connect=%{time_connect} total=%{time_total} ip=%{remote_ip}\n' \
+  https://github.com
+```
+
+What I saw was roughly:
+
+- `github.com`: connect in about `50 ms`
+- `pages.github.com`: connect in about `8-9 s`
+
+So this was **not** a general GitHub problem.
+
+## It Wasn't Really a Tailscale Problem Either
+
+I also checked the active DNS configuration on macOS:
+
+```bash
+scutil --dns
+```
+
+The key detail was that normal traffic on `en0` was still using IITGN DNS, while Tailscale DNS was only supplemental for the Tailscale search domain. In other words, Tailscale was not hijacking all lookups.
+
+That ruled out the simple story of “VPN broke DNS”.
+
+## The Actual Failure Mode
+
+GitHub Pages documents four A records for custom-domain setups:
+
+- `185.199.108.153`
+- `185.199.109.153`
+- `185.199.110.153`
+- `185.199.111.153`
+
+I tested those directly.
+
+```bash
+curl -4 --resolve pages.github.com:443:185.199.108.153 https://pages.github.com
+curl -4 --resolve pages.github.com:443:185.199.109.153 https://pages.github.com
+curl -4 --resolve pages.github.com:443:185.199.110.153 https://pages.github.com
+curl -4 --resolve pages.github.com:443:185.199.111.153 https://pages.github.com
+```
+
+From IITGN, only **`185.199.109.153`** was consistently reachable at normal speed. The other three either timed out or were effectively unusable.
+
+That explained the symptom:
+
+- DNS returned the normal Pages IP set
+- the browser or resolver tried addresses that were bad from this network
+- eventually it landed on the one good IP
+- the result felt like “GitHub Pages is mysteriously slow”
+
+## Why Not Just Change DNS?
+
+Because campus DNS was doing something useful for local infrastructure.
+
+If I pointed the whole machine to a public DNS resolver, some IITGN-local applications stopped working. That is exactly what you would expect when a network depends on internal or split-horizon DNS.
+
+So the goal was not “replace IITGN DNS”. The goal was:
+
+- keep IITGN DNS for everything by default
+- override only GitHub Pages hostnames
+
+## First Attempt: Browser-Only Override
+
+A quick test is possible in Chrome or Brave using `--host-resolver-rules`.
+
+```bash
+open -na "/Applications/Google Chrome.app" --args \
+  --host-resolver-rules="MAP *.github.io 185.199.109.153, MAP github.io 185.199.109.153, MAP pages.github.com 185.199.109.153"
+```
+
+This worked, and GitHub Pages immediately became fast.
+
+But it had two drawbacks:
+
+- Chrome shows a banner saying the flag is unsupported
+- it is tied to that browser process, not the machine
+
+It was good as a diagnostic, not as the final fix.
+
+## The Robust Fix: Split DNS with a Local Forwarder
+
+The clean solution was to run a local DNS forwarder on `127.0.0.1` and make it do two things:
+
+1. **Return `185.199.109.153` for `github.io` and `pages.github.com`**
+2. **Forward all other DNS queries to IITGN DNS**
+
+I used `unbound` for this.
+
+### `unbound` configuration
+
+```conf
+server:
+    username: ""
+    chroot: ""
+    directory: "/opt/homebrew/etc/unbound"
+    interface: 127.0.0.1@53
+    access-control: 127.0.0.0/8 allow
+    local-zone: "github.io." redirect
+    local-data: "github.io. 60 IN A 185.199.109.153"
+    local-zone: "pages.github.com." redirect
+    local-data: "pages.github.com. 60 IN A 185.199.109.153"
+
+forward-zone:
+    name: "."
+    forward-addr: 10.0.136.7
+    forward-addr: 10.0.136.8
+```
+
+Then I pointed Wi-Fi DNS at `127.0.0.1`.
+
+```bash
+sudo networksetup -setdnsservers Wi-Fi 127.0.0.1
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+```
+
+The important design choice here is that **the machine still effectively uses IITGN DNS** for everything except the tiny GitHub Pages override.
+
+## Why I Didn't Use `/etc/hosts`
+
+`/etc/hosts` works for one hostname such as `nipunbatra.github.io`, but it does **not** solve the general case of arbitrary `*.github.io` sites.
+
+The requirement here was broader:
+
+- my blog
+- `pages.github.com`
+- any other GitHub Pages subdomain
+
+That is exactly the kind of problem split DNS is good at.
+
+## Why I Didn't Stop at `/etc/resolver/github.io`
+
+macOS has a nice per-domain resolver mechanism via `/etc/resolver`, and I tried that path first.
+
+In principle it should have been enough. In practice, some applications still ended up using the normal resolver path and returning the full GitHub Pages address set. The more reliable system-wide fix was to make the active network service use the local forwarder directly.
+
+That removed ambiguity and made browser behavior consistent.
+
+## Final Result
+
+After moving Wi-Fi DNS to the local forwarder, resolution looked like this:
+
+- `nipunbatra.github.io` → `185.199.109.153`
+- `pages.github.com` → `185.199.109.153`
+- `github.com` → still resolved normally via IITGN DNS
+
+And the timings dropped to roughly:
+
+- `https://nipunbatra.github.io/blog/`: connect `0.07 s`, total `0.86 s`
+- `https://pages.github.com/`: connect `0.03 s`, total `0.49 s`
+- `https://github.com/`: connect `0.05 s`, total `0.34 s`
+
+That is the behavior I wanted from the start: **Pages fast, campus apps unaffected**.
+
+## Caveats
+
+This is a workaround, not a universal truth about GitHub Pages.
+
+It depends on one current fact:
+
+- from this network, `185.199.109.153` is the good GitHub Pages IP
+
+If IITGN routing changes, or GitHub changes how Pages is served, this may need to be updated.
+
+Also, this only fixes:
+
+- `*.github.io`
+- `pages.github.com`
+
+It does **not** automatically fix arbitrary custom domains hosted on GitHub Pages.
+
+## Takeaways
+
+1. If one CDN-backed service is slow but the parent site is fast, check **connect time**, not just total load time.
+2. “Change DNS servers” is often the wrong answer on campus or enterprise networks.
+3. If only one subset of domains is broken, **split DNS** is usually cleaner than replacing your whole resolver setup.
+4. Browser flags are useful for diagnosis, but a local forwarder is the better persistent fix.
+
+## Minimal Debugging Checklist
+
+If you hit a similar issue, this is the shortest useful sequence:
+
+```bash
+# Compare normal GitHub vs Pages
+curl -L -4 -o /dev/null -sS -w 'github connect=%{time_connect} total=%{time_total}\n' https://github.com
+curl -L -4 -o /dev/null -sS -w 'pages connect=%{time_connect} total=%{time_total}\n' https://pages.github.com
+
+# Inspect macOS DNS routing
+scutil --dns
+
+# Check which IPs are actually fast from your network
+curl -4 --resolve pages.github.com:443:185.199.109.153 https://pages.github.com
+
+# Verify final answers after a DNS fix
+python3 - <<'PY'
+import socket
+for host in ['pages.github.com', 'github.com']:
+    print(host, sorted({x[4][0] for x in socket.getaddrinfo(host, 443)}))
+PY
+```
+
+That was enough to get from “GitHub Pages is weirdly slow” to a reproducible root cause and a fix that survives reboots.
