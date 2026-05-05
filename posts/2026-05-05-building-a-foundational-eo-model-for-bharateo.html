@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-05-05">
+<meta name="description" content="A pedagogical BharatEO-v0 experiment on real ESA WorldCover 2021 v200 pixels: 3-channel RGB MAE with L1 reconstruction, ESA patch classification, multi-ROI sampling, more chips, more epochs.">
+
+<title>Building a Foundational EO Model for BharatEO: A Tiny WorldCover V0 Notebook – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-a0680038e68ea2633f289488c29b2724.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<meta property="og:title" content="Building a Foundational EO Model for BharatEO: A Tiny WorldCover V0 Notebook – Nipun Batra Blog">
+<meta property="og:description" content="A pedagogical BharatEO-v0 experiment on real ESA WorldCover 2021 v200 pixels: 3-channel RGB MAE with L1 reconstruction, ESA patch classification, multi-ROI sampling, more chips, more epochs.">
+<meta property="og:image" content="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-6-output-1.png">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="Building a Foundational EO Model for BharatEO: A Tiny WorldCover V0 Notebook – Nipun Batra Blog">
+<meta name="twitter:description" content="A pedagogical BharatEO-v0 experiment on real ESA WorldCover 2021 v200 pixels: 3-channel RGB MAE with L1 reconstruction, ESA patch classification, multi-ROI sampling, more chips, more epochs.">
+<meta name="twitter:image" content="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-6-output-1.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Building a Foundational EO Model for BharatEO: A Tiny WorldCover V0 Notebook</h1>
+                  <div>
+        <div class="description">
+          A pedagogical BharatEO-v0 experiment on real ESA WorldCover 2021 v200 pixels: 3-channel RGB MAE with L1 reconstruction, ESA patch classification, multi-ROI sampling, more chips, more epochs.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">earth-observation</div>
+                <div class="quarto-category">foundation-models</div>
+                <div class="quarto-category">remote-sensing</div>
+                <div class="quarto-category">bharateo</div>
+                <div class="quarto-category">worldcover</div>
+                <div class="quarto-category">pytorch</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">May 5, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#bharateo-v0-with-real-esa-worldcover-pixels" id="toc-bharateo-v0-with-real-esa-worldcover-pixels" class="nav-link active" data-scroll-target="#bharateo-v0-with-real-esa-worldcover-pixels">BharatEO-v0 with real ESA WorldCover pixels</a>
+  <ul class="collapse">
+  <li><a href="#data-source" id="toc-data-source" class="nav-link" data-scroll-target="#data-source">Data source</a></li>
+  <li><a href="#chip-geometry-and-token-accounting" id="toc-chip-geometry-and-token-accounting" class="nav-link" data-scroll-target="#chip-geometry-and-token-accounting">Chip geometry and token accounting</a></li>
+  <li><a href="#esa-worldcover-labels" id="toc-esa-worldcover-labels" class="nav-link" data-scroll-target="#esa-worldcover-labels">ESA WorldCover labels</a></li>
+  <li><a href="#load-three-real-worldcover-crops-from-the-n27e075-tile" id="toc-load-three-real-worldcover-crops-from-the-n27e075-tile" class="nav-link" data-scroll-target="#load-three-real-worldcover-crops-from-the-n27e075-tile">Load three real WorldCover crops from the N27E075 tile</a></li>
+  <li><a href="#build-actual-worldcover-chips" id="toc-build-actual-worldcover-chips" class="nav-link" data-scroll-target="#build-actual-worldcover-chips">Build actual WorldCover chips</a></li>
+  <li><a href="#more-examples" id="toc-more-examples" class="nav-link" data-scroll-target="#more-examples">More examples</a></li>
+  <li><a href="#patch-tokens" id="toc-patch-tokens" class="nav-link" data-scroll-target="#patch-tokens">Patch tokens</a></li>
+  <li><a href="#training-objectives" id="toc-training-objectives" class="nav-link" data-scroll-target="#training-objectives">Training objectives</a></li>
+  <li><a href="#reconstruction-examples" id="toc-reconstruction-examples" class="nav-link" data-scroll-target="#reconstruction-examples">Reconstruction examples</a></li>
+  <li><a href="#esa-patch-classification-diagnostic" id="toc-esa-patch-classification-diagnostic" class="nav-link" data-scroll-target="#esa-patch-classification-diagnostic">ESA patch classification diagnostic</a></li>
+  <li><a href="#token-scale-toy-run-vs-bharateo-v0" id="toc-token-scale-toy-run-vs-bharateo-v0" class="nav-link" data-scroll-target="#token-scale-toy-run-vs-bharateo-v0">Token scale: toy run vs BharatEO-v0</a></li>
+  <li><a href="#what-changes-for-sentinel-2-bharateo-v0" id="toc-what-changes-for-sentinel-2-bharateo-v0" class="nav-link" data-scroll-target="#what-changes-for-sentinel-2-bharateo-v0">What changes for Sentinel-2 BharatEO-v0?</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<section id="bharateo-v0-with-real-esa-worldcover-pixels" class="level1">
+<h1>BharatEO-v0 with real ESA WorldCover pixels</h1>
+<p>This notebook is the smallest honest version of the BharatEO-v0 idea: use real Earth observation labels, split them into ViT-style tokens, mask most tokens, and train a tiny model with two objectives.</p>
+<p>The data here is <strong>actual ESA WorldCover 10 m 2021 v200</strong>, read from the public Cloud Optimized GeoTIFFs that cover north India. There are no generated land-cover maps and no synthetic spectral signatures.</p>
+<p>What this notebook demonstrates:</p>
+<ul>
+<li>how a <code>128 x 128</code> Earth observation chip becomes <code>64</code> patch tokens,</li>
+<li>how ESA WorldCover classes collapse into the BharatEO 8-class label space,</li>
+<li>how masked <strong>RGB regression</strong> reconstruction works on a real EO chip,</li>
+<li>how the auxiliary ESA patch classification objective works,</li>
+<li>how many tokens the run consumes,</li>
+<li>how the same scaffold extends to Sentinel-2 RGB/10-band pretraining.</li>
+</ul>
+<p>What changed in this v0.2 pass:</p>
+<ul>
+<li><strong>Input is now 3-channel RGB</strong> rendered from the WorldCover class palette, instead of an 8-channel one-hot. This makes the reconstruction objective an L1 regression on real-valued pixels — the same shape of objective used in a Sentinel-2 MAE.</li>
+<li><strong>More data</strong>: chips are sampled from three different <code>2048 x 2048</code> ROIs inside the N27E075 tile (Delhi NCR, Shekhawati in Rajasthan, the Mathura/UP cropland belt) instead of a single Delhi crop.</li>
+<li><strong>More pretraining</strong>: a slightly bigger encoder runs for many more epochs over many more chips.</li>
+</ul>
+<p>Important limitation: the input chip is still a colorized rendering of WorldCover classes, not Sentinel-2 reflectance. In the full BharatEO-v0 run, the input becomes <code>10 x 128 x 128</code> Sentinel-2 L2A reflectance; the only change to the pipeline is the source of the pixels. WorldCover stays as the weak patch-label supervision.</p>
+<section id="data-source" class="level2">
+<h2 class="anchored" data-anchor-id="data-source">Data source</h2>
+<p>The notebook reads a small crop from this official WorldCover tile:</p>
+<p><code>https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_N27E075_Map.tif</code></p>
+<p>That COG covers <code>75E-78E, 27N-30N</code>, including Delhi/NCR. The full tile is about 87 MB, but <code>rasterio</code> reads only the requested window. A local cache stores only the derived <code>2048 x 2048</code> ROI so repeated runs do not hit the network.</p>
+<p>Attribution: ESA WorldCover project / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium.</p>
+<p>Citation: Zanaga et al.&nbsp;2022, ESA WorldCover 10 m 2021 v200, https://doi.org/10.5281/zenodo.7254221.</p>
+<div id="a1de9d0d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:40.765726Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:40.765614Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:42.059332Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:42.058802Z&quot;}}" data-execution_count="29">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> random</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>os.environ.setdefault(<span class="st">"MPLCONFIGDIR"</span>, <span class="st">"/private/tmp/matplotlib-cache"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>Path(os.environ[<span class="st">"MPLCONFIGDIR"</span>]).mkdir(parents<span class="op">=</span><span class="va">True</span>, exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>config InlineBackend.figure_format <span class="op">=</span> <span class="st">"retina"</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> rasterio</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> rasterio.windows <span class="im">import</span> Window</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch.nn <span class="im">as</span> nn</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch.nn.functional <span class="im">as</span> F</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.utils.data <span class="im">import</span> Dataset, DataLoader</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>plt.rcParams.update({</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="st">"figure.dpi"</span>: <span class="dv">120</span>,</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="st">"savefig.dpi"</span>: <span class="dv">240</span>,</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="st">"axes.spines.top"</span>: <span class="va">False</span>,</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="st">"axes.spines.right"</span>: <span class="va">False</span>,</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>SEED <span class="op">=</span> <span class="dv">42</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>random.seed(SEED)</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>np.random.seed(SEED)</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>torch.manual_seed(SEED)</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>warnings.filterwarnings(<span class="st">"ignore"</span>, message<span class="op">=</span><span class="st">"enable_nested_tensor.*"</span>)</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> torch.device(<span class="st">"cpu"</span>)</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"device:"</span>, device)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>device: cpu</code></pre>
+</div>
+</div>
+</section>
+<section id="chip-geometry-and-token-accounting" class="level2">
+<h2 class="anchored" data-anchor-id="chip-geometry-and-token-accounting">Chip geometry and token accounting</h2>
+<p>BharatEO-v0 uses <code>128 x 128</code> chips and <code>16 x 16</code> patches. That means every image has:</p>
+<ul>
+<li><code>8 x 8 = 64</code> spatial tokens,</li>
+<li><code>16 x 16 = 256</code> pixels per token,</li>
+<li>75% masked tokens during pretraining.</li>
+</ul>
+<p>For this RGB demo, each pixel is a 3-channel RGB color rendered from the WorldCover class palette. A token therefore has <code>3 x 16 x 16 = 768</code> raw values. In the real Sentinel-2 V0 the token has <code>10 x 16 x 16 = 2,560</code> reflectance values, but the rest of the pipeline is identical.</p>
+<div id="555ab25d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:42.060757Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:42.060595Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:42.067991Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:42.067448Z&quot;}}" data-execution_count="30">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>IMG_SIZE <span class="op">=</span> <span class="dv">128</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>PATCH_SIZE <span class="op">=</span> <span class="dv">16</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>GRID_SIZE <span class="op">=</span> IMG_SIZE <span class="op">//</span> PATCH_SIZE</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>NUM_PATCHES <span class="op">=</span> GRID_SIZE <span class="op">*</span> GRID_SIZE</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>MASK_RATIO <span class="op">=</span> <span class="fl">0.75</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>DATASET_SIZE <span class="op">=</span> <span class="dv">384</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>BATCH_SIZE <span class="op">=</span> <span class="dv">16</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>EPOCHS <span class="op">=</span> <span class="dv">20</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>PATCH_LOSS_WEIGHT <span class="op">=</span> <span class="fl">0.2</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>NUM_INPUT_CHANNELS <span class="op">=</span> <span class="dv">3</span>  <span class="co"># RGB rendering of WorldCover</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>CLASS_NAMES <span class="op">=</span> [</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"tree"</span>,</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"cropland"</span>,</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"grass_shrub"</span>,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">"built_up"</span>,</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"bare_sparse"</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">"water"</span>,</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">"wetland_mangrove"</span>,</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="st">"rare_other"</span>,</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>NUM_CLASSES <span class="op">=</span> <span class="bu">len</span>(CLASS_NAMES)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>TOKEN_DIM <span class="op">=</span> NUM_INPUT_CHANNELS <span class="op">*</span> PATCH_SIZE <span class="op">*</span> PATCH_SIZE</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>demo_total_tokens <span class="op">=</span> DATASET_SIZE <span class="op">*</span> NUM_PATCHES <span class="op">*</span> EPOCHS</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>demo_masked_tokens <span class="op">=</span> <span class="bu">int</span>(demo_total_tokens <span class="op">*</span> MASK_RATIO)</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>demo_visible_tokens <span class="op">=</span> demo_total_tokens <span class="op">-</span> demo_masked_tokens</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>demo_masked_pixel_targets <span class="op">=</span> demo_masked_tokens <span class="op">*</span> PATCH_SIZE <span class="op">*</span> PATCH_SIZE</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"RGB input tensor:        </span><span class="sc">{</span>NUM_INPUT_CHANNELS<span class="sc">}</span><span class="ss"> x </span><span class="sc">{</span>IMG_SIZE<span class="sc">}</span><span class="ss"> x </span><span class="sc">{</span>IMG_SIZE<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"patch grid:              </span><span class="sc">{</span>GRID_SIZE<span class="sc">}</span><span class="ss"> x </span><span class="sc">{</span>GRID_SIZE<span class="sc">}</span><span class="ss"> = </span><span class="sc">{</span>NUM_PATCHES<span class="sc">}</span><span class="ss"> tokens/image"</span>)</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"token dimension:         </span><span class="sc">{</span>TOKEN_DIM<span class="sc">:,}</span><span class="ss"> RGB values/token"</span>)</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"demo images:             </span><span class="sc">{</span>DATASET_SIZE<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"demo epochs:             </span><span class="sc">{</span>EPOCHS<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"total token presentations: </span><span class="sc">{</span>demo_total_tokens<span class="sc">:,}</span><span class="ss">"</span>)</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"visible token inputs:      </span><span class="sc">{</span>demo_visible_tokens<span class="sc">:,}</span><span class="ss">"</span>)</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"masked token targets:      </span><span class="sc">{</span>demo_masked_tokens<span class="sc">:,}</span><span class="ss">"</span>)</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"masked pixel regression targets: </span><span class="sc">{</span>demo_masked_pixel_targets<span class="sc">:,}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>RGB input tensor:        3 x 128 x 128
+patch grid:              8 x 8 = 64 tokens/image
+token dimension:         768 RGB values/token
+demo images:             384
+demo epochs:             20
+total token presentations: 491,520
+visible token inputs:      122,880
+masked token targets:      368,640
+masked pixel regression targets: 94,371,840</code></pre>
+</div>
+</div>
+</section>
+<section id="esa-worldcover-labels" class="level2">
+<h2 class="anchored" data-anchor-id="esa-worldcover-labels">ESA WorldCover labels</h2>
+<p>WorldCover v200 has 11 native class codes. For BharatEO-v0 we collapse them into 8 patch-label classes. This keeps the weak supervision compact while preserving the categories that matter for many India environmental tasks.</p>
+<div id="c748e44e" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:42.069245Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:42.069158Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:42.072393Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:42.071916Z&quot;}}" data-execution_count="31">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>NATIVE_WORLDCOVER_CLASSES <span class="op">=</span> {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dv">10</span>: <span class="st">"Tree cover"</span>,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">20</span>: <span class="st">"Shrubland"</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="dv">30</span>: <span class="st">"Grassland"</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="dv">40</span>: <span class="st">"Cropland"</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="dv">50</span>: <span class="st">"Built-up"</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="dv">60</span>: <span class="st">"Bare / sparse vegetation"</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="dv">70</span>: <span class="st">"Snow and ice"</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="dv">80</span>: <span class="st">"Permanent water bodies"</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="dv">90</span>: <span class="st">"Herbaceous wetland"</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="dv">95</span>: <span class="st">"Mangroves"</span>,</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span>: <span class="st">"Moss and lichen"</span>,</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>NATIVE_TO_COLLAPSED_NAME <span class="op">=</span> {</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="dv">10</span>: <span class="st">"tree"</span>,</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="dv">20</span>: <span class="st">"grass_shrub"</span>,</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="dv">30</span>: <span class="st">"grass_shrub"</span>,</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="dv">40</span>: <span class="st">"cropland"</span>,</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="dv">50</span>: <span class="st">"built_up"</span>,</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="dv">60</span>: <span class="st">"bare_sparse"</span>,</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="dv">70</span>: <span class="st">"rare_other"</span>,</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="dv">80</span>: <span class="st">"water"</span>,</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="dv">90</span>: <span class="st">"wetland_mangrove"</span>,</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="dv">95</span>: <span class="st">"wetland_mangrove"</span>,</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span>: <span class="st">"rare_other"</span>,</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>CLASS_TO_ID <span class="op">=</span> {name: i <span class="cf">for</span> i, name <span class="kw">in</span> <span class="bu">enumerate</span>(CLASS_NAMES)}</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>NATIVE_TO_COLLAPSED_ID <span class="op">=</span> np.full(<span class="dv">256</span>, CLASS_TO_ID[<span class="st">"rare_other"</span>], dtype<span class="op">=</span>np.int64)</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> native_code, collapsed_name <span class="kw">in</span> NATIVE_TO_COLLAPSED_NAME.items():</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    NATIVE_TO_COLLAPSED_ID[native_code] <span class="op">=</span> CLASS_TO_ID[collapsed_name]</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>CLASS_COLORS <span class="op">=</span> np.array([</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">35</span>, <span class="dv">132</span>, <span class="dv">67</span>],     <span class="co"># tree</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">188</span>, <span class="dv">189</span>, <span class="dv">34</span>],    <span class="co"># cropland</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">127</span>, <span class="dv">191</span>, <span class="dv">123</span>],   <span class="co"># grass/shrub</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">215</span>, <span class="dv">48</span>, <span class="dv">39</span>],     <span class="co"># built-up</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">217</span>, <span class="dv">164</span>, <span class="dv">65</span>],    <span class="co"># bare/sparse</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">49</span>, <span class="dv">130</span>, <span class="dv">189</span>],    <span class="co"># water</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">44</span>, <span class="dv">162</span>, <span class="dv">95</span>],     <span class="co"># wetland/mangrove</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">189</span>, <span class="dv">189</span>, <span class="dv">189</span>],   <span class="co"># rare/other</span></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>], dtype<span class="op">=</span>np.float32) <span class="op">/</span> <span class="fl">255.0</span></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> native_code, native_name <span class="kw">in</span> NATIVE_WORLDCOVER_CLASSES.items():</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    collapsed <span class="op">=</span> NATIVE_TO_COLLAPSED_NAME[native_code]</span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>native_code<span class="sc">:3d}</span><span class="ss"> </span><span class="sc">{</span>native_name<span class="sc">:28s}</span><span class="ss"> -&gt; </span><span class="sc">{</span>collapsed<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> 10 Tree cover                   -&gt; tree
+ 20 Shrubland                    -&gt; grass_shrub
+ 30 Grassland                    -&gt; grass_shrub
+ 40 Cropland                     -&gt; cropland
+ 50 Built-up                     -&gt; built_up
+ 60 Bare / sparse vegetation     -&gt; bare_sparse
+ 70 Snow and ice                 -&gt; rare_other
+ 80 Permanent water bodies       -&gt; water
+ 90 Herbaceous wetland           -&gt; wetland_mangrove
+ 95 Mangroves                    -&gt; wetland_mangrove
+100 Moss and lichen              -&gt; rare_other</code></pre>
+</div>
+</div>
+</section>
+<section id="load-three-real-worldcover-crops-from-the-n27e075-tile" class="level2">
+<h2 class="anchored" data-anchor-id="load-three-real-worldcover-crops-from-the-n27e075-tile">Load three real WorldCover crops from the N27E075 tile</h2>
+<p>The N27E075 v200 tile covers <code>75-78 E, 27-30 N</code>, so it spans Delhi NCR plus large parts of Haryana, Rajasthan, and western UP. We sample three <code>2048 x 2048</code> ROIs (each ~20 km wide) from inside this tile so the chip distribution is not just one city:</p>
+<ul>
+<li><strong>Delhi NCR</strong> (<code>77.23 E, 28.61 N</code>) — built-up dominant.</li>
+<li><strong>Shekhawati</strong> (<code>75.80 E, 28.50 N</code>) — semi-arid Rajasthan with bare soil and grass/shrub.</li>
+<li><strong>Mathura belt</strong> (<code>77.50 E, 27.30 N</code>) — UP cropland.</li>
+</ul>
+<p>Each ROI is read with a <code>rasterio</code> window, so only the requested bytes are pulled from S3, and each derived ROI is cached locally.</p>
+<div id="04cddec9" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:42.073418Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:42.073350Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:42.116713Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:42.116192Z&quot;}}" data-execution_count="32">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>WORLDCOVER_TILE_URL <span class="op">=</span> <span class="st">"https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_N27E075_Map.tif"</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>ROI_SIZE <span class="op">=</span> <span class="dv">2048</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>ROI_CENTERS <span class="op">=</span> [</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"delhi_ncr"</span>, (<span class="fl">77.23</span>, <span class="fl">28.61</span>)),</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"shekhawati"</span>, (<span class="fl">75.80</span>, <span class="fl">28.50</span>)),</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"mathura_belt"</span>, (<span class="fl">77.50</span>, <span class="fl">27.30</span>)),</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>CACHE_DIR <span class="op">=</span> Path(<span class="st">"data"</span>)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> load_one_roi(name, lon_lat, cache_dir<span class="op">=</span>CACHE_DIR, roi_size<span class="op">=</span>ROI_SIZE):</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    cache_path <span class="op">=</span> cache_dir <span class="op">/</span> <span class="ss">f"worldcover_2021_v200_N27E075_</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">_roi_</span><span class="sc">{</span>roi_size<span class="sc">}</span><span class="ss">.npz"</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cache_path.exists():</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        cached <span class="op">=</span> np.load(cache_path, allow_pickle<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> cached[<span class="st">"roi"</span>], {</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>            <span class="st">"name"</span>: name,</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>            <span class="st">"url"</span>: <span class="bu">str</span>(cached[<span class="st">"url"</span>]),</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>            <span class="st">"crs"</span>: <span class="bu">str</span>(cached[<span class="st">"crs"</span>]),</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>            <span class="st">"bounds"</span>: <span class="bu">tuple</span>(cached[<span class="st">"bounds"</span>].tolist()),</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>            <span class="st">"center_lon_lat"</span>: <span class="bu">tuple</span>(cached[<span class="st">"center_lon_lat"</span>].tolist()),</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>            <span class="st">"source"</span>: <span class="st">"local cache derived from ESA WorldCover COG"</span>,</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    cache_dir.mkdir(parents<span class="op">=</span><span class="va">True</span>, exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> rasterio.<span class="bu">open</span>(WORLDCOVER_TILE_URL) <span class="im">as</span> src:</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        center_row, center_col <span class="op">=</span> src.index(<span class="op">*</span>lon_lat)</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>        window <span class="op">=</span> Window(center_col <span class="op">-</span> roi_size <span class="op">//</span> <span class="dv">2</span>, center_row <span class="op">-</span> roi_size <span class="op">//</span> <span class="dv">2</span>, roi_size, roi_size)</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>        roi <span class="op">=</span> src.read(<span class="dv">1</span>, window<span class="op">=</span>window)</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        bounds <span class="op">=</span> src.window_bounds(window)</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>        meta <span class="op">=</span> {</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>            <span class="st">"name"</span>: name,</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>            <span class="st">"url"</span>: WORLDCOVER_TILE_URL,</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>            <span class="st">"crs"</span>: <span class="bu">str</span>(src.crs),</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>            <span class="st">"bounds"</span>: <span class="bu">tuple</span>(bounds),</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>            <span class="st">"center_lon_lat"</span>: lon_lat,</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>            <span class="st">"source"</span>: <span class="st">"ESA WorldCover 10 m 2021 v200 COG"</span>,</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    np.savez_compressed(</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>        cache_path,</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>        roi<span class="op">=</span>roi,</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>        url<span class="op">=</span>np.array(WORLDCOVER_TILE_URL),</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>        crs<span class="op">=</span>np.array(meta[<span class="st">"crs"</span>]),</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>        bounds<span class="op">=</span>np.array(meta[<span class="st">"bounds"</span>], dtype<span class="op">=</span>np.float64),</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>        center_lon_lat<span class="op">=</span>np.array(lon_lat, dtype<span class="op">=</span>np.float64),</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> roi, meta</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>roi_arrays <span class="op">=</span> []</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>roi_metas <span class="op">=</span> []</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, lon_lat <span class="kw">in</span> ROI_CENTERS:</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>    roi, meta <span class="op">=</span> load_one_roi(name, lon_lat)</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>    roi_arrays.append(roi)</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>    roi_metas.append(meta)</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> meta, roi <span class="kw">in</span> <span class="bu">zip</span>(roi_metas, roi_arrays):</span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>    unique_codes, counts <span class="op">=</span> np.unique(roi, return_counts<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">[</span><span class="sc">{</span>meta[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">] center </span><span class="sc">{</span>meta[<span class="st">'center_lon_lat'</span>]<span class="sc">}</span><span class="ss"> bounds </span><span class="sc">{</span>meta[<span class="st">'bounds'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  shape </span><span class="sc">{</span>roi<span class="sc">.</span>shape<span class="sc">}</span><span class="ss"> dtype </span><span class="sc">{</span>roi<span class="sc">.</span>dtype<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"  native codes: </span><span class="sc">{</span><span class="bu">dict</span>(<span class="bu">zip</span>(unique_codes.tolist(), counts.tolist()))<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+[delhi_ncr] center (77.23, 28.61) bounds (77.14466666666667, 28.52466666666667, 77.31533333333333, 28.695333333333334)
+  shape (2048, 2048) dtype uint8
+  native codes: {10: 1427563, 20: 30300, 30: 97974, 40: 206512, 50: 2307399, 60: 30563, 80: 91525, 90: 2468}
+
+[shekhawati] center (75.8, 28.5) bounds (75.71458333333334, 28.414666666666665, 75.88525, 28.585333333333335)
+  shape (2048, 2048) dtype uint8
+  native codes: {10: 126256, 20: 207313, 30: 26380, 40: 3701224, 50: 128551, 60: 3862, 80: 718}
+
+[mathura_belt] center (77.5, 27.3) bounds (77.41466666666666, 27.21475, 77.58533333333334, 27.385416666666668)
+  shape (2048, 2048) dtype uint8
+  native codes: {10: 114752, 20: 445, 30: 117319, 40: 3647314, 50: 303675, 60: 6091, 80: 4695, 90: 13}</code></pre>
+</div>
+</div>
+<div id="61b20888" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:42.118335Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:42.118200Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:42.550201Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:42.549665Z&quot;}}" data-execution_count="33">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> collapse_worldcover(native_map):</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> NATIVE_TO_COLLAPSED_ID[native_map]</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> labels_to_rgb(labels):</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    arr <span class="op">=</span> labels.detach().cpu().numpy() <span class="cf">if</span> torch.is_tensor(labels) <span class="cf">else</span> labels</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> CLASS_COLORS[arr]</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> labels_to_rgb_input(labels):</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""H x W int label map -&gt; 3 x H x W float RGB tensor in [0, 1]."""</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> CLASS_COLORS[labels].transpose(<span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">1</span>).astype(np.float32)</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> patch_mode_labels(label_map):</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>    blocks <span class="op">=</span> label_map.reshape(GRID_SIZE, PATCH_SIZE, GRID_SIZE, PATCH_SIZE)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    blocks <span class="op">=</span> blocks.transpose(<span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">1</span>, <span class="dv">3</span>).reshape(GRID_SIZE, GRID_SIZE, <span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> np.zeros((GRID_SIZE, GRID_SIZE), dtype<span class="op">=</span>np.int64)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> r <span class="kw">in</span> <span class="bu">range</span>(GRID_SIZE):</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> c <span class="kw">in</span> <span class="bu">range</span>(GRID_SIZE):</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>            out[r, c] <span class="op">=</span> np.bincount(blocks[r, c], minlength<span class="op">=</span>NUM_CLASSES).argmax()</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>collapsed_rois <span class="op">=</span> [collapse_worldcover(roi) <span class="cf">for</span> roi <span class="kw">in</span> roi_arrays]</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">2</span>, <span class="bu">len</span>(collapsed_rois), figsize<span class="op">=</span>(<span class="dv">13</span>, <span class="dv">7</span>))</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> col, (meta, collapsed) <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="bu">zip</span>(roi_metas, collapsed_rois)):</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>    pixel_counts <span class="op">=</span> np.bincount(collapsed.ravel(), minlength<span class="op">=</span>NUM_CLASSES)</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>, col].imshow(labels_to_rgb(collapsed), interpolation<span class="op">=</span><span class="st">"nearest"</span>)</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>, col].set_title(<span class="ss">f"</span><span class="sc">{</span>meta[<span class="st">'name'</span>]<span class="sc">}</span><span class="ch">\n</span><span class="ss">ROI rendered as RGB"</span>)</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>, col].axis(<span class="st">"off"</span>)</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>, col].bar(CLASS_NAMES, pixel_counts, color<span class="op">=</span>CLASS_COLORS)</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>, col].set_title(<span class="st">"collapsed class pixels"</span>)</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>, col].tick_params(axis<span class="op">=</span><span class="st">"x"</span>, rotation<span class="op">=</span><span class="dv">45</span>)</span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>, col].set_ylabel(<span class="st">"pixels"</span>)</span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-6-output-1.png" width="1542" height="828" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="build-actual-worldcover-chips" class="level2">
+<h2 class="anchored" data-anchor-id="build-actual-worldcover-chips">Build actual WorldCover chips</h2>
+<p>Each sample is a real <code>128 x 128</code> WorldCover crop, drawn from one of the three ROIs in round robin. The model input is a 3-channel RGB rendering. We also keep two label tensors used for diagnostics and for the auxiliary objective:</p>
+<ul>
+<li>pixel labels: one collapsed ESA class per 10 m pixel,</li>
+<li>patch labels: the dominant collapsed ESA class inside each <code>16 x 16</code> token.</li>
+</ul>
+<div id="be18315d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:42.552320Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:42.552208Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:42.597672Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:42.597259Z&quot;}}" data-execution_count="34">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> WorldCoverChipDataset(Dataset):</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Sample 128x128 WorldCover chips, render to RGB, attach labels.</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Chips are drawn from a list of ROIs in round-robin so the dataset is balanced</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">    across regions (urban / arid / cropland) rather than dominated by one ROI.</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, roi_natives, n<span class="op">=</span>DATASET_SIZE, chip_size<span class="op">=</span>IMG_SIZE, seed<span class="op">=</span>SEED, min_classes<span class="op">=</span><span class="dv">2</span>):</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.samples <span class="op">=</span> []</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        rng <span class="op">=</span> np.random.default_rng(seed)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>        attempts <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>        target_per_roi <span class="op">=</span> [n <span class="op">//</span> <span class="bu">len</span>(roi_natives)] <span class="op">*</span> <span class="bu">len</span>(roi_natives)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n <span class="op">-</span> <span class="bu">sum</span>(target_per_roi)):</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>            target_per_roi[i] <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> roi_idx, (roi_native, want) <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="bu">zip</span>(roi_natives, target_per_roi)):</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>            height, width <span class="op">=</span> roi_native.shape</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>            collected <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>            <span class="cf">while</span> collected <span class="op">&lt;</span> want <span class="kw">and</span> attempts <span class="op">&lt;</span> n <span class="op">*</span> <span class="dv">400</span>:</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>                attempts <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>                row <span class="op">=</span> <span class="bu">int</span>(rng.integers(<span class="dv">0</span>, height <span class="op">-</span> chip_size))</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>                col <span class="op">=</span> <span class="bu">int</span>(rng.integers(<span class="dv">0</span>, width <span class="op">-</span> chip_size))</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>                collapsed <span class="op">=</span> collapse_worldcover(roi_native[row:row <span class="op">+</span> chip_size, col:col <span class="op">+</span> chip_size])</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> np.unique(collapsed).size <span class="op">&lt;</span> min_classes:</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.samples.append((</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>                    labels_to_rgb_input(collapsed),</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>                    collapsed.astype(np.int64),</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>                    patch_mode_labels(collapsed),</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>                    roi_idx,</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>                ))</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>                collected <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">len</span>(<span class="va">self</span>.samples) <span class="op">!=</span> n:</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>            <span class="cf">raise</span> <span class="pp">RuntimeError</span>(<span class="ss">f"Built </span><span class="sc">{</span><span class="bu">len</span>(<span class="va">self</span>.samples)<span class="sc">}</span><span class="ss"> chips, expected </span><span class="sc">{</span>n<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__len__</span>(<span class="va">self</span>):</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">len</span>(<span class="va">self</span>.samples)</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__getitem__</span>(<span class="va">self</span>, idx):</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>        x, labels, patch_labels, _roi_idx <span class="op">=</span> <span class="va">self</span>.samples[idx]</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> torch.from_numpy(x), torch.from_numpy(labels), torch.from_numpy(patch_labels)</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> WorldCoverChipDataset(roi_arrays)</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>x0, labels0, patch_labels0 <span class="op">=</span> dataset[<span class="dv">0</span>]</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>roi_index_counts <span class="op">=</span> np.bincount([s[<span class="dv">3</span>] <span class="cf">for</span> s <span class="kw">in</span> dataset.samples], minlength<span class="op">=</span><span class="bu">len</span>(roi_arrays))</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"dataset chips:"</span>, <span class="bu">len</span>(dataset))</span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"chips per ROI:"</span>, <span class="bu">dict</span>(<span class="bu">zip</span>([m[<span class="st">"name"</span>] <span class="cf">for</span> m <span class="kw">in</span> roi_metas], roi_index_counts.tolist())))</span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"RGB input:"</span>, <span class="bu">tuple</span>(x0.shape), x0.dtype, <span class="ss">f"min </span><span class="sc">{</span>x0<span class="sc">.</span><span class="bu">min</span>()<span class="sc">.</span>item()<span class="sc">:.3f}</span><span class="ss"> max </span><span class="sc">{</span>x0<span class="sc">.</span><span class="bu">max</span>()<span class="sc">.</span>item()<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"pixel labels:"</span>, <span class="bu">tuple</span>(labels0.shape), <span class="bu">sorted</span>(torch.unique(labels0).tolist()))</span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"patch labels:"</span>, <span class="bu">tuple</span>(patch_labels0.shape), <span class="bu">sorted</span>(torch.unique(patch_labels0).tolist()))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>dataset chips: 384
+chips per ROI: {'delhi_ncr': 128, 'shekhawati': 128, 'mathura_belt': 128}
+RGB input: (3, 128, 128) torch.float32 min 0.133 max 0.851
+pixel labels: (128, 128) [0, 1, 2, 3, 4, 5]
+patch labels: (8, 8) [0, 2, 3, 4]</code></pre>
+</div>
+</div>
+</section>
+<section id="more-examples" class="level2">
+<h2 class="anchored" data-anchor-id="more-examples">More examples</h2>
+<p>The top row shows the actual RGB chip the model sees. The bottom row shows the <code>8 x 8</code> patch labels that the auxiliary ESA classification head learns to predict from the same chip.</p>
+<div id="a3817f63" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:42.599955Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:42.599761Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:43.038073Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:43.037444Z&quot;}}" data-execution_count="35">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> rgb_chip_to_image(x):</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""3 x H x W tensor -&gt; H x W x 3 numpy in [0, 1] for imshow."""</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x.detach().cpu().numpy().transpose(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">0</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>example_indices <span class="op">=</span> [<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>]</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">2</span>, <span class="bu">len</span>(example_indices), figsize<span class="op">=</span>(<span class="dv">13</span>, <span class="dv">5</span>))</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> col, idx <span class="kw">in</span> <span class="bu">enumerate</span>(example_indices):</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    x, _labels, patch_labels <span class="op">=</span> dataset[idx]</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>, col].imshow(rgb_chip_to_image(x), interpolation<span class="op">=</span><span class="st">"nearest"</span>)</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>, col].set_title(<span class="ss">f"chip </span><span class="sc">{</span>idx<span class="sc">}</span><span class="ss"> RGB"</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>, col].imshow(labels_to_rgb(patch_labels), interpolation<span class="op">=</span><span class="st">"nearest"</span>)</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>, col].set_title(<span class="st">"patch labels"</span>)</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">0</span>, col].axis(<span class="st">"off"</span>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>    axes[<span class="dv">1</span>, col].axis(<span class="st">"off"</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-8-output-1.png" width="1547" height="570" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="patch-tokens" class="level2">
+<h2 class="anchored" data-anchor-id="patch-tokens">Patch tokens</h2>
+<p>Patchification converts the image tensor into a sequence. For one RGB chip:</p>
+<p><code>3 x 128 x 128 -&gt; 64 x 768</code></p>
+<p>The transformer sees the sequence length <code>64</code>; the <code>768</code> raw RGB values per token are projected to the model width by a learned linear patch embedding.</p>
+<div id="700fd8ec" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:43.039267Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:43.039187Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:43.043715Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:43.043297Z&quot;}}" data-execution_count="36">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> patchify(x, patch_size<span class="op">=</span>PATCH_SIZE):</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""B x C x H x W -&gt; B x N x (C*p*p)."""</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    b, c, h, w <span class="op">=</span> x.shape</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> patch_size</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    gh, gw <span class="op">=</span> h <span class="op">//</span> p, w <span class="op">//</span> p</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x.reshape(b, c, gh, p, gw, p).permute(<span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">5</span>).reshape(b, gh <span class="op">*</span> gw, c <span class="op">*</span> p <span class="op">*</span> p)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> patchify_rgb(x, patch_size<span class="op">=</span>PATCH_SIZE):</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""B x C x H x W -&gt; B x N x C x p x p (kept structured for visualization)."""</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    b, c, h, w <span class="op">=</span> x.shape</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> patch_size</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    gh, gw <span class="op">=</span> h <span class="op">//</span> p, w <span class="op">//</span> p</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x.reshape(b, c, gh, p, gw, p).permute(<span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">5</span>).reshape(b, gh <span class="op">*</span> gw, c, p, p)</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> patchify_label_map(labels, patch_size<span class="op">=</span>PATCH_SIZE):</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""B x H x W -&gt; B x N x p x p."""</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>    b, h, w <span class="op">=</span> labels.shape</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> patch_size</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>    gh, gw <span class="op">=</span> h <span class="op">//</span> p, w <span class="op">//</span> p</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> labels.reshape(b, gh, p, gw, p).permute(<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">4</span>).reshape(b, gh <span class="op">*</span> gw, p, p)</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>tokens <span class="op">=</span> patchify(x0.unsqueeze(<span class="dv">0</span>))</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>tokens_rgb <span class="op">=</span> patchify_rgb(x0.unsqueeze(<span class="dv">0</span>))[<span class="dv">0</span>]  <span class="co"># N x 3 x p x p</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>token_mean_rgb <span class="op">=</span> tokens_rgb.mean(dim<span class="op">=</span>(<span class="op">-</span><span class="dv">1</span>, <span class="op">-</span><span class="dv">2</span>))  <span class="co"># N x 3, mean color of each token</span></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>token_brightness <span class="op">=</span> token_mean_rgb.mean(dim<span class="op">=</span><span class="dv">1</span>).reshape(GRID_SIZE, GRID_SIZE)</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>token_color_var <span class="op">=</span> tokens_rgb.var(dim<span class="op">=</span>(<span class="op">-</span><span class="dv">1</span>, <span class="op">-</span><span class="dv">2</span>)).mean(dim<span class="op">=</span><span class="dv">1</span>).reshape(GRID_SIZE, GRID_SIZE)</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"token tensor:"</span>, <span class="bu">tuple</span>(tokens.shape))</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"first token mean RGB:"</span>, [<span class="ss">f"</span><span class="sc">{</span>v<span class="sc">:.3f}</span><span class="ss">"</span> <span class="cf">for</span> v <span class="kw">in</span> token_mean_rgb[<span class="dv">0</span>].tolist()])</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"first token internal color variance:"</span>, <span class="bu">float</span>(tokens_rgb[<span class="dv">0</span>].var().item()))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>token tensor: (1, 64, 768)
+first token mean RGB: ['0.844', '0.222', '0.161']
+first token internal color variance: 0.10034258663654327</code></pre>
+</div>
+</div>
+<div id="82dee16a" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:43.044982Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:43.044923Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:43.272298Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:43.271796Z&quot;}}" data-execution_count="37">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">3</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="fl">3.2</span>))</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].imshow(rgb_chip_to_image(x0), interpolation<span class="op">=</span><span class="st">"nearest"</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_title(<span class="st">"RGB chip"</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>mean_rgb_grid <span class="op">=</span> token_mean_rgb.reshape(GRID_SIZE, GRID_SIZE, <span class="dv">3</span>).numpy().clip(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].imshow(mean_rgb_grid, interpolation<span class="op">=</span><span class="st">"nearest"</span>)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_title(<span class="st">"token mean RGB"</span>)</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>im <span class="op">=</span> axes[<span class="dv">2</span>].imshow(token_color_var.numpy(), cmap<span class="op">=</span><span class="st">"magma"</span>)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_title(<span class="st">"token color variance"</span>)</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>plt.colorbar(im, ax<span class="op">=</span>axes[<span class="dv">2</span>], fraction<span class="op">=</span><span class="fl">0.046</span>)</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax <span class="kw">in</span> axes:</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    ax.set_xticks([])</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    ax.set_yticks([])</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-10-output-1.png" width="1175" height="392" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="training-objectives" class="level2">
+<h2 class="anchored" data-anchor-id="training-objectives">Training objectives</h2>
+<p>This tiny model has two objectives.</p>
+<p><strong>1. Masked RGB regression</strong></p>
+<p>For each image, we mask 75% of patch tokens. The decoder predicts a 3-channel RGB value for every pixel in every token, and the reconstruction loss is computed only on masked tokens with a smooth L1 / Huber loss:</p>
+<p><span class="math display">\[
+L_{rec} = \frac{1}{3|M|p^2}\sum_{(b,n) \in M}\sum_{c, u, v} \mathrm{SmoothL1}(\hat x_{b,n,c,u,v},\; x_{b,n,c,u,v})
+\]</span></p>
+<p>where <code>p = 16</code> and <code>M</code> is the set of masked patches. This is the same objective used by Sentinel-2 MAEs (the only change there is that <code>x</code> is normalized reflectance instead of palette RGB).</p>
+<p><strong>2. ESA patch classification</strong></p>
+<p>Every token also predicts the dominant ESA class in its <code>16 x 16</code> patch:</p>
+<p><span class="math display">\[
+L_{ESA} = \frac{1}{BN}\sum_{b,n}\mathrm{CE}(\hat c_{b,n},\; c_{b,n})
+\]</span></p>
+<p>The total loss is:</p>
+<p><span class="math display">\[
+L = L_{rec} + 0.2 L_{ESA}
+\]</span></p>
+<p>In full BharatEO-v0, <code>L_rec</code> stays a smooth-L1 loss on normalized Sentinel-2 reflectance; <code>L_ESA</code> stays this weak land-cover patch objective.</p>
+<div id="f9044129" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:43.273782Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:43.273695Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:43.353808Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:43.353171Z&quot;}}" data-execution_count="38">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> random_patch_mask(batch_size, generator<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    num_mask <span class="op">=</span> <span class="bu">int</span>(NUM_PATCHES <span class="op">*</span> MASK_RATIO)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    noise <span class="op">=</span> torch.rand(batch_size, NUM_PATCHES, generator<span class="op">=</span>generator, device<span class="op">=</span>device)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    ids <span class="op">=</span> noise.argsort(dim<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> torch.zeros(batch_size, NUM_PATCHES, dtype<span class="op">=</span>torch.<span class="bu">bool</span>, device<span class="op">=</span>device)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    mask.scatter_(<span class="dv">1</span>, ids[:, :num_mask], <span class="va">True</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> mask</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TinyRGBMAE(nn.Module):</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Small MAE-style encoder that reconstructs masked RGB tokens and predicts</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a><span class="co">    a per-token ESA WorldCover patch class."""</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, embed_dim<span class="op">=</span><span class="dv">128</span>, depth<span class="op">=</span><span class="dv">3</span>, heads<span class="op">=</span><span class="dv">4</span>):</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>()</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.patch_embed <span class="op">=</span> nn.Linear(TOKEN_DIM, embed_dim)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.mask_token <span class="op">=</span> nn.Parameter(torch.zeros(<span class="dv">1</span>, <span class="dv">1</span>, embed_dim))</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.pos_embed <span class="op">=</span> nn.Parameter(torch.zeros(<span class="dv">1</span>, NUM_PATCHES, embed_dim))</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>        layer <span class="op">=</span> nn.TransformerEncoderLayer(</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>            d_model<span class="op">=</span>embed_dim,</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>            nhead<span class="op">=</span>heads,</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>            dim_feedforward<span class="op">=</span><span class="dv">4</span> <span class="op">*</span> embed_dim,</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>            dropout<span class="op">=</span><span class="fl">0.0</span>,</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>            activation<span class="op">=</span><span class="st">"gelu"</span>,</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>            batch_first<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>            norm_first<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.encoder <span class="op">=</span> nn.TransformerEncoder(layer, num_layers<span class="op">=</span>depth)</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.pixel_head <span class="op">=</span> nn.Sequential(nn.LayerNorm(embed_dim), nn.Linear(embed_dim, TOKEN_DIM))</span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.patch_head <span class="op">=</span> nn.Sequential(nn.LayerNorm(embed_dim), nn.Linear(embed_dim, NUM_CLASSES))</span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>        nn.init.trunc_normal_(<span class="va">self</span>.pos_embed, std<span class="op">=</span><span class="fl">0.02</span>)</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>        nn.init.trunc_normal_(<span class="va">self</span>.mask_token, std<span class="op">=</span><span class="fl">0.02</span>)</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> forward(<span class="va">self</span>, x, mask):</span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>        z <span class="op">=</span> <span class="va">self</span>.patch_embed(patchify(x))</span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>        z <span class="op">=</span> torch.where(mask.unsqueeze(<span class="op">-</span><span class="dv">1</span>), <span class="va">self</span>.mask_token.expand_as(z), z)</span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>        z <span class="op">=</span> <span class="va">self</span>.encoder(z <span class="op">+</span> <span class="va">self</span>.pos_embed)</span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.pixel_head(z), <span class="va">self</span>.patch_head(z)</span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> reconstruction_loss(pixel_preds_tokens, x, mask):</span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Smooth L1 between predicted and target RGB tokens, masked tokens only."""</span></span>
+<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a>    b, n, _ <span class="op">=</span> pixel_preds_tokens.shape</span>
+<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a>    preds <span class="op">=</span> pixel_preds_tokens.reshape(b, n, NUM_INPUT_CHANNELS, PATCH_SIZE, PATCH_SIZE)</span>
+<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a>    targets <span class="op">=</span> patchify_rgb(x)</span>
+<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> F.smooth_l1_loss(preds[mask], targets[mask], beta<span class="op">=</span><span class="fl">0.1</span>)</span>
+<span id="cb16-47"><a href="#cb16-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> reconstruction_mae(pixel_preds_tokens, x, mask):</span>
+<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a>    b, n, _ <span class="op">=</span> pixel_preds_tokens.shape</span>
+<span id="cb16-51"><a href="#cb16-51" aria-hidden="true" tabindex="-1"></a>    preds <span class="op">=</span> pixel_preds_tokens.reshape(b, n, NUM_INPUT_CHANNELS, PATCH_SIZE, PATCH_SIZE)</span>
+<span id="cb16-52"><a href="#cb16-52" aria-hidden="true" tabindex="-1"></a>    targets <span class="op">=</span> patchify_rgb(x)</span>
+<span id="cb16-53"><a href="#cb16-53" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (preds[mask] <span class="op">-</span> targets[mask]).<span class="bu">abs</span>().mean()</span>
+<span id="cb16-54"><a href="#cb16-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-55"><a href="#cb16-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-56"><a href="#cb16-56" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> preds_tokens_to_image(pixel_preds_tokens):</span>
+<span id="cb16-57"><a href="#cb16-57" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""B x N x (C*p*p) -&gt; B x C x H x W in [0, 1]."""</span></span>
+<span id="cb16-58"><a href="#cb16-58" aria-hidden="true" tabindex="-1"></a>    b, n, _ <span class="op">=</span> pixel_preds_tokens.shape</span>
+<span id="cb16-59"><a href="#cb16-59" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> pixel_preds_tokens.reshape(</span>
+<span id="cb16-60"><a href="#cb16-60" aria-hidden="true" tabindex="-1"></a>        b, GRID_SIZE, GRID_SIZE, NUM_INPUT_CHANNELS, PATCH_SIZE, PATCH_SIZE</span>
+<span id="cb16-61"><a href="#cb16-61" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb16-62"><a href="#cb16-62" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> img.permute(<span class="dv">0</span>, <span class="dv">3</span>, <span class="dv">1</span>, <span class="dv">4</span>, <span class="dv">2</span>, <span class="dv">5</span>).reshape(b, NUM_INPUT_CHANNELS, IMG_SIZE, IMG_SIZE)</span>
+<span id="cb16-63"><a href="#cb16-63" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> img.clamp(<span class="fl">0.0</span>, <span class="fl">1.0</span>)</span>
+<span id="cb16-64"><a href="#cb16-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-65"><a href="#cb16-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-66"><a href="#cb16-66" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> TinyRGBMAE().to(device)</span>
+<span id="cb16-67"><a href="#cb16-67" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"tiny model parameters: </span><span class="sc">{</span><span class="bu">sum</span>(p.numel() <span class="cf">for</span> p <span class="kw">in</span> model.parameters()) <span class="op">/</span> <span class="fl">1e6</span><span class="sc">:.2f}</span><span class="ss">M"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>tiny model parameters: 0.80M</code></pre>
+</div>
+</div>
+<div id="ad777922" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:43.354941Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:43.354855Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:48.257976Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:48.257385Z&quot;}}" data-execution_count="39">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>loader <span class="op">=</span> DataLoader(dataset, batch_size<span class="op">=</span>BATCH_SIZE, shuffle<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>optimizer <span class="op">=</span> torch.optim.AdamW(model.parameters(), lr<span class="op">=</span><span class="fl">4e-4</span>, weight_decay<span class="op">=</span><span class="fl">0.05</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>scheduler <span class="op">=</span> torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max<span class="op">=</span>EPOCHS)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>history <span class="op">=</span> []</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> epoch <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, EPOCHS <span class="op">+</span> <span class="dv">1</span>):</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    model.train()</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    totals <span class="op">=</span> {<span class="st">"loss"</span>: <span class="fl">0.0</span>, <span class="st">"rec"</span>: <span class="fl">0.0</span>, <span class="st">"esa"</span>: <span class="fl">0.0</span>, <span class="st">"rec_mae"</span>: <span class="fl">0.0</span>, <span class="st">"esa_acc"</span>: <span class="fl">0.0</span>, <span class="st">"n"</span>: <span class="dv">0</span>}</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> x, _labels, patch_labels <span class="kw">in</span> loader:</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.to(device)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>        patch_labels <span class="op">=</span> patch_labels.reshape(x.size(<span class="dv">0</span>), <span class="op">-</span><span class="dv">1</span>).to(device)</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> random_patch_mask(x.size(<span class="dv">0</span>))</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>        pixel_preds_tokens, patch_logits <span class="op">=</span> model(x, mask)</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>        loss_rec <span class="op">=</span> reconstruction_loss(pixel_preds_tokens, x, mask)</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>        loss_esa <span class="op">=</span> F.cross_entropy(patch_logits.reshape(<span class="op">-</span><span class="dv">1</span>, NUM_CLASSES), patch_labels.reshape(<span class="op">-</span><span class="dv">1</span>))</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>        loss <span class="op">=</span> loss_rec <span class="op">+</span> PATCH_LOSS_WEIGHT <span class="op">*</span> loss_esa</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>        optimizer.zero_grad(set_to_none<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>        loss.backward()</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>        optimizer.step()</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">with</span> torch.no_grad():</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>            mae <span class="op">=</span> reconstruction_mae(pixel_preds_tokens, x, mask)</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>            acc_esa <span class="op">=</span> (patch_logits.argmax(dim<span class="op">=-</span><span class="dv">1</span>) <span class="op">==</span> patch_labels).<span class="bu">float</span>().mean()</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>        bs <span class="op">=</span> x.size(<span class="dv">0</span>)</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>        totals[<span class="st">"loss"</span>] <span class="op">+=</span> loss.item() <span class="op">*</span> bs</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>        totals[<span class="st">"rec"</span>] <span class="op">+=</span> loss_rec.item() <span class="op">*</span> bs</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>        totals[<span class="st">"esa"</span>] <span class="op">+=</span> loss_esa.item() <span class="op">*</span> bs</span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>        totals[<span class="st">"rec_mae"</span>] <span class="op">+=</span> mae.item() <span class="op">*</span> bs</span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>        totals[<span class="st">"esa_acc"</span>] <span class="op">+=</span> acc_esa.item() <span class="op">*</span> bs</span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a>        totals[<span class="st">"n"</span>] <span class="op">+=</span> bs</span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a>    scheduler.step()</span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a>    row <span class="op">=</span> {k: totals[k] <span class="op">/</span> totals[<span class="st">"n"</span>] <span class="cf">for</span> k <span class="kw">in</span> [<span class="st">"loss"</span>, <span class="st">"rec"</span>, <span class="st">"esa"</span>, <span class="st">"rec_mae"</span>, <span class="st">"esa_acc"</span>]}</span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a>    row[<span class="st">"epoch"</span>] <span class="op">=</span> epoch</span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a>    history.append(row)</span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(</span>
+<span id="cb18-41"><a href="#cb18-41" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"epoch </span><span class="sc">{</span>epoch<span class="sc">:02d}</span><span class="ss"> | loss </span><span class="sc">{</span>row[<span class="st">'loss'</span>]<span class="sc">:.4f}</span><span class="ss"> | rec SmoothL1 </span><span class="sc">{</span>row[<span class="st">'rec'</span>]<span class="sc">:.4f}</span><span class="ss"> | "</span></span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"ESA CE </span><span class="sc">{</span>row[<span class="st">'esa'</span>]<span class="sc">:.3f}</span><span class="ss"> | masked MAE </span><span class="sc">{</span>row[<span class="st">'rec_mae'</span>]<span class="sc">:.4f}</span><span class="ss"> | ESA acc </span><span class="sc">{</span>row[<span class="st">'esa_acc'</span>]<span class="sc">:.3f}</span><span class="ss">"</span></span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a>    )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>epoch 01 | loss 0.5375 | rec SmoothL1 0.3471 | ESA CE 0.952 | masked MAE 0.3927 | ESA acc 0.667
+epoch 02 | loss 0.2166 | rec SmoothL1 0.1230 | ESA CE 0.468 | masked MAE 0.1622 | ESA acc 0.879
+epoch 03 | loss 0.1525 | rec SmoothL1 0.0741 | ESA CE 0.392 | masked MAE 0.1054 | ESA acc 0.885
+epoch 04 | loss 0.1320 | rec SmoothL1 0.0593 | ESA CE 0.363 | masked MAE 0.0880 | ESA acc 0.888
+epoch 05 | loss 0.1231 | rec SmoothL1 0.0528 | ESA CE 0.351 | masked MAE 0.0796 | ESA acc 0.893
+epoch 06 | loss 0.1194 | rec SmoothL1 0.0500 | ESA CE 0.347 | masked MAE 0.0764 | ESA acc 0.893
+epoch 07 | loss 0.1150 | rec SmoothL1 0.0478 | ESA CE 0.336 | masked MAE 0.0727 | ESA acc 0.896
+epoch 08 | loss 0.1165 | rec SmoothL1 0.0489 | ESA CE 0.338 | masked MAE 0.0757 | ESA acc 0.894
+epoch 09 | loss 0.1138 | rec SmoothL1 0.0481 | ESA CE 0.328 | masked MAE 0.0744 | ESA acc 0.898
+epoch 10 | loss 0.1116 | rec SmoothL1 0.0469 | ESA CE 0.323 | masked MAE 0.0714 | ESA acc 0.900
+epoch 11 | loss 0.1121 | rec SmoothL1 0.0466 | ESA CE 0.327 | masked MAE 0.0702 | ESA acc 0.900
+epoch 12 | loss 0.1122 | rec SmoothL1 0.0465 | ESA CE 0.329 | masked MAE 0.0707 | ESA acc 0.897
+epoch 13 | loss 0.1101 | rec SmoothL1 0.0458 | ESA CE 0.322 | masked MAE 0.0686 | ESA acc 0.898
+epoch 14 | loss 0.1094 | rec SmoothL1 0.0457 | ESA CE 0.318 | masked MAE 0.0678 | ESA acc 0.900
+epoch 15 | loss 0.1089 | rec SmoothL1 0.0452 | ESA CE 0.319 | masked MAE 0.0669 | ESA acc 0.901
+epoch 16 | loss 0.1087 | rec SmoothL1 0.0453 | ESA CE 0.317 | masked MAE 0.0666 | ESA acc 0.900
+epoch 17 | loss 0.1090 | rec SmoothL1 0.0453 | ESA CE 0.319 | masked MAE 0.0666 | ESA acc 0.901
+epoch 18 | loss 0.1083 | rec SmoothL1 0.0452 | ESA CE 0.315 | masked MAE 0.0662 | ESA acc 0.901
+epoch 19 | loss 0.1088 | rec SmoothL1 0.0453 | ESA CE 0.318 | masked MAE 0.0662 | ESA acc 0.899
+epoch 20 | loss 0.1086 | rec SmoothL1 0.0450 | ESA CE 0.318 | masked MAE 0.0660 | ESA acc 0.900</code></pre>
+</div>
+</div>
+<div id="054ea2cf" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:48.259630Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:48.259436Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:48.504935Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:48.504332Z&quot;}}" data-execution_count="40">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>epochs <span class="op">=</span> [h[<span class="st">"epoch"</span>] <span class="cf">for</span> h <span class="kw">in</span> history]</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="fl">3.4</span>))</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].plot(epochs, [h[<span class="st">"loss"</span>] <span class="cf">for</span> h <span class="kw">in</span> history], marker<span class="op">=</span><span class="st">"o"</span>, label<span class="op">=</span><span class="st">"total"</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].plot(epochs, [h[<span class="st">"rec"</span>] <span class="cf">for</span> h <span class="kw">in</span> history], marker<span class="op">=</span><span class="st">"o"</span>, label<span class="op">=</span><span class="st">"masked SmoothL1"</span>)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].plot(epochs, [PATCH_LOSS_WEIGHT <span class="op">*</span> h[<span class="st">"esa"</span>] <span class="cf">for</span> h <span class="kw">in</span> history], marker<span class="op">=</span><span class="st">"o"</span>, label<span class="op">=</span><span class="st">"0.2 x ESA CE"</span>)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_title(<span class="st">"losses"</span>)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_xlabel(<span class="st">"epoch"</span>)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].legend()</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].plot(epochs, [h[<span class="st">"rec_mae"</span>] <span class="cf">for</span> h <span class="kw">in</span> history], marker<span class="op">=</span><span class="st">"o"</span>, label<span class="op">=</span><span class="st">"masked RGB MAE"</span>)</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].plot(epochs, [h[<span class="st">"esa_acc"</span>] <span class="cf">for</span> h <span class="kw">in</span> history], marker<span class="op">=</span><span class="st">"o"</span>, label<span class="op">=</span><span class="st">"ESA patch acc"</span>)</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_title(<span class="st">"reconstruction error and ESA accuracy"</span>)</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_xlabel(<span class="st">"epoch"</span>)</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_ylim(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].legend()</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-13-output-1.png" width="1188" height="393" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="reconstruction-examples" class="level2">
+<h2 class="anchored" data-anchor-id="reconstruction-examples">Reconstruction examples</h2>
+<p>The model now does pixel-space RGB regression, so we can compare the target chip, the masked input it actually saw, and the predicted RGB image side by side. The fourth panel shows the per-pixel absolute error inside the masked tokens.</p>
+<div id="e0399d30" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:48.506130Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:48.506035Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:49.270882Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:49.270348Z&quot;}}" data-execution_count="41">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> masked_rgb_input(x_chip, mask):</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""3 x H x W RGB chip + 64-token mask -&gt; H x W x 3 image with masked patches greyed out."""</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> x_chip.detach().cpu().numpy().transpose(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">0</span>).copy()</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    patch_mask <span class="op">=</span> mask.reshape(GRID_SIZE, GRID_SIZE).detach().cpu().numpy()</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    pixel_mask <span class="op">=</span> np.repeat(np.repeat(patch_mask, PATCH_SIZE, axis<span class="op">=</span><span class="dv">0</span>), PATCH_SIZE, axis<span class="op">=</span><span class="dv">1</span>).astype(<span class="bu">bool</span>)</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    img[pixel_mask] <span class="op">=</span> np.array([<span class="fl">0.94</span>, <span class="fl">0.94</span>, <span class="fl">0.94</span>])</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> img</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> composite_visible_with_pred(x_chip, x_pred, mask):</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Show ground truth on visible patches, prediction on masked patches."""</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> x_chip.detach().cpu().numpy().transpose(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">0</span>).copy()</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>    pred_img <span class="op">=</span> x_pred.detach().cpu().numpy().transpose(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">0</span>)</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>    patch_mask <span class="op">=</span> mask.reshape(GRID_SIZE, GRID_SIZE).detach().cpu().numpy()</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>    pixel_mask <span class="op">=</span> np.repeat(np.repeat(patch_mask, PATCH_SIZE, axis<span class="op">=</span><span class="dv">0</span>), PATCH_SIZE, axis<span class="op">=</span><span class="dv">1</span>).astype(<span class="bu">bool</span>)</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>    img[pixel_mask] <span class="op">=</span> pred_img[pixel_mask]</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> img</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_examples(indices):</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>    xs, _labels, patch_labels <span class="op">=</span> <span class="bu">zip</span>(<span class="op">*</span>(dataset[i] <span class="cf">for</span> i <span class="kw">in</span> indices))</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> torch.stack(xs).to(device)</span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>    patch_labels <span class="op">=</span> torch.stack(patch_labels).reshape(<span class="bu">len</span>(indices), <span class="op">-</span><span class="dv">1</span>).to(device)</span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>    generator <span class="op">=</span> torch.Generator(device<span class="op">=</span>device).manual_seed(<span class="dv">7</span>)</span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> random_patch_mask(<span class="bu">len</span>(indices), generator<span class="op">=</span>generator)</span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> torch.no_grad():</span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a>        pixel_preds_tokens, patch_logits <span class="op">=</span> model(x, mask)</span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (</span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>        x.cpu(),</span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>        patch_labels.cpu(),</span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a>        mask.cpu(),</span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a>        preds_tokens_to_image(pixel_preds_tokens).cpu(),</span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a>        patch_logits.cpu(),</span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a>example_ids <span class="op">=</span> [<span class="dv">6</span>, <span class="dv">7</span>, <span class="dv">8</span>]</span>
+<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a>xs, patch_targets, masks, preds, patch_logits <span class="op">=</span> run_examples(example_ids)</span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a>patch_preds <span class="op">=</span> patch_logits.argmax(dim<span class="op">=-</span><span class="dv">1</span>).reshape(<span class="bu">len</span>(example_ids), GRID_SIZE, GRID_SIZE)</span>
+<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="bu">len</span>(example_ids), <span class="dv">6</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="fl">7.5</span>))</span>
+<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> row, idx <span class="kw">in</span> <span class="bu">enumerate</span>(example_ids):</span>
+<span id="cb21-43"><a href="#cb21-43" aria-hidden="true" tabindex="-1"></a>    target_rgb <span class="op">=</span> rgb_chip_to_image(xs[row])</span>
+<span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a>    pred_rgb <span class="op">=</span> rgb_chip_to_image(preds[row])</span>
+<span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a>    composite <span class="op">=</span> composite_visible_with_pred(xs[row], preds[row], masks[row])</span>
+<span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a>    error <span class="op">=</span> np.<span class="bu">abs</span>(target_rgb <span class="op">-</span> pred_rgb).mean(axis<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a>    panels <span class="op">=</span> [</span>
+<span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a>        (target_rgb, <span class="ss">f"target RGB</span><span class="ch">\n</span><span class="ss">chip </span><span class="sc">{</span>idx<span class="sc">}</span><span class="ss">"</span>),</span>
+<span id="cb21-49"><a href="#cb21-49" aria-hidden="true" tabindex="-1"></a>        (masked_rgb_input(xs[row], masks[row]), <span class="st">"75% masked input"</span>),</span>
+<span id="cb21-50"><a href="#cb21-50" aria-hidden="true" tabindex="-1"></a>        (pred_rgb, <span class="st">"predicted RGB"</span>),</span>
+<span id="cb21-51"><a href="#cb21-51" aria-hidden="true" tabindex="-1"></a>        (composite, <span class="st">"visible + filled-in"</span>),</span>
+<span id="cb21-52"><a href="#cb21-52" aria-hidden="true" tabindex="-1"></a>        (error, <span class="st">"abs RGB error"</span>),</span>
+<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a>        (labels_to_rgb(patch_preds[row]), <span class="st">"ESA patch pred"</span>),</span>
+<span id="cb21-54"><a href="#cb21-54" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb21-55"><a href="#cb21-55" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> col, (image, title) <span class="kw">in</span> <span class="bu">enumerate</span>(panels):</span>
+<span id="cb21-56"><a href="#cb21-56" aria-hidden="true" tabindex="-1"></a>        ax <span class="op">=</span> axes[row, col]</span>
+<span id="cb21-57"><a href="#cb21-57" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> col <span class="op">==</span> <span class="dv">4</span>:</span>
+<span id="cb21-58"><a href="#cb21-58" aria-hidden="true" tabindex="-1"></a>            im <span class="op">=</span> ax.imshow(image, cmap<span class="op">=</span><span class="st">"magma"</span>, vmin<span class="op">=</span><span class="dv">0</span>, vmax<span class="op">=</span><span class="fl">0.5</span>, interpolation<span class="op">=</span><span class="st">"nearest"</span>)</span>
+<span id="cb21-59"><a href="#cb21-59" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb21-60"><a href="#cb21-60" aria-hidden="true" tabindex="-1"></a>            ax.imshow(image, interpolation<span class="op">=</span><span class="st">"nearest"</span>)</span>
+<span id="cb21-61"><a href="#cb21-61" aria-hidden="true" tabindex="-1"></a>        ax.set_title(title, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb21-62"><a href="#cb21-62" aria-hidden="true" tabindex="-1"></a>        ax.axis(<span class="st">"off"</span>)</span>
+<span id="cb21-63"><a href="#cb21-63" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-14-output-1.png" width="1660" height="895" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="esa-patch-classification-diagnostic" class="level2">
+<h2 class="anchored" data-anchor-id="esa-patch-classification-diagnostic">ESA patch classification diagnostic</h2>
+<p>The auxiliary head is not just a side plot. It is the weak supervision signal that teaches each token a semantic land-cover summary. Below we evaluate patch predictions across the sampled chips using a fixed mask pattern.</p>
+<div id="388db782" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-05-05T05:37:49.272450Z&quot;,&quot;iopub.status.busy&quot;:&quot;2026-05-05T05:37:49.272338Z&quot;,&quot;iopub.status.idle&quot;:&quot;2026-05-05T05:37:49.615643Z&quot;,&quot;shell.execute_reply&quot;:&quot;2026-05-05T05:37:49.615059Z&quot;}}" data-execution_count="42">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>confusion <span class="op">=</span> torch.zeros(NUM_CLASSES, NUM_CLASSES, dtype<span class="op">=</span>torch.int64)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>model.<span class="bu">eval</span>()</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> torch.no_grad():</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> x, _labels, patch_labels <span class="kw">in</span> DataLoader(dataset, batch_size<span class="op">=</span>BATCH_SIZE):</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> x.to(device)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>        patch_labels <span class="op">=</span> patch_labels.reshape(x.size(<span class="dv">0</span>), <span class="op">-</span><span class="dv">1</span>).to(device)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> random_patch_mask(x.size(<span class="dv">0</span>))</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>        _pixel_preds_tokens, patch_logits <span class="op">=</span> model(x, mask)</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>        pred <span class="op">=</span> patch_logits.argmax(dim<span class="op">=-</span><span class="dv">1</span>)</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> target_id, pred_id <span class="kw">in</span> <span class="bu">zip</span>(patch_labels.reshape(<span class="op">-</span><span class="dv">1</span>).cpu(), pred.reshape(<span class="op">-</span><span class="dv">1</span>).cpu()):</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>            confusion[target_id, pred_id] <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>confusion_np <span class="op">=</span> confusion.numpy()</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">6</span>, <span class="dv">5</span>))</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>im <span class="op">=</span> ax.imshow(confusion_np, cmap<span class="op">=</span><span class="st">"Blues"</span>)</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="st">"ESA patch classification confusion"</span>)</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>ax.set_xticks(<span class="bu">range</span>(NUM_CLASSES), CLASS_NAMES, rotation<span class="op">=</span><span class="dv">45</span>, ha<span class="op">=</span><span class="st">"right"</span>)</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>ax.set_yticks(<span class="bu">range</span>(NUM_CLASSES), CLASS_NAMES)</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"predicted"</span>)</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>ax.set_ylabel(<span class="st">"target"</span>)</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(NUM_CLASSES):</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(NUM_CLASSES):</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> confusion_np[i, j] <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>            ax.text(j, i, <span class="bu">str</span>(confusion_np[i, j]), ha<span class="op">=</span><span class="st">"center"</span>, va<span class="op">=</span><span class="st">"center"</span>, fontsize<span class="op">=</span><span class="dv">7</span>)</span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>plt.colorbar(im, ax<span class="op">=</span>ax, fraction<span class="op">=</span><span class="fl">0.046</span>)</span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-05-building-a-foundational-eo-model-for-bharateo_files/figure-html/cell-15-output-1.png" width="703" height="586" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="token-scale-toy-run-vs-bharateo-v0" class="level2">
+<h2 class="anchored" data-anchor-id="token-scale-toy-run-vs-bharateo-v0">Token scale: toy run vs BharatEO-v0</h2>
+<p>The toy run is bigger now, but the accounting is the same as the serious run.</p>
+<p>For this notebook (<code>DATASET_SIZE = 384</code>, <code>EPOCHS = 20</code>):</p>
+<ul>
+<li>tokens per chip: <code>64</code></li>
+<li>total patch-token presentations: <code>~492K</code></li>
+<li>visible patch-token inputs at 75% masking: <code>~123K</code></li>
+<li>masked patch-token reconstruction targets: <code>~369K</code></li>
+<li>masked RGB pixel regression targets: <code>~94M</code></li>
+</ul>
+<p>For a BharatEO-v0 pretraining run with <code>1M</code> chips and <code>100</code> epochs:</p>
+<ul>
+<li>total patch-token presentations: <code>6.4B</code></li>
+<li>visible patch-token inputs at 75% masking: <code>1.6B</code></li>
+<li>masked patch-token reconstruction targets: <code>4.8B</code></li>
+<li>masked reflectance regression targets: <code>1.2T</code></li>
+</ul>
+<p>That is why the small notebook is useful: the tensor shapes and losses are the same kind of machinery, just scaled down by four orders of magnitude.</p>
+</section>
+<section id="what-changes-for-sentinel-2-bharateo-v0" class="level2">
+<h2 class="anchored" data-anchor-id="what-changes-for-sentinel-2-bharateo-v0">What changes for Sentinel-2 BharatEO-v0?</h2>
+<p>Now that the input is already 3-channel pixel data and the reconstruction objective is already a smooth-L1 regression, the gap to a real Sentinel-2 MAE is small.</p>
+<p>Keep:</p>
+<ul>
+<li>the <code>128 x 128</code> chip size and <code>16 x 16</code> patch size (<code>64</code> tokens),</li>
+<li>the masked SmoothL1 reconstruction objective,</li>
+<li>the ESA patch-label auxiliary objective,</li>
+<li>the multi-ROI sampling and geography splits.</li>
+</ul>
+<p>Change:</p>
+<ul>
+<li>input from <code>3 x 128 x 128</code> palette RGB to <code>10 x 128 x 128</code> Sentinel-2 L2A reflectance (or <code>4 x 128 x 128</code> for an RGB+NIR start),</li>
+<li>normalize each band by its dataset-wide mean / std before the MAE,</li>
+<li>visual reconstruction panels show Sentinel-2 <code>B4-B3-B2</code> true color and <code>B8-B4-B3</code> false color,</li>
+<li>dataset construction loops over Sentinel-2 + WorldCover pairs sampled across many tiles, not three crops in one tile.</li>
+</ul>
+<p>The pedagogical point survives: <strong>WorldCover supplies the weak semantic objective; the optical sensor supplies the image signal for the real foundation encoder.</strong></p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
