@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-05-07">
+<meta name="description" content="A small, pedagogical translator that takes a Vega-Lite JSON spec and emits readable Matplotlib code. Walks through bar, scatter, scatter+color, and line examples, side-by-side with the original Vega-Lite render.">
+
+<title>From Vega-Lite to Matplotlib: A Tiny Spec-to-Code Translator – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-a0680038e68ea2633f289488c29b2724.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-1e5a2799e4f73aaeb8cb519b686b8500.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+<meta property="og:title" content="From Vega-Lite to Matplotlib: A Tiny Spec-to-Code Translator – Nipun Batra Blog">
+<meta property="og:description" content="A small, pedagogical translator that takes a Vega-Lite JSON spec and emits readable Matplotlib code. Walks through bar, scatter, scatter+color, and line examples, side-by-side with the original Vega-Lite render.">
+<meta property="og:image" content="2026-05-07-vega-lite-to-matplotlib_files/figure-html/cell-4-output-4.png">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="From Vega-Lite to Matplotlib: A Tiny Spec-to-Code Translator – Nipun Batra Blog">
+<meta name="twitter:description" content="A small, pedagogical translator that takes a Vega-Lite JSON spec and emits readable Matplotlib code. Walks through bar, scatter, scatter+color, and line examples, side-by-side with the original Vega-Lite render.">
+<meta name="twitter:image" content="2026-05-07-vega-lite-to-matplotlib_files/figure-html/cell-4-output-4.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">From Vega-Lite to Matplotlib: A Tiny Spec-to-Code Translator</h1>
+                  <div>
+        <div class="description">
+          A small, pedagogical translator that takes a Vega-Lite JSON spec and emits readable Matplotlib code. Walks through bar, scatter, scatter+color, and line examples, side-by-side with the original Vega-Lite render.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">visualization</div>
+                <div class="quarto-category">vega-lite</div>
+                <div class="quarto-category">matplotlib</div>
+                <div class="quarto-category">python</div>
+                <div class="quarto-category">code-generation</div>
+                <div class="quarto-category">dataviz</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">May 7, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#vega-lite-is-declarative-matplotlib-is-imperative" id="toc-vega-lite-is-declarative-matplotlib-is-imperative" class="nav-link active" data-scroll-target="#vega-lite-is-declarative-matplotlib-is-imperative">Vega-Lite is declarative; Matplotlib is imperative</a>
+  <ul class="collapse">
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#the-translator" id="toc-the-translator" class="nav-link" data-scroll-target="#the-translator">The translator</a></li>
+  <li><a href="#example-1-a-bar-chart" id="toc-example-1-a-bar-chart" class="nav-link" data-scroll-target="#example-1-a-bar-chart">Example 1: a bar chart</a></li>
+  <li><a href="#example-2-a-plain-scatter" id="toc-example-2-a-plain-scatter" class="nav-link" data-scroll-target="#example-2-a-plain-scatter">Example 2: a plain scatter</a></li>
+  <li><a href="#example-3-scatter-with-a-categorical-color-encoding" id="toc-example-3-scatter-with-a-categorical-color-encoding" class="nav-link" data-scroll-target="#example-3-scatter-with-a-categorical-color-encoding">Example 3: scatter with a categorical color encoding</a></li>
+  <li><a href="#example-4-a-line-chart-with-grouped-series" id="toc-example-4-a-line-chart-with-grouped-series" class="nav-link" data-scroll-target="#example-4-a-line-chart-with-grouped-series">Example 4: a line chart with grouped series</a></li>
+  <li><a href="#example-5-grouped-bars" id="toc-example-5-grouped-bars" class="nav-link" data-scroll-target="#example-5-grouped-bars">Example 5: grouped bars</a></li>
+  <li><a href="#what-the-toy-translator-does-not-do" id="toc-what-the-toy-translator-does-not-do" class="nav-link" data-scroll-target="#what-the-toy-translator-does-not-do">What the toy translator does <em>not</em> do</a></li>
+  <li><a href="#closing-thought" id="toc-closing-thought" class="nav-link" data-scroll-target="#closing-thought">Closing thought</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<section id="vega-lite-is-declarative-matplotlib-is-imperative" class="level1">
+<h1>Vega-Lite is declarative; Matplotlib is imperative</h1>
+<p>Vega-Lite specs say <em>what</em> a plot is: a dataset, a mark type, a few encoding channels. Matplotlib code says <em>how</em> to draw it: figures, axes, calls to <code>bar</code> / <code>scatter</code> / <code>plot</code>, label setters, legend bookkeeping. Most of the time you pick one and stick with it. But sometimes you want to translate.</p>
+<p>A few reasons this is useful:</p>
+<ul>
+<li>Authors generate Vega-Lite via Altair / Observable / dashboards, then need plain Matplotlib to drop the figure into a LaTeX paper.</li>
+<li>Vega-Lite is a great compact way to <em>describe</em> a plot — you can save a one-line JSON and regenerate. Matplotlib code is a great compact way to <em>edit</em> a plot — fonts, ticks, twin axes, callouts.</li>
+<li>It’s a fun excuse to write a tiny compiler.</li>
+</ul>
+<p>This post does the most direct version of that: a small function that takes a Vega-Lite spec dict and returns a string of Matplotlib code. We then <code>exec</code> the generated code to render the figure, so you can compare:</p>
+<ol type="1">
+<li>the <strong>original Vega-Lite spec</strong> rendered by Altair,</li>
+<li>the <strong>generated Matplotlib code</strong> as inspectable Python,</li>
+<li>the <strong>rendered Matplotlib figure</strong>.</li>
+</ol>
+<p>The translator covers a handful of marks (<code>bar</code>, <code>point</code>/<code>circle</code>, <code>line</code>) and a few encoding channels (<code>x</code>, <code>y</code>, <code>color</code>, plus titles). It is deliberately under 100 lines. Anything beyond — facets, layers, transforms, scales, time axes — would need a real visitor pattern, which is out of scope here.</p>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<p>We need Altair to render the original Vega-Lite specs, Matplotlib to render the translated ones, and pandas because that’s how Matplotlib likes to receive tabular data.</p>
+<div id="setup" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> altair <span class="im">as</span> alt</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> display</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>matplotlib inline</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">%</span>config InlineBackend.figure_format <span class="op">=</span> <span class="st">"retina"</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>plt.rcParams.update({</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"figure.dpi"</span>: <span class="dv">110</span>,</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"savefig.dpi"</span>: <span class="dv">220</span>,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"axes.spines.top"</span>: <span class="va">False</span>,</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"axes.spines.right"</span>: <span class="va">False</span>,</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>alt.data_transformers.disable_max_rows()</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"altair"</span>, alt.__version__)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>altair 6.0.0</code></pre>
+</div>
+</div>
+</section>
+<section id="the-translator" class="level2">
+<h2 class="anchored" data-anchor-id="the-translator">The translator</h2>
+<p>The function below takes a parsed Vega-Lite spec (a Python dict) and returns a string of standalone Matplotlib code. It assumes inline data (<code>spec["data"]["values"]</code>) and dispatches on <code>spec["mark"]</code>.</p>
+<p>Two small helpers:</p>
+<ul>
+<li><code>enc_label(channel)</code> builds an axis label, preferring an explicit <code>title</code> on the encoding and falling back to the field name.</li>
+<li><code>mark_type(spec)</code> accepts either <code>"bar"</code> or <code>{"type": "bar", ...}</code> since Vega-Lite allows both forms.</li>
+</ul>
+<p>The output is intentionally line-by-line and readable, not minified. The whole point is that you can paste the generated code into a script.</p>
+<div id="translator" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> mark_type(spec):</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    mark <span class="op">=</span> spec.get(<span class="st">"mark"</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> mark <span class="cf">if</span> <span class="bu">isinstance</span>(mark, <span class="bu">str</span>) <span class="cf">else</span> mark.get(<span class="st">"type"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> enc_label(enc_channel):</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="st">"title"</span> <span class="kw">in</span> enc_channel:</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> enc_channel[<span class="st">"title"</span>]</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> enc_channel.get(<span class="st">"field"</span>, <span class="st">""</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> vegalite_to_matplotlib(spec):</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Translate a Vega-Lite dict into a string of Matplotlib code.</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">    Supports: mark in {bar, point, circle, line}; encodings x, y, optional color</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">    (treated as a categorical group). Inline data only.</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    enc <span class="op">=</span> spec.get(<span class="st">"encoding"</span>, {})</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="st">"x"</span> <span class="kw">not</span> <span class="kw">in</span> enc <span class="kw">or</span> <span class="st">"y"</span> <span class="kw">not</span> <span class="kw">in</span> enc:</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">raise</span> <span class="pp">ValueError</span>(<span class="st">"Spec must define both x and y encodings"</span>)</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    mark <span class="op">=</span> mark_type(spec)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    x_field <span class="op">=</span> enc[<span class="st">"x"</span>][<span class="st">"field"</span>]</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    y_field <span class="op">=</span> enc[<span class="st">"y"</span>][<span class="st">"field"</span>]</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    color_field <span class="op">=</span> enc.get(<span class="st">"color"</span>, {}).get(<span class="st">"field"</span>)</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    rows <span class="op">=</span> spec[<span class="st">"data"</span>][<span class="st">"values"</span>]</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    title <span class="op">=</span> spec.get(<span class="st">"title"</span>)</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    lines <span class="op">=</span> [</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="st">"import matplotlib.pyplot as plt"</span>,</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">"import pandas as pd"</span>,</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">""</span>,</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"data = </span><span class="sc">{</span>json<span class="sc">.</span>dumps(rows)<span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>        <span class="st">"df = pd.DataFrame(data)"</span>,</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        <span class="st">"fig, ax = plt.subplots(figsize=(6, 3.6))"</span>,</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>        <span class="st">""</span>,</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> mark <span class="op">==</span> <span class="st">"bar"</span>:</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> color_field <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>            lines.append(<span class="ss">f"ax.bar(df[</span><span class="sc">{</span>x_field<span class="sc">!r}</span><span class="ss">], df[</span><span class="sc">{</span>y_field<span class="sc">!r}</span><span class="ss">])"</span>)</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>            <span class="co"># grouped bars by color field</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>            lines <span class="op">+=</span> [</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"groups = list(dict.fromkeys(df[</span><span class="sc">{</span>color_field<span class="sc">!r}</span><span class="ss">]))"</span>,</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"x_vals = list(dict.fromkeys(df[</span><span class="sc">{</span>x_field<span class="sc">!r}</span><span class="ss">]))"</span>,</span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>                <span class="st">"import numpy as np"</span>,</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>                <span class="st">"x_idx = np.arange(len(x_vals))"</span>,</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>                <span class="st">"width = 0.8 / max(1, len(groups))"</span>,</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>                <span class="st">"for i, g in enumerate(groups):"</span>,</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"    sub = df[df[</span><span class="sc">{</span>color_field<span class="sc">!r}</span><span class="ss">] == g]"</span>,</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"    ys = [sub[sub[</span><span class="sc">{</span>x_field<span class="sc">!r}</span><span class="ss">] == xv][</span><span class="sc">{</span>y_field<span class="sc">!r}</span><span class="ss">].sum() for xv in x_vals]"</span>,</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>                <span class="st">"    ax.bar(x_idx + i * width - 0.4 + width / 2, ys, width, label=str(g))"</span>,</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>                <span class="st">"ax.set_xticks(x_idx)"</span>,</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>                <span class="st">"ax.set_xticklabels(x_vals)"</span>,</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"ax.legend(title=</span><span class="sc">{</span>color_field<span class="sc">!r}</span><span class="ss">)"</span>,</span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>            ]</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> mark <span class="kw">in</span> (<span class="st">"point"</span>, <span class="st">"circle"</span>):</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> color_field <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>            lines.append(<span class="ss">f"ax.scatter(df[</span><span class="sc">{</span>x_field<span class="sc">!r}</span><span class="ss">], df[</span><span class="sc">{</span>y_field<span class="sc">!r}</span><span class="ss">], s=24)"</span>)</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>            lines <span class="op">+=</span> [</span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"for label, sub in df.groupby(</span><span class="sc">{</span>color_field<span class="sc">!r}</span><span class="ss">):"</span>,</span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"    ax.scatter(sub[</span><span class="sc">{</span>x_field<span class="sc">!r}</span><span class="ss">], sub[</span><span class="sc">{</span>y_field<span class="sc">!r}</span><span class="ss">], s=24, label=label)"</span>,</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"ax.legend(title=</span><span class="sc">{</span>color_field<span class="sc">!r}</span><span class="ss">)"</span>,</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>            ]</span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> mark <span class="op">==</span> <span class="st">"line"</span>:</span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> color_field <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>            lines.append(<span class="ss">f"ax.plot(df[</span><span class="sc">{</span>x_field<span class="sc">!r}</span><span class="ss">], df[</span><span class="sc">{</span>y_field<span class="sc">!r}</span><span class="ss">], marker='o')"</span>)</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>            lines <span class="op">+=</span> [</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"for label, sub in df.groupby(</span><span class="sc">{</span>color_field<span class="sc">!r}</span><span class="ss">):"</span>,</span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"    ax.plot(sub[</span><span class="sc">{</span>x_field<span class="sc">!r}</span><span class="ss">], sub[</span><span class="sc">{</span>y_field<span class="sc">!r}</span><span class="ss">], marker='o', label=label)"</span>,</span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>                <span class="ss">f"ax.legend(title=</span><span class="sc">{</span>color_field<span class="sc">!r}</span><span class="ss">)"</span>,</span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a>            ]</span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a>        <span class="cf">raise</span> <span class="pp">NotImplementedError</span>(<span class="ss">f"mark </span><span class="sc">{</span>mark<span class="sc">!r}</span><span class="ss"> not supported"</span>)</span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a>    lines <span class="op">+=</span> [</span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>        <span class="st">""</span>,</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"ax.set_xlabel(</span><span class="sc">{</span>enc_label(enc[<span class="st">'x'</span>])<span class="sc">!r}</span><span class="ss">)"</span>,</span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a>        <span class="ss">f"ax.set_ylabel(</span><span class="sc">{</span>enc_label(enc[<span class="st">'y'</span>])<span class="sc">!r}</span><span class="ss">)"</span>,</span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> title:</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a>        lines.append(<span class="ss">f"ax.set_title(</span><span class="sc">{</span>title<span class="sc">!r}</span><span class="ss">)"</span>)</span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a>    lines <span class="op">+=</span> [<span class="st">"fig.tight_layout()"</span>, <span class="st">"plt.show()"</span>]</span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span>.join(lines)</span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> render_generated(code):</span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Execute the generated code in a clean namespace."""</span></span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a>    ns <span class="op">=</span> {}</span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>    <span class="bu">exec</span>(<span class="bu">compile</span>(code, <span class="st">"&lt;generated-mpl&gt;"</span>, <span class="st">"exec"</span>), ns)</span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> show_side_by_side(spec):</span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"--- generated Matplotlib code ---"</span>)</span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a>    code <span class="op">=</span> vegalite_to_matplotlib(spec)</span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(code)</span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"--- Altair render of the original spec ---"</span>)</span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a>    display(alt.Chart.from_dict(spec).properties(width<span class="op">=</span><span class="dv">320</span>, height<span class="op">=</span><span class="dv">200</span>))</span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"--- Matplotlib render of the generated code ---"</span>)</span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>    render_generated(code)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="example-1-a-bar-chart" class="level2">
+<h2 class="anchored" data-anchor-id="example-1-a-bar-chart">Example 1: a bar chart</h2>
+<p>The Vega-Lite tutorial chart, almost verbatim.</p>
+<div id="ex1" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>spec_bar <span class="op">=</span> {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"data"</span>: {<span class="st">"values"</span>: [</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"A"</span>, <span class="st">"value"</span>: <span class="dv">28</span>},</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"B"</span>, <span class="st">"value"</span>: <span class="dv">55</span>},</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"C"</span>, <span class="st">"value"</span>: <span class="dv">43</span>},</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"D"</span>, <span class="st">"value"</span>: <span class="dv">91</span>},</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"E"</span>, <span class="st">"value"</span>: <span class="dv">81</span>},</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"F"</span>, <span class="st">"value"</span>: <span class="dv">53</span>},</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"G"</span>, <span class="st">"value"</span>: <span class="dv">19</span>},</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"category"</span>: <span class="st">"H"</span>, <span class="st">"value"</span>: <span class="dv">87</span>},</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    ]},</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"mark"</span>: <span class="st">"bar"</span>,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"encoding"</span>: {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">"x"</span>: {<span class="st">"field"</span>: <span class="st">"category"</span>, <span class="st">"type"</span>: <span class="st">"nominal"</span>, <span class="st">"title"</span>: <span class="st">"Category"</span>},</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">"y"</span>: {<span class="st">"field"</span>: <span class="st">"value"</span>, <span class="st">"type"</span>: <span class="st">"quantitative"</span>, <span class="st">"title"</span>: <span class="st">"Value"</span>},</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"title"</span>: <span class="st">"A bar chart"</span>,</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>show_side_by_side(spec_bar)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- generated Matplotlib code ---
+import matplotlib.pyplot as plt
+import pandas as pd
+
+data = [{"category": "A", "value": 28}, {"category": "B", "value": 55}, {"category": "C", "value": 43}, {"category": "D", "value": 91}, {"category": "E", "value": 81}, {"category": "F", "value": 53}, {"category": "G", "value": 19}, {"category": "H", "value": 87}]
+df = pd.DataFrame(data)
+fig, ax = plt.subplots(figsize=(6, 3.6))
+
+ax.bar(df['category'], df['value'])
+
+ax.set_xlabel('Category')
+ax.set_ylabel('Value')
+ax.set_title('A bar chart')
+fig.tight_layout()
+plt.show()
+--- Altair render of the original spec ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+
+<style>
+  #altair-viz-835d8151090b4308b636ef99c8f469fa.vega-embed {
+    width: 100%;
+    display: flex;
+  }
+
+  #altair-viz-835d8151090b4308b636ef99c8f469fa.vega-embed details,
+  #altair-viz-835d8151090b4308b636ef99c8f469fa.vega-embed details summary {
+    position: relative;
+  }
+</style>
+<div id="altair-viz-835d8151090b4308b636ef99c8f469fa"></div>
+<script type="text/javascript">
+  var VEGA_DEBUG = (typeof VEGA_DEBUG == "undefined") ? {} : VEGA_DEBUG;
+  (function(spec, embedOpt){
+    let outputDiv = document.currentScript.previousElementSibling;
+    if (outputDiv.id !== "altair-viz-835d8151090b4308b636ef99c8f469fa") {
+      outputDiv = document.getElementById("altair-viz-835d8151090b4308b636ef99c8f469fa");
+    }
+
+    const paths = {
+      "vega": "https://cdn.jsdelivr.net/npm/vega@6?noext",
+      "vega-lib": "https://cdn.jsdelivr.net/npm/vega-lib?noext",
+      "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.1.0?noext",
+      "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7?noext",
+    };
+
+    function maybeLoadScript(lib, version) {
+      var key = `${lib.replace("-", "")}_version`;
+      return (VEGA_DEBUG[key] == version) ?
+        Promise.resolve(paths[lib]) :
+        new Promise(function(resolve, reject) {
+          var s = document.createElement('script');
+          document.getElementsByTagName("head")[0].appendChild(s);
+          s.async = true;
+          s.onload = () => {
+            VEGA_DEBUG[key] = version;
+            return resolve(paths[lib]);
+          };
+          s.onerror = () => reject(`Error loading script: ${paths[lib]}`);
+          s.src = paths[lib];
+        });
+    }
+
+    function showError(err) {
+      outputDiv.innerHTML = `<div class="error" style="color:red;">${err}</div>`;
+      throw err;
+    }
+
+    function displayChart(vegaEmbed) {
+      vegaEmbed(outputDiv, spec, embedOpt)
+        .catch(err => showError(`Javascript Error: ${err.message}<br>This usually means there's a typo in your chart specification. See the javascript console for the full traceback.`));
+    }
+
+    if(typeof define === "function" && define.amd) {
+      requirejs.config({paths});
+      let deps = ["vega-embed"];
+      require(deps, displayChart, err => showError(`Error loading script: ${err.message}`));
+    } else {
+      maybeLoadScript("vega", "6")
+        .then(() => maybeLoadScript("vega-lite", "6.1.0"))
+        .then(() => maybeLoadScript("vega-embed", "7"))
+        .catch(showError)
+        .then(() => displayChart(vegaEmbed));
+    }
+  })({"config": {"view": {"continuousWidth": 300, "continuousHeight": 300}}, "data": {"name": "data-885a5349467862f8c3116ae8182b7c65"}, "mark": "bar", "encoding": {"x": {"field": "category", "title": "Category", "type": "nominal"}, "y": {"field": "value", "title": "Value", "type": "quantitative"}}, "height": 200, "title": "A bar chart", "width": 320, "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json", "datasets": {"data-885a5349467862f8c3116ae8182b7c65": [{"category": "A", "value": 28}, {"category": "B", "value": 55}, {"category": "C", "value": 43}, {"category": "D", "value": 91}, {"category": "E", "value": 81}, {"category": "F", "value": 53}, {"category": "G", "value": 19}, {"category": "H", "value": 87}]}}, {"mode": "vega-lite"});
+</script>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Matplotlib render of the generated code ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-07-vega-lite-to-matplotlib_files/figure-html/cell-4-output-4.png" width="648" height="384" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="example-2-a-plain-scatter" class="level2">
+<h2 class="anchored" data-anchor-id="example-2-a-plain-scatter">Example 2: a plain scatter</h2>
+<p>Quantitative on both axes, no color encoding. Translates to one <code>ax.scatter</code> call.</p>
+<div id="ex2" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>spec_scatter <span class="op">=</span> {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"data"</span>: {<span class="st">"values"</span>: [</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">130</span>, <span class="st">"mpg"</span>: <span class="fl">18.0</span>},</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">165</span>, <span class="st">"mpg"</span>: <span class="fl">15.0</span>},</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">150</span>, <span class="st">"mpg"</span>: <span class="fl">18.0</span>},</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">95</span>,  <span class="st">"mpg"</span>: <span class="fl">24.0</span>},</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">70</span>,  <span class="st">"mpg"</span>: <span class="fl">27.0</span>},</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">198</span>, <span class="st">"mpg"</span>: <span class="fl">14.0</span>},</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">88</span>,  <span class="st">"mpg"</span>: <span class="fl">27.0</span>},</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">215</span>, <span class="st">"mpg"</span>: <span class="fl">10.0</span>},</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">105</span>, <span class="st">"mpg"</span>: <span class="fl">22.0</span>},</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">75</span>,  <span class="st">"mpg"</span>: <span class="fl">26.0</span>},</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    ]},</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"mark"</span>: <span class="st">"point"</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"encoding"</span>: {</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">"x"</span>: {<span class="st">"field"</span>: <span class="st">"hp"</span>, <span class="st">"type"</span>: <span class="st">"quantitative"</span>, <span class="st">"title"</span>: <span class="st">"Horsepower"</span>},</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">"y"</span>: {<span class="st">"field"</span>: <span class="st">"mpg"</span>, <span class="st">"type"</span>: <span class="st">"quantitative"</span>, <span class="st">"title"</span>: <span class="st">"Miles per gallon"</span>},</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">"title"</span>: <span class="st">"Cars: HP vs MPG"</span>,</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>show_side_by_side(spec_scatter)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- generated Matplotlib code ---
+import matplotlib.pyplot as plt
+import pandas as pd
+
+data = [{"hp": 130, "mpg": 18.0}, {"hp": 165, "mpg": 15.0}, {"hp": 150, "mpg": 18.0}, {"hp": 95, "mpg": 24.0}, {"hp": 70, "mpg": 27.0}, {"hp": 198, "mpg": 14.0}, {"hp": 88, "mpg": 27.0}, {"hp": 215, "mpg": 10.0}, {"hp": 105, "mpg": 22.0}, {"hp": 75, "mpg": 26.0}]
+df = pd.DataFrame(data)
+fig, ax = plt.subplots(figsize=(6, 3.6))
+
+ax.scatter(df['hp'], df['mpg'], s=24)
+
+ax.set_xlabel('Horsepower')
+ax.set_ylabel('Miles per gallon')
+ax.set_title('Cars: HP vs MPG')
+fig.tight_layout()
+plt.show()
+--- Altair render of the original spec ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+
+<style>
+  #altair-viz-3d9c0fb2c0cd4d848be94ffb2461c955.vega-embed {
+    width: 100%;
+    display: flex;
+  }
+
+  #altair-viz-3d9c0fb2c0cd4d848be94ffb2461c955.vega-embed details,
+  #altair-viz-3d9c0fb2c0cd4d848be94ffb2461c955.vega-embed details summary {
+    position: relative;
+  }
+</style>
+<div id="altair-viz-3d9c0fb2c0cd4d848be94ffb2461c955"></div>
+<script type="text/javascript">
+  var VEGA_DEBUG = (typeof VEGA_DEBUG == "undefined") ? {} : VEGA_DEBUG;
+  (function(spec, embedOpt){
+    let outputDiv = document.currentScript.previousElementSibling;
+    if (outputDiv.id !== "altair-viz-3d9c0fb2c0cd4d848be94ffb2461c955") {
+      outputDiv = document.getElementById("altair-viz-3d9c0fb2c0cd4d848be94ffb2461c955");
+    }
+
+    const paths = {
+      "vega": "https://cdn.jsdelivr.net/npm/vega@6?noext",
+      "vega-lib": "https://cdn.jsdelivr.net/npm/vega-lib?noext",
+      "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.1.0?noext",
+      "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7?noext",
+    };
+
+    function maybeLoadScript(lib, version) {
+      var key = `${lib.replace("-", "")}_version`;
+      return (VEGA_DEBUG[key] == version) ?
+        Promise.resolve(paths[lib]) :
+        new Promise(function(resolve, reject) {
+          var s = document.createElement('script');
+          document.getElementsByTagName("head")[0].appendChild(s);
+          s.async = true;
+          s.onload = () => {
+            VEGA_DEBUG[key] = version;
+            return resolve(paths[lib]);
+          };
+          s.onerror = () => reject(`Error loading script: ${paths[lib]}`);
+          s.src = paths[lib];
+        });
+    }
+
+    function showError(err) {
+      outputDiv.innerHTML = `<div class="error" style="color:red;">${err}</div>`;
+      throw err;
+    }
+
+    function displayChart(vegaEmbed) {
+      vegaEmbed(outputDiv, spec, embedOpt)
+        .catch(err => showError(`Javascript Error: ${err.message}<br>This usually means there's a typo in your chart specification. See the javascript console for the full traceback.`));
+    }
+
+    if(typeof define === "function" && define.amd) {
+      requirejs.config({paths});
+      let deps = ["vega-embed"];
+      require(deps, displayChart, err => showError(`Error loading script: ${err.message}`));
+    } else {
+      maybeLoadScript("vega", "6")
+        .then(() => maybeLoadScript("vega-lite", "6.1.0"))
+        .then(() => maybeLoadScript("vega-embed", "7"))
+        .catch(showError)
+        .then(() => displayChart(vegaEmbed));
+    }
+  })({"config": {"view": {"continuousWidth": 300, "continuousHeight": 300}}, "data": {"name": "data-a0f722891ee5eee7a5d4265c14be604b"}, "mark": "point", "encoding": {"x": {"field": "hp", "title": "Horsepower", "type": "quantitative"}, "y": {"field": "mpg", "title": "Miles per gallon", "type": "quantitative"}}, "height": 200, "title": "Cars: HP vs MPG", "width": 320, "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json", "datasets": {"data-a0f722891ee5eee7a5d4265c14be604b": [{"hp": 130, "mpg": 18.0}, {"hp": 165, "mpg": 15.0}, {"hp": 150, "mpg": 18.0}, {"hp": 95, "mpg": 24.0}, {"hp": 70, "mpg": 27.0}, {"hp": 198, "mpg": 14.0}, {"hp": 88, "mpg": 27.0}, {"hp": 215, "mpg": 10.0}, {"hp": 105, "mpg": 22.0}, {"hp": 75, "mpg": 26.0}]}}, {"mode": "vega-lite"});
+</script>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Matplotlib render of the generated code ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-07-vega-lite-to-matplotlib_files/figure-html/cell-5-output-4.png" width="648" height="384" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="example-3-scatter-with-a-categorical-color-encoding" class="level2">
+<h2 class="anchored" data-anchor-id="example-3-scatter-with-a-categorical-color-encoding">Example 3: scatter with a categorical color encoding</h2>
+<p>This is where the translator earns its keep — <code>color</code> becomes a <code>groupby</code> plus a per-group <code>ax.scatter</code> call plus a legend. Vega-Lite would do all three from <code>"color": {"field": ...}</code>.</p>
+<div id="ex3" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>spec_scatter_color <span class="op">=</span> {</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"data"</span>: {<span class="st">"values"</span>: [</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">130</span>, <span class="st">"mpg"</span>: <span class="fl">18.0</span>, <span class="st">"origin"</span>: <span class="st">"USA"</span>},</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">165</span>, <span class="st">"mpg"</span>: <span class="fl">15.0</span>, <span class="st">"origin"</span>: <span class="st">"USA"</span>},</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">150</span>, <span class="st">"mpg"</span>: <span class="fl">18.0</span>, <span class="st">"origin"</span>: <span class="st">"USA"</span>},</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">95</span>,  <span class="st">"mpg"</span>: <span class="fl">24.0</span>, <span class="st">"origin"</span>: <span class="st">"Japan"</span>},</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">70</span>,  <span class="st">"mpg"</span>: <span class="fl">27.0</span>, <span class="st">"origin"</span>: <span class="st">"Japan"</span>},</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">88</span>,  <span class="st">"mpg"</span>: <span class="fl">27.0</span>, <span class="st">"origin"</span>: <span class="st">"Japan"</span>},</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">75</span>,  <span class="st">"mpg"</span>: <span class="fl">26.0</span>, <span class="st">"origin"</span>: <span class="st">"Europe"</span>},</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">105</span>, <span class="st">"mpg"</span>: <span class="fl">22.0</span>, <span class="st">"origin"</span>: <span class="st">"Europe"</span>},</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"hp"</span>: <span class="dv">110</span>, <span class="st">"mpg"</span>: <span class="fl">21.0</span>, <span class="st">"origin"</span>: <span class="st">"Europe"</span>},</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    ]},</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"mark"</span>: <span class="st">"point"</span>,</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"encoding"</span>: {</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">"x"</span>: {<span class="st">"field"</span>: <span class="st">"hp"</span>, <span class="st">"type"</span>: <span class="st">"quantitative"</span>, <span class="st">"title"</span>: <span class="st">"Horsepower"</span>},</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">"y"</span>: {<span class="st">"field"</span>: <span class="st">"mpg"</span>, <span class="st">"type"</span>: <span class="st">"quantitative"</span>, <span class="st">"title"</span>: <span class="st">"Miles per gallon"</span>},</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">"color"</span>: {<span class="st">"field"</span>: <span class="st">"origin"</span>, <span class="st">"type"</span>: <span class="st">"nominal"</span>},</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">"title"</span>: <span class="st">"Cars by origin"</span>,</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>show_side_by_side(spec_scatter_color)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- generated Matplotlib code ---
+import matplotlib.pyplot as plt
+import pandas as pd
+
+data = [{"hp": 130, "mpg": 18.0, "origin": "USA"}, {"hp": 165, "mpg": 15.0, "origin": "USA"}, {"hp": 150, "mpg": 18.0, "origin": "USA"}, {"hp": 95, "mpg": 24.0, "origin": "Japan"}, {"hp": 70, "mpg": 27.0, "origin": "Japan"}, {"hp": 88, "mpg": 27.0, "origin": "Japan"}, {"hp": 75, "mpg": 26.0, "origin": "Europe"}, {"hp": 105, "mpg": 22.0, "origin": "Europe"}, {"hp": 110, "mpg": 21.0, "origin": "Europe"}]
+df = pd.DataFrame(data)
+fig, ax = plt.subplots(figsize=(6, 3.6))
+
+for label, sub in df.groupby('origin'):
+    ax.scatter(sub['hp'], sub['mpg'], s=24, label=label)
+ax.legend(title='origin')
+
+ax.set_xlabel('Horsepower')
+ax.set_ylabel('Miles per gallon')
+ax.set_title('Cars by origin')
+fig.tight_layout()
+plt.show()
+--- Altair render of the original spec ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+
+<style>
+  #altair-viz-7910f70bcbaf495c94d10536ba365ac5.vega-embed {
+    width: 100%;
+    display: flex;
+  }
+
+  #altair-viz-7910f70bcbaf495c94d10536ba365ac5.vega-embed details,
+  #altair-viz-7910f70bcbaf495c94d10536ba365ac5.vega-embed details summary {
+    position: relative;
+  }
+</style>
+<div id="altair-viz-7910f70bcbaf495c94d10536ba365ac5"></div>
+<script type="text/javascript">
+  var VEGA_DEBUG = (typeof VEGA_DEBUG == "undefined") ? {} : VEGA_DEBUG;
+  (function(spec, embedOpt){
+    let outputDiv = document.currentScript.previousElementSibling;
+    if (outputDiv.id !== "altair-viz-7910f70bcbaf495c94d10536ba365ac5") {
+      outputDiv = document.getElementById("altair-viz-7910f70bcbaf495c94d10536ba365ac5");
+    }
+
+    const paths = {
+      "vega": "https://cdn.jsdelivr.net/npm/vega@6?noext",
+      "vega-lib": "https://cdn.jsdelivr.net/npm/vega-lib?noext",
+      "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.1.0?noext",
+      "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7?noext",
+    };
+
+    function maybeLoadScript(lib, version) {
+      var key = `${lib.replace("-", "")}_version`;
+      return (VEGA_DEBUG[key] == version) ?
+        Promise.resolve(paths[lib]) :
+        new Promise(function(resolve, reject) {
+          var s = document.createElement('script');
+          document.getElementsByTagName("head")[0].appendChild(s);
+          s.async = true;
+          s.onload = () => {
+            VEGA_DEBUG[key] = version;
+            return resolve(paths[lib]);
+          };
+          s.onerror = () => reject(`Error loading script: ${paths[lib]}`);
+          s.src = paths[lib];
+        });
+    }
+
+    function showError(err) {
+      outputDiv.innerHTML = `<div class="error" style="color:red;">${err}</div>`;
+      throw err;
+    }
+
+    function displayChart(vegaEmbed) {
+      vegaEmbed(outputDiv, spec, embedOpt)
+        .catch(err => showError(`Javascript Error: ${err.message}<br>This usually means there's a typo in your chart specification. See the javascript console for the full traceback.`));
+    }
+
+    if(typeof define === "function" && define.amd) {
+      requirejs.config({paths});
+      let deps = ["vega-embed"];
+      require(deps, displayChart, err => showError(`Error loading script: ${err.message}`));
+    } else {
+      maybeLoadScript("vega", "6")
+        .then(() => maybeLoadScript("vega-lite", "6.1.0"))
+        .then(() => maybeLoadScript("vega-embed", "7"))
+        .catch(showError)
+        .then(() => displayChart(vegaEmbed));
+    }
+  })({"config": {"view": {"continuousWidth": 300, "continuousHeight": 300}}, "data": {"name": "data-d12e8fad5961077931e4bf88ee423b8a"}, "mark": "point", "encoding": {"color": {"field": "origin", "type": "nominal"}, "x": {"field": "hp", "title": "Horsepower", "type": "quantitative"}, "y": {"field": "mpg", "title": "Miles per gallon", "type": "quantitative"}}, "height": 200, "title": "Cars by origin", "width": 320, "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json", "datasets": {"data-d12e8fad5961077931e4bf88ee423b8a": [{"hp": 130, "mpg": 18.0, "origin": "USA"}, {"hp": 165, "mpg": 15.0, "origin": "USA"}, {"hp": 150, "mpg": 18.0, "origin": "USA"}, {"hp": 95, "mpg": 24.0, "origin": "Japan"}, {"hp": 70, "mpg": 27.0, "origin": "Japan"}, {"hp": 88, "mpg": 27.0, "origin": "Japan"}, {"hp": 75, "mpg": 26.0, "origin": "Europe"}, {"hp": 105, "mpg": 22.0, "origin": "Europe"}, {"hp": 110, "mpg": 21.0, "origin": "Europe"}]}}, {"mode": "vega-lite"});
+</script>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Matplotlib render of the generated code ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-07-vega-lite-to-matplotlib_files/figure-html/cell-6-output-4.png" width="648" height="384" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="example-4-a-line-chart-with-grouped-series" class="level2">
+<h2 class="anchored" data-anchor-id="example-4-a-line-chart-with-grouped-series">Example 4: a line chart with grouped series</h2>
+<p>Same shape as Example 3, but <code>mark</code> is <code>line</code>, so the translator emits <code>ax.plot</code> per group.</p>
+<div id="ex4" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>spec_line <span class="op">=</span> {</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"data"</span>: {<span class="st">"values"</span>: [</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Jan"</span>, <span class="st">"city"</span>: <span class="st">"Bengaluru"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">2</span>},</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Feb"</span>, <span class="st">"city"</span>: <span class="st">"Bengaluru"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">6</span>},</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Mar"</span>, <span class="st">"city"</span>: <span class="st">"Bengaluru"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">11</span>},</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Apr"</span>, <span class="st">"city"</span>: <span class="st">"Bengaluru"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">38</span>},</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"May"</span>, <span class="st">"city"</span>: <span class="st">"Bengaluru"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">105</span>},</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Jun"</span>, <span class="st">"city"</span>: <span class="st">"Bengaluru"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">88</span>},</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Jan"</span>, <span class="st">"city"</span>: <span class="st">"Mumbai"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">0</span>},</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Feb"</span>, <span class="st">"city"</span>: <span class="st">"Mumbai"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">0</span>},</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Mar"</span>, <span class="st">"city"</span>: <span class="st">"Mumbai"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">0</span>},</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Apr"</span>, <span class="st">"city"</span>: <span class="st">"Mumbai"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">1</span>},</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"May"</span>, <span class="st">"city"</span>: <span class="st">"Mumbai"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">12</span>},</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"month"</span>: <span class="st">"Jun"</span>, <span class="st">"city"</span>: <span class="st">"Mumbai"</span>, <span class="st">"rainfall_mm"</span>: <span class="dv">540</span>},</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>    ]},</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">"mark"</span>: <span class="st">"line"</span>,</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"encoding"</span>: {</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">"x"</span>: {<span class="st">"field"</span>: <span class="st">"month"</span>, <span class="st">"type"</span>: <span class="st">"ordinal"</span>, <span class="st">"title"</span>: <span class="st">"Month"</span>},</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">"y"</span>: {<span class="st">"field"</span>: <span class="st">"rainfall_mm"</span>, <span class="st">"type"</span>: <span class="st">"quantitative"</span>, <span class="st">"title"</span>: <span class="st">"Rainfall (mm)"</span>},</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">"color"</span>: {<span class="st">"field"</span>: <span class="st">"city"</span>, <span class="st">"type"</span>: <span class="st">"nominal"</span>},</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">"title"</span>: <span class="st">"Monthly rainfall, Jan-Jun"</span>,</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>show_side_by_side(spec_line)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- generated Matplotlib code ---
+import matplotlib.pyplot as plt
+import pandas as pd
+
+data = [{"month": "Jan", "city": "Bengaluru", "rainfall_mm": 2}, {"month": "Feb", "city": "Bengaluru", "rainfall_mm": 6}, {"month": "Mar", "city": "Bengaluru", "rainfall_mm": 11}, {"month": "Apr", "city": "Bengaluru", "rainfall_mm": 38}, {"month": "May", "city": "Bengaluru", "rainfall_mm": 105}, {"month": "Jun", "city": "Bengaluru", "rainfall_mm": 88}, {"month": "Jan", "city": "Mumbai", "rainfall_mm": 0}, {"month": "Feb", "city": "Mumbai", "rainfall_mm": 0}, {"month": "Mar", "city": "Mumbai", "rainfall_mm": 0}, {"month": "Apr", "city": "Mumbai", "rainfall_mm": 1}, {"month": "May", "city": "Mumbai", "rainfall_mm": 12}, {"month": "Jun", "city": "Mumbai", "rainfall_mm": 540}]
+df = pd.DataFrame(data)
+fig, ax = plt.subplots(figsize=(6, 3.6))
+
+for label, sub in df.groupby('city'):
+    ax.plot(sub['month'], sub['rainfall_mm'], marker='o', label=label)
+ax.legend(title='city')
+
+ax.set_xlabel('Month')
+ax.set_ylabel('Rainfall (mm)')
+ax.set_title('Monthly rainfall, Jan-Jun')
+fig.tight_layout()
+plt.show()
+--- Altair render of the original spec ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+
+<style>
+  #altair-viz-86fc2da466204e31afd84acb579b5544.vega-embed {
+    width: 100%;
+    display: flex;
+  }
+
+  #altair-viz-86fc2da466204e31afd84acb579b5544.vega-embed details,
+  #altair-viz-86fc2da466204e31afd84acb579b5544.vega-embed details summary {
+    position: relative;
+  }
+</style>
+<div id="altair-viz-86fc2da466204e31afd84acb579b5544"></div>
+<script type="text/javascript">
+  var VEGA_DEBUG = (typeof VEGA_DEBUG == "undefined") ? {} : VEGA_DEBUG;
+  (function(spec, embedOpt){
+    let outputDiv = document.currentScript.previousElementSibling;
+    if (outputDiv.id !== "altair-viz-86fc2da466204e31afd84acb579b5544") {
+      outputDiv = document.getElementById("altair-viz-86fc2da466204e31afd84acb579b5544");
+    }
+
+    const paths = {
+      "vega": "https://cdn.jsdelivr.net/npm/vega@6?noext",
+      "vega-lib": "https://cdn.jsdelivr.net/npm/vega-lib?noext",
+      "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.1.0?noext",
+      "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7?noext",
+    };
+
+    function maybeLoadScript(lib, version) {
+      var key = `${lib.replace("-", "")}_version`;
+      return (VEGA_DEBUG[key] == version) ?
+        Promise.resolve(paths[lib]) :
+        new Promise(function(resolve, reject) {
+          var s = document.createElement('script');
+          document.getElementsByTagName("head")[0].appendChild(s);
+          s.async = true;
+          s.onload = () => {
+            VEGA_DEBUG[key] = version;
+            return resolve(paths[lib]);
+          };
+          s.onerror = () => reject(`Error loading script: ${paths[lib]}`);
+          s.src = paths[lib];
+        });
+    }
+
+    function showError(err) {
+      outputDiv.innerHTML = `<div class="error" style="color:red;">${err}</div>`;
+      throw err;
+    }
+
+    function displayChart(vegaEmbed) {
+      vegaEmbed(outputDiv, spec, embedOpt)
+        .catch(err => showError(`Javascript Error: ${err.message}<br>This usually means there's a typo in your chart specification. See the javascript console for the full traceback.`));
+    }
+
+    if(typeof define === "function" && define.amd) {
+      requirejs.config({paths});
+      let deps = ["vega-embed"];
+      require(deps, displayChart, err => showError(`Error loading script: ${err.message}`));
+    } else {
+      maybeLoadScript("vega", "6")
+        .then(() => maybeLoadScript("vega-lite", "6.1.0"))
+        .then(() => maybeLoadScript("vega-embed", "7"))
+        .catch(showError)
+        .then(() => displayChart(vegaEmbed));
+    }
+  })({"config": {"view": {"continuousWidth": 300, "continuousHeight": 300}}, "data": {"name": "data-debd3de6941f4599e574c99f72268303"}, "mark": "line", "encoding": {"color": {"field": "city", "type": "nominal"}, "x": {"field": "month", "title": "Month", "type": "ordinal"}, "y": {"field": "rainfall_mm", "title": "Rainfall (mm)", "type": "quantitative"}}, "height": 200, "title": "Monthly rainfall, Jan-Jun", "width": 320, "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json", "datasets": {"data-debd3de6941f4599e574c99f72268303": [{"month": "Jan", "city": "Bengaluru", "rainfall_mm": 2}, {"month": "Feb", "city": "Bengaluru", "rainfall_mm": 6}, {"month": "Mar", "city": "Bengaluru", "rainfall_mm": 11}, {"month": "Apr", "city": "Bengaluru", "rainfall_mm": 38}, {"month": "May", "city": "Bengaluru", "rainfall_mm": 105}, {"month": "Jun", "city": "Bengaluru", "rainfall_mm": 88}, {"month": "Jan", "city": "Mumbai", "rainfall_mm": 0}, {"month": "Feb", "city": "Mumbai", "rainfall_mm": 0}, {"month": "Mar", "city": "Mumbai", "rainfall_mm": 0}, {"month": "Apr", "city": "Mumbai", "rainfall_mm": 1}, {"month": "May", "city": "Mumbai", "rainfall_mm": 12}, {"month": "Jun", "city": "Mumbai", "rainfall_mm": 540}]}}, {"mode": "vega-lite"});
+</script>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Matplotlib render of the generated code ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-07-vega-lite-to-matplotlib_files/figure-html/cell-7-output-4.png" width="648" height="384" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="example-5-grouped-bars" class="level2">
+<h2 class="anchored" data-anchor-id="example-5-grouped-bars">Example 5: grouped bars</h2>
+<p>The translator handles this via the same <code>color</code> channel: each group becomes a side-by-side bar series. Vega-Lite would default to stacked bars instead, but for a tiny converter, side-by-side is the more useful default.</p>
+<div id="ex5" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>spec_grouped <span class="op">=</span> {</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"data"</span>: {<span class="st">"values"</span>: [</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q1"</span>, <span class="st">"team"</span>: <span class="st">"A"</span>, <span class="st">"score"</span>: <span class="dv">12</span>},</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q2"</span>, <span class="st">"team"</span>: <span class="st">"A"</span>, <span class="st">"score"</span>: <span class="dv">17</span>},</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q3"</span>, <span class="st">"team"</span>: <span class="st">"A"</span>, <span class="st">"score"</span>: <span class="dv">9</span>},</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q4"</span>, <span class="st">"team"</span>: <span class="st">"A"</span>, <span class="st">"score"</span>: <span class="dv">14</span>},</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q1"</span>, <span class="st">"team"</span>: <span class="st">"B"</span>, <span class="st">"score"</span>: <span class="dv">8</span>},</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q2"</span>, <span class="st">"team"</span>: <span class="st">"B"</span>, <span class="st">"score"</span>: <span class="dv">19</span>},</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q3"</span>, <span class="st">"team"</span>: <span class="st">"B"</span>, <span class="st">"score"</span>: <span class="dv">15</span>},</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>        {<span class="st">"quarter"</span>: <span class="st">"Q4"</span>, <span class="st">"team"</span>: <span class="st">"B"</span>, <span class="st">"score"</span>: <span class="dv">11</span>},</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    ]},</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"mark"</span>: <span class="st">"bar"</span>,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"encoding"</span>: {</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">"x"</span>: {<span class="st">"field"</span>: <span class="st">"quarter"</span>, <span class="st">"type"</span>: <span class="st">"nominal"</span>, <span class="st">"title"</span>: <span class="st">"Quarter"</span>},</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">"y"</span>: {<span class="st">"field"</span>: <span class="st">"score"</span>, <span class="st">"type"</span>: <span class="st">"quantitative"</span>, <span class="st">"title"</span>: <span class="st">"Score"</span>},</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">"color"</span>: {<span class="st">"field"</span>: <span class="st">"team"</span>, <span class="st">"type"</span>: <span class="st">"nominal"</span>},</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    },</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">"title"</span>: <span class="st">"Team scores by quarter"</span>,</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>show_side_by_side(spec_grouped)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- generated Matplotlib code ---
+import matplotlib.pyplot as plt
+import pandas as pd
+
+data = [{"quarter": "Q1", "team": "A", "score": 12}, {"quarter": "Q2", "team": "A", "score": 17}, {"quarter": "Q3", "team": "A", "score": 9}, {"quarter": "Q4", "team": "A", "score": 14}, {"quarter": "Q1", "team": "B", "score": 8}, {"quarter": "Q2", "team": "B", "score": 19}, {"quarter": "Q3", "team": "B", "score": 15}, {"quarter": "Q4", "team": "B", "score": 11}]
+df = pd.DataFrame(data)
+fig, ax = plt.subplots(figsize=(6, 3.6))
+
+groups = list(dict.fromkeys(df['team']))
+x_vals = list(dict.fromkeys(df['quarter']))
+import numpy as np
+x_idx = np.arange(len(x_vals))
+width = 0.8 / max(1, len(groups))
+for i, g in enumerate(groups):
+    sub = df[df['team'] == g]
+    ys = [sub[sub['quarter'] == xv]['score'].sum() for xv in x_vals]
+    ax.bar(x_idx + i * width - 0.4 + width / 2, ys, width, label=str(g))
+ax.set_xticks(x_idx)
+ax.set_xticklabels(x_vals)
+ax.legend(title='team')
+
+ax.set_xlabel('Quarter')
+ax.set_ylabel('Score')
+ax.set_title('Team scores by quarter')
+fig.tight_layout()
+plt.show()
+--- Altair render of the original spec ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+
+<style>
+  #altair-viz-e8fcb0085579419aa8857f08fdf3172f.vega-embed {
+    width: 100%;
+    display: flex;
+  }
+
+  #altair-viz-e8fcb0085579419aa8857f08fdf3172f.vega-embed details,
+  #altair-viz-e8fcb0085579419aa8857f08fdf3172f.vega-embed details summary {
+    position: relative;
+  }
+</style>
+<div id="altair-viz-e8fcb0085579419aa8857f08fdf3172f"></div>
+<script type="text/javascript">
+  var VEGA_DEBUG = (typeof VEGA_DEBUG == "undefined") ? {} : VEGA_DEBUG;
+  (function(spec, embedOpt){
+    let outputDiv = document.currentScript.previousElementSibling;
+    if (outputDiv.id !== "altair-viz-e8fcb0085579419aa8857f08fdf3172f") {
+      outputDiv = document.getElementById("altair-viz-e8fcb0085579419aa8857f08fdf3172f");
+    }
+
+    const paths = {
+      "vega": "https://cdn.jsdelivr.net/npm/vega@6?noext",
+      "vega-lib": "https://cdn.jsdelivr.net/npm/vega-lib?noext",
+      "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.1.0?noext",
+      "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7?noext",
+    };
+
+    function maybeLoadScript(lib, version) {
+      var key = `${lib.replace("-", "")}_version`;
+      return (VEGA_DEBUG[key] == version) ?
+        Promise.resolve(paths[lib]) :
+        new Promise(function(resolve, reject) {
+          var s = document.createElement('script');
+          document.getElementsByTagName("head")[0].appendChild(s);
+          s.async = true;
+          s.onload = () => {
+            VEGA_DEBUG[key] = version;
+            return resolve(paths[lib]);
+          };
+          s.onerror = () => reject(`Error loading script: ${paths[lib]}`);
+          s.src = paths[lib];
+        });
+    }
+
+    function showError(err) {
+      outputDiv.innerHTML = `<div class="error" style="color:red;">${err}</div>`;
+      throw err;
+    }
+
+    function displayChart(vegaEmbed) {
+      vegaEmbed(outputDiv, spec, embedOpt)
+        .catch(err => showError(`Javascript Error: ${err.message}<br>This usually means there's a typo in your chart specification. See the javascript console for the full traceback.`));
+    }
+
+    if(typeof define === "function" && define.amd) {
+      requirejs.config({paths});
+      let deps = ["vega-embed"];
+      require(deps, displayChart, err => showError(`Error loading script: ${err.message}`));
+    } else {
+      maybeLoadScript("vega", "6")
+        .then(() => maybeLoadScript("vega-lite", "6.1.0"))
+        .then(() => maybeLoadScript("vega-embed", "7"))
+        .catch(showError)
+        .then(() => displayChart(vegaEmbed));
+    }
+  })({"config": {"view": {"continuousWidth": 300, "continuousHeight": 300}}, "data": {"name": "data-6bda9b40a88f0c6751b3a12bb90809a5"}, "mark": "bar", "encoding": {"color": {"field": "team", "type": "nominal"}, "x": {"field": "quarter", "title": "Quarter", "type": "nominal"}, "y": {"field": "score", "title": "Score", "type": "quantitative"}}, "height": 200, "title": "Team scores by quarter", "width": 320, "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json", "datasets": {"data-6bda9b40a88f0c6751b3a12bb90809a5": [{"quarter": "Q1", "team": "A", "score": 12}, {"quarter": "Q2", "team": "A", "score": 17}, {"quarter": "Q3", "team": "A", "score": 9}, {"quarter": "Q4", "team": "A", "score": 14}, {"quarter": "Q1", "team": "B", "score": 8}, {"quarter": "Q2", "team": "B", "score": 19}, {"quarter": "Q3", "team": "B", "score": 15}, {"quarter": "Q4", "team": "B", "score": 11}]}}, {"mode": "vega-lite"});
+</script>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Matplotlib render of the generated code ---</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="2026-05-07-vega-lite-to-matplotlib_files/figure-html/cell-8-output-4.png" width="648" height="384" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="what-the-toy-translator-does-not-do" class="level2">
+<h2 class="anchored" data-anchor-id="what-the-toy-translator-does-not-do">What the toy translator does <em>not</em> do</h2>
+<p>Deliberately out of scope:</p>
+<ul>
+<li><strong>Aggregations and transforms.</strong> Vega-Lite has <code>transform: [{aggregate: "mean", ...}]</code> and field-level <code>aggregate: "mean"</code>. The translator would need to emit a <code>groupby().agg()</code> step before the plot.</li>
+<li><strong>Scales.</strong> Log scales, custom domains, time scales, secondary axes — all need <code>ax.set_xscale</code>, <code>ax.set_xlim</code>, <code>mdates</code>. Easy to add per channel.</li>
+<li><strong>Faceting / layering / concatenation.</strong> Real compiling territory: a Vega-Lite spec can be a tree of <code>layer</code>, <code>hconcat</code>, <code>vconcat</code>, <code>facet</code>. Mapping to Matplotlib means building a <code>GridSpec</code> and recursing.</li>
+<li><strong>Tooltips, selections, parameters.</strong> No interactive analogue in static Matplotlib.</li>
+<li><strong>Color schemes.</strong> Vega-Lite has named schemes (<code>category10</code>, <code>viridis</code>, …). Matplotlib has <code>cmap</code>s — easy to wire up in a follow-up.</li>
+</ul>
+<p>If you wanted to take this further, the natural next step is to make <code>vegalite_to_matplotlib</code> a small visitor over the Vega-Lite AST, with one method per node type, and emit code via a tiny indented-line builder. The function above is the spike that proves the idea is worth the effort.</p>
+</section>
+<section id="closing-thought" class="level2">
+<h2 class="anchored" data-anchor-id="closing-thought">Closing thought</h2>
+<p>Vega-Lite is a <em>language</em> for charts, and Matplotlib is also a <em>language</em> for charts — they just live at different abstraction levels. Translating between them is the kind of small compiler exercise that’s mostly switch statements and a bit of legend bookkeeping, but it shows the underlying claim clearly: declarative plot specs are not magic, they are programs in a tiny DSL, and a few hundred lines of Python is enough to lower one DSL onto another.</p>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
