@@ -32,23 +32,44 @@ SAPIENS_REPO = Path.home() / "git/sapiens2"
 MODELS = Path.home() / "models"
 DATA = Path.home() / "data/SFTL54/sftl/sftl"
 
-# Sapiens2 308-kpt indices for the nose tip (COCO-WholeBody body+face mapping).
-# In the 308-kpt set: 0-16 = body, 17-22 = feet, 23-90 = face (68-pt), then
-# hands. Face kpts 23-90 use dlib-style 68 indices, so nose-bottom is 31..35
-# inside the face block — absolute indices 54..58 in the 308 set.
-SAPIENS_NOSE_TIP_RANGE = list(range(54, 59))  # 5 nose-bottom kpts
-SAPIENS_NOSTRIL_LEFT = 55   # dlib 32 -> 55
-SAPIENS_NOSTRIL_RIGHT = 58  # dlib 35 -> 58
+# All four schemes annotate the nose-bottom region differently. To compare
+# like-for-like, we target the "alae centre" — the point roughly *below*
+# each nostril opening, between the outer alae corner and the central tip:
+#
+#   Sapiens2 (308 Goliath): average of inner_corner + outer_corner per side
+#                            (no single landmark sits at the alae centre).
+#   DWPose (133 COCO-WB)  : dlib face-32 / face-34 = COCO-WB idx 55 / 57.
+#                            (face-31 / face-35 would be the OUTER alae;
+#                             face-32 / face-34 are the inner-row points
+#                             that sit right below each nostril opening.)
+#   MediaPipe FaceMesh 478: 48 (subject's left alae centre),
+#                            278 (subject's right alae centre).
+#   SFTL54 ground truth   : nose_tip[1] (subject's right) and
+#                            nose_tip[3] (subject's left) — same anatomical
+#                            point: below the alae opening, not the outer
+#                            alae corner.
 
-# COCO-WholeBody 133-kpt set used by ViTPose+ and DWPose:
-# 0-16 body, 17-22 feet, 23-90 face (dlib 68), 91-132 hands.
-COCOWB_NOSE_TIP_RANGE = list(range(54, 59))
-COCOWB_NOSTRIL_LEFT = 55
-COCOWB_NOSTRIL_RIGHT = 58
+# COCO-WholeBody alae-centre (dlib face 32 and 34):
+COCOWB_NOSTRIL_RIGHT = 55  # subject's right (image left)  = dlib face-32
+COCOWB_NOSTRIL_LEFT = 57   # subject's left  (image right) = dlib face-34
 
-# MediaPipe FaceMesh 478 indices: nostril alae centre are 48 (left) and 278 (right).
-# Tip = 4. We'll report all three.
+# Sapiens2 nostril targets resolved at runtime via name2id:
+SAPIENS_NOSTRIL_NAMES_LEFT = ["inner_corner_of_l_nostril",
+                              "outer_corner_of_l_nostril"]
+SAPIENS_NOSTRIL_NAMES_RIGHT = ["inner_corner_of_r_nostril",
+                               "outer_corner_of_r_nostril"]
+# Filled in by run_sapiens after init_model:
+SAPIENS_NOSTRIL_LEFT_IDS = None
+SAPIENS_NOSTRIL_RIGHT_IDS = None
+
+# MediaPipe FaceMesh 478: nostril alae clusters per the published mesh:
+#   subject's left  alae cluster: [102, 49, 48, 115]
+#   subject's right alae cluster: [331, 279, 278, 344]
+# We average each cluster to get a stable alae-centre. Tip = 4.
 MEDIAPIPE_NOSE_TIP = 4
+MEDIAPIPE_NOSTRIL_LEFT_IDS = [102, 49, 48, 115]
+MEDIAPIPE_NOSTRIL_RIGHT_IDS = [331, 279, 278, 344]
+# Legacy single-index aliases for back-compat (point at the cluster centre):
 MEDIAPIPE_NOSTRIL_LEFT = 48
 MEDIAPIPE_NOSTRIL_RIGHT = 278
 
@@ -59,6 +80,7 @@ MEDIAPIPE_NOSTRIL_RIGHT = 278
 def run_sapiens(image_bgr, size="0.4b", device="cuda:0"):
     from sapiens.pose.models import init_model
     from sapiens.pose.datasets import UDPHeatmap, parse_pose_metainfo
+    global SAPIENS_NOSTRIL_LEFT_IDS, SAPIENS_NOSTRIL_RIGHT_IDS
 
     cfg = (f"{SAPIENS_REPO}/sapiens/pose/configs/keypoints308/"
            f"shutterstock_goliath_3po/sapiens2_{size}_keypoints308_"
@@ -68,6 +90,9 @@ def run_sapiens(image_bgr, size="0.4b", device="cuda:0"):
     model = init_model(cfg, ckpt, device=device)
     model.pose_metainfo = parse_pose_metainfo(
         dict(from_file=f"{SAPIENS_REPO}/sapiens/pose/configs/_base_/keypoints308.py"))
+    n2i = model.pose_metainfo["keypoint_name2id"]
+    SAPIENS_NOSTRIL_LEFT_IDS = [n2i[n] for n in SAPIENS_NOSTRIL_NAMES_LEFT]
+    SAPIENS_NOSTRIL_RIGHT_IDS = [n2i[n] for n in SAPIENS_NOSTRIL_NAMES_RIGHT]
     codec_cfg = dict(model.cfg.codec); codec_cfg.pop("type")
     model.codec = UDPHeatmap(**codec_cfg)
 
@@ -86,11 +111,24 @@ def run_sapiens(image_bgr, size="0.4b", device="cuda:0"):
     bc = data["data_samples"]["meta"]["bbox_center"]
     bs = data["data_samples"]["meta"]["bbox_scale"]
     keypoints = keypoints / input_size * bs + bc - 0.5 * bs
+    # Append derived "alae centre" points at the end of the keypoint array,
+    # so a single index pair can be used across all 3 models.
+    kp = keypoints[0]
+    sc = scores[0]
+    left_pts = kp[SAPIENS_NOSTRIL_LEFT_IDS]
+    right_pts = kp[SAPIENS_NOSTRIL_RIGHT_IDS]
+    alae_left = left_pts.mean(axis=0)
+    alae_right = right_pts.mean(axis=0)
+    kp_extended = np.vstack([kp, alae_left, alae_right])  # (310, 2)
+    sc_extended = np.concatenate([sc, [sc[SAPIENS_NOSTRIL_LEFT_IDS].mean(),
+                                       sc[SAPIENS_NOSTRIL_RIGHT_IDS].mean()]])
     return {
-        "kp": keypoints[0].tolist(),         # 308x2
-        "score": scores[0].tolist(),
+        "kp": kp_extended.tolist(),
+        "score": sc_extended.tolist(),
         "elapsed_s": elapsed,
-        "n_above_thresh": int((scores[0] > 0.3).sum()),
+        "n_above_thresh": int((sc > 0.3).sum()),
+        "alae_left_idx": kp_extended.shape[0] - 2,
+        "alae_right_idx": kp_extended.shape[0] - 1,
     }
 
 
@@ -177,11 +215,18 @@ def run_mediapipe(image_bgr):
     H, W = image_bgr.shape[:2]
     lm = res.face_landmarks[0]
     kp = [[p.x * W, p.y * H] for p in lm]
+    # append cluster-averaged alae centres so a single index pair works
+    kp_np = np.array(kp)
+    alae_left = kp_np[MEDIAPIPE_NOSTRIL_LEFT_IDS].mean(axis=0).tolist()
+    alae_right = kp_np[MEDIAPIPE_NOSTRIL_RIGHT_IDS].mean(axis=0).tolist()
+    kp_ext = kp + [alae_left, alae_right]
     return {
-        "kp": kp,
-        "score": [1.0] * len(kp),
+        "kp": kp_ext,
+        "score": [1.0] * len(kp_ext),
         "elapsed_s": elapsed,
         "n_above_thresh": len(kp),
+        "alae_left_idx": len(kp_ext) - 2,
+        "alae_right_idx": len(kp_ext) - 1,
     }
 
 
@@ -223,13 +268,16 @@ def annotate_panel(image, model_name, kpts, scores, nostril_left_idx=None,
 
 
 def overlay_gt_nostrils(image, gt_nose_tip):
-    """gt_nose_tip = list of 5 (x,y) tuples in image coords, indices 32..36
-    (1-indexed SFTL54). For our purposes: nostrils at indices 1 and 3 (i.e. the
-    points immediately to the left/right of the central tip)."""
+    """gt_nose_tip = SFTL54 5-pt nose row (idx 32..36).
+    Use the inner-but-not-central pair (idx 1, 3) as "nostril center" GT —
+    these sit roughly below each nostril opening, the most useful anchor for
+    breath-rate measurement and the closest match to MediaPipe's alae-centre
+    indices."""
     out = image.copy()
     if gt_nose_tip is None or len(gt_nose_tip) < 5:
         return out
-    nostril_left, nostril_right = gt_nose_tip[1], gt_nose_tip[3]
+    nostril_right = gt_nose_tip[1]   # subject's right nostril centre
+    nostril_left = gt_nose_tip[3]    # subject's left nostril centre
     for (x, y) in (nostril_left, nostril_right):
         cv2.drawMarker(out, (int(x), int(y)), (0, 0, 255),
                        markerType=cv2.MARKER_CROSS, markerSize=20, thickness=2)
@@ -279,8 +327,8 @@ def main(image_path, out_dir, gt_nose_tip=None, models=None,
         results["sapiens2_0.4b"] = r
         panels.append(annotate_panel(
             image, "Sapiens2-0.4b", r["kp"], r["score"],
-            nostril_left_idx=SAPIENS_NOSTRIL_LEFT,
-            nostril_right_idx=SAPIENS_NOSTRIL_RIGHT,
+            nostril_left_idx=r["alae_left_idx"],
+            nostril_right_idx=r["alae_right_idx"],
             time_s=r["elapsed_s"], nose_color=(0, 255, 0)))
 
     if "vitpose" in models:
