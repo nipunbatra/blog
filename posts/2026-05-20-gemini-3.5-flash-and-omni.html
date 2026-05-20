@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-05-20">
+<meta name="description" content="Google announced Gemini 3.5 Flash and Gemini Omni at I/O 2026. I run 3.5 Flash against my April 3.1 baseline on the same Gemini API: thinking levels, tokens-per-second, a 500K-token needle test, agentic tool use, and a coding micro-benchmark. Omni is not yet on the developer API, so the second half is notes from the announcement rather than measurements.">
+
+<title>Gemini 3.5 Flash and Gemini Omni: What’s New, What’s Real, What I Could Measure – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-9482772de5f96bc669c49da57733e8fb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-ba0ea52c466f323bb4a80d9892c7c8cb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-9482772de5f96bc669c49da57733e8fb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+
+<meta property="og:title" content="Gemini 3.5 Flash and Gemini Omni: What’s New, What’s Real, What I Could Measure – Nipun Batra Blog">
+<meta property="og:description" content="Google announced Gemini 3.5 Flash and Gemini Omni at I/O 2026. I run 3.5 Flash against my April 3.1 baseline on the same Gemini API: thinking levels, tokens-per-second, a 500K-token needle test, agentic tool use, and a coding micro-benchmark. Omni is not yet on the developer API, so the second half is notes from the announcement rather than measurements.">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="Gemini 3.5 Flash and Gemini Omni: What’s New, What’s Real, What I Could Measure – Nipun Batra Blog">
+<meta name="twitter:description" content="Google announced Gemini 3.5 Flash and Gemini Omni at I/O 2026. I run 3.5 Flash against my April 3.1 baseline on the same Gemini API: thinking levels, tokens-per-second, a 500K-token needle test, agentic tool use, and a coding micro-benchmark. Omni is not yet on the developer API, so the second half is notes from the announcement rather than measurements.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <div class="quarto-title-block"><div><h1 class="title">Gemini 3.5 Flash and Gemini Omni: What’s New, What’s Real, What I Could Measure</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Code</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li></ul></div></div>
+                  <div>
+        <div class="description">
+          Google announced Gemini 3.5 Flash and Gemini Omni at I/O 2026. I run 3.5 Flash against my April 3.1 baseline on the same Gemini API: thinking levels, tokens-per-second, a 500K-token needle test, agentic tool use, and a coding micro-benchmark. Omni is not yet on the developer API, so the second half is notes from the announcement rather than measurements.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">LLM</div>
+                <div class="quarto-category">Gemini</div>
+                <div class="quarto-category">benchmarks</div>
+                <div class="quarto-category">latency</div>
+                <div class="quarto-category">thinking</div>
+                <div class="quarto-category">multimodal</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">May 20, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#what-changed-in-the-api" id="toc-what-changed-in-the-api" class="nav-link active" data-scroll-target="#what-changed-in-the-api">What changed in the API</a></li>
+  <li><a href="#thinking-levels-what-actually-changes-per-level" id="toc-thinking-levels-what-actually-changes-per-level" class="nav-link" data-scroll-target="#thinking-levels-what-actually-changes-per-level">Thinking levels: what actually changes per level</a></li>
+  <li><a href="#output-throughput-tokens-per-second" id="toc-output-throughput-tokens-per-second" class="nav-link" data-scroll-target="#output-throughput-tokens-per-second">Output throughput: tokens per second</a></li>
+  <li><a href="#k-token-needle-long-context-still-holds" id="toc-k-token-needle-long-context-still-holds" class="nav-link" data-scroll-target="#k-token-needle-long-context-still-holds">500K-token needle: long context still holds</a></li>
+  <li><a href="#a-tiny-coding-micro-benchmark" id="toc-a-tiny-coding-micro-benchmark" class="nav-link" data-scroll-target="#a-tiny-coding-micro-benchmark">A tiny coding micro-benchmark</a></li>
+  <li><a href="#agentic-tool-use-same-accuracy-lower-latency" id="toc-agentic-tool-use-same-accuracy-lower-latency" class="nav-link" data-scroll-target="#agentic-tool-use-same-accuracy-lower-latency">Agentic tool use: same accuracy, lower latency</a></li>
+  <li><a href="#putting-it-together-when-to-reach-for-3.5-flash" id="toc-putting-it-together-when-to-reach-for-3.5-flash" class="nav-link" data-scroll-target="#putting-it-together-when-to-reach-for-3.5-flash">Putting it together: when to reach for 3.5 Flash</a></li>
+  <li><a href="#gemini-omni-what-i-would-have-measured" id="toc-gemini-omni-what-i-would-have-measured" class="nav-link" data-scroll-target="#gemini-omni-what-i-would-have-measured">Gemini Omni — what I would have measured</a></li>
+  <li><a href="#takeaways" id="toc-takeaways" class="nav-link" data-scroll-target="#takeaways">Takeaways</a></li>
+  <li><a href="#reproducing-this" id="toc-reproducing-this" class="nav-link" data-scroll-target="#reproducing-this">Reproducing this</a></li>
+  <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<p>Yesterday’s <a href="https://blog.google/products/gemini/">Google I/O 2026 keynote</a> shipped two things worth poking at:</p>
+<ol type="1">
+<li><strong><code>gemini-3.5-flash</code></strong> — already GA on the developer API. Google’s claim: a Flash-tier model that <em>beats</em> Gemini 3.1 Pro on agentic and coding benchmarks at a fraction of the latency and price. The headline change in the API is the <code>thinking_budget</code> integer being replaced by a <code>thinking_level</code> enum (<code>minimal | low | medium | high</code>).</li>
+<li><strong>Gemini Omni</strong> — a unified multimodal model that takes (text | image | audio | video) and emits video. Live for AI Pro/Ultra subscribers in the Gemini app and Flow; <em>not</em> on the developer API yet (“coming in weeks”).</li>
+</ol>
+<p>Since I already have a <a href="../posts/2026-04-03-gemma4-vs-gemini.html">Gemini 3.1 comparison post from April</a>, the natural thing is to keep the same harness and just swap in 3.5 Flash. That’s the first half of this post. The second half is a short, honest writeup of what Omni does and why I couldn’t actually test it.</p>
+<p>All measurements below were taken on 2026-05-20 against the public Gemini API with <code>google-genai==1.56.0</code>.</p>
+<section id="what-changed-in-the-api" class="level2">
+<h2 class="anchored" data-anchor-id="what-changed-in-the-api">What changed in the API</h2>
+<p>From <a href="https://ai.google.dev/gemini-api/docs/interactions/whats-new-gemini-3.5">the migration guide</a>, the user-visible changes in 3.5 Flash are:</p>
+<ul>
+<li><code>thinking_budget: int</code> → <code>thinking_level: "minimal" | "low" | "medium" | "high"</code>.</li>
+<li>Default level moved from <code>high</code> (in 3.1) → <code>medium</code> (in 3.5).</li>
+<li><em>Thought preservation</em> is on by default: the reasoning trace from one turn is carried into the next, which improves multi-turn quality but inflates input tokens.</li>
+<li>Same 1,048,576-token input window, same 65,536-token output cap as <code>gemini-3.1-pro-preview</code>.</li>
+</ul>
+<p>The model is also listed at GA, no <code>-preview</code> suffix, which is the first time a Flash-tier Gemini has launched without a preview gate.</p>
+<div id="2281b292" class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> google <span class="im">import</span> genai</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> genai.Client(api_key<span class="op">=</span>os.environ[<span class="st">'GEMINI_API_KEY'</span>])</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'SDK ready'</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Confirm 3.5 Flash is visible to this key</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> client.models.<span class="bu">list</span>():</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    n <span class="op">=</span> m.name.lower()</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="st">'gemini-3.5'</span> <span class="kw">in</span> n <span class="kw">or</span> <span class="st">'omni'</span> <span class="kw">in</span> n:</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>m<span class="sc">.</span>name<span class="sc">}</span><span class="ss">  in=</span><span class="sc">{</span>m<span class="sc">.</span>input_token_limit<span class="sc">:,}</span><span class="ss">  out=</span><span class="sc">{</span>m<span class="sc">.</span>output_token_limit<span class="sc">:,}</span><span class="ss">'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<pre><code>models/gemini-3.5-flash  in=1,048,576  out=65,536</code></pre>
+<p>That is the <em>only</em> <code>3.5</code> entry I see. No <code>omni</code> anywhere — confirmed below.</p>
+</section>
+<section id="thinking-levels-what-actually-changes-per-level" class="level2">
+<h2 class="anchored" data-anchor-id="thinking-levels-what-actually-changes-per-level">Thinking levels: what actually changes per level</h2>
+<p>The thinking_level enum is the most user-facing change. To measure what each level costs, I asked the same toy puzzle five times — one per level on 3.5, plus <code>gemini-3.1-flash-lite</code> as a “no thinking” baseline.</p>
+<div id="64bc304c" class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time, asyncio</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> google.genai <span class="im">import</span> types</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>PUZZLE <span class="op">=</span> (<span class="st">"A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. "</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>          <span class="st">"How much does the ball cost? Reply with just the number in cents."</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> ask(model, level<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    cfg <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> level <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        cfg <span class="op">=</span> types.GenerateContentConfig(</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            thinking_config<span class="op">=</span>types.ThinkingConfig(thinking_level<span class="op">=</span>level),</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> {<span class="st">'model'</span>: model, <span class="st">'contents'</span>: PUZZLE}</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cfg: kw[<span class="st">'config'</span>] <span class="op">=</span> cfg</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(<span class="op">**</span>kw)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    u <span class="op">=</span> r.usage_metadata</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        config<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>model<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>level <span class="kw">or</span> <span class="st">"-"</span><span class="sc">}</span><span class="ss">'</span>,</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        dt<span class="op">=</span><span class="bu">round</span>(time.time()<span class="op">-</span>t0, <span class="dv">2</span>),</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        answer<span class="op">=</span>r.text.strip(),</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        thoughts<span class="op">=</span><span class="bu">getattr</span>(u, <span class="st">'thoughts_token_count'</span>, <span class="va">None</span>) <span class="kw">or</span> <span class="dv">0</span>,</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        out<span class="op">=</span>u.candidates_token_count,</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> <span class="cf">await</span> asyncio.gather(</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    ask(<span class="st">'gemini-3.1-flash-lite'</span>),</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    ask(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'minimal'</span>),</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    ask(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'low'</span>),</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    ask(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'medium'</span>),</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    ask(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'high'</span>),</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(rows)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>A representative run on my key:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>config</th>
+<th style="text-align: right;">dt (s)</th>
+<th>answer</th>
+<th style="text-align: right;">thoughts</th>
+<th style="text-align: right;">out</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gemini-3.1-flash-lite/-</code></td>
+<td style="text-align: right;">0.93</td>
+<td>5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.5-flash/minimal</code></td>
+<td style="text-align: right;">0.93</td>
+<td>5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="odd">
+<td><code>gemini-3.5-flash/low</code></td>
+<td style="text-align: right;">1.97</td>
+<td>5</td>
+<td style="text-align: right;">245</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.5-flash/medium</code></td>
+<td style="text-align: right;">2.21</td>
+<td>5</td>
+<td style="text-align: right;">302</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="odd">
+<td><code>gemini-3.5-flash/high</code></td>
+<td style="text-align: right;">2.42</td>
+<td>5</td>
+<td style="text-align: right;">387</td>
+<td style="text-align: right;">1</td>
+</tr>
+</tbody>
+</table>
+<p>Two things worth flagging:</p>
+<ul>
+<li><strong><code>minimal</code> is genuinely a no-think mode.</strong> <code>thoughts_token_count</code> is <code>None</code> (not zero), latency matches <code>flash-lite</code>, and the SDK doesn’t bill for reasoning at all. If you were using 3.1 Flash for cheap classification, <code>3.5-flash</code> at <code>minimal</code> is the drop-in replacement.</li>
+<li><strong>Each level up costs ~50-100 reasoning tokens on this trivial puzzle.</strong> That’s the floor. On harder problems the model spends much more (see the coding section below).</li>
+</ul>
+</section>
+<section id="output-throughput-tokens-per-second" class="level2">
+<h2 class="anchored" data-anchor-id="output-throughput-tokens-per-second">Output throughput: tokens per second</h2>
+<p>Google’s headline claim is “~4x output speed vs other frontier models” (<a href="https://deepmind.google/models/gemini/flash/">DeepMind page</a>). To check, I asked each model to write a fixed-length 400-word essay and divided output tokens by wall-clock seconds. I’m comparing two API endpoints (3.5 Flash and 3.1 Flash Lite) plus 3.1 Pro for reference. Single-call, no streaming; this measures end-to-end throughput, not steady-state generation rate.</p>
+<div id="70bb5ab2" class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>PROMPT <span class="op">=</span> <span class="st">"Write a 400-word essay explaining backpropagation to a CS undergraduate. No markdown."</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> measure(model, level<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    cfg <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> level <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        cfg <span class="op">=</span> types.GenerateContentConfig(</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>            thinking_config<span class="op">=</span>types.ThinkingConfig(thinking_level<span class="op">=</span>level))</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> {<span class="st">'model'</span>: model, <span class="st">'contents'</span>: PROMPT}</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cfg: kw[<span class="st">'config'</span>] <span class="op">=</span> cfg</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(<span class="op">**</span>kw)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    dt <span class="op">=</span> time.time() <span class="op">-</span> t0</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> r.usage_metadata.candidates_token_count</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(model<span class="op">=</span><span class="ss">f"</span><span class="sc">{</span>model<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>level <span class="kw">or</span> <span class="st">'-'</span><span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>                dt<span class="op">=</span><span class="bu">round</span>(dt, <span class="dv">2</span>), out<span class="op">=</span>out,</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>                tps<span class="op">=</span><span class="bu">round</span>(out<span class="op">/</span>dt, <span class="dv">1</span>) <span class="cf">if</span> dt <span class="cf">else</span> <span class="dv">0</span>,</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>                thoughts<span class="op">=</span><span class="bu">getattr</span>(r.usage_metadata, <span class="st">'thoughts_token_count'</span>, <span class="va">None</span>) <span class="kw">or</span> <span class="dv">0</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> <span class="cf">await</span> asyncio.gather(</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    measure(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'minimal'</span>),</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    measure(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'medium'</span>),</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    measure(<span class="st">'gemini-3.1-flash-lite'</span>),</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    measure(<span class="st">'gemini-3.1-pro-preview'</span>),</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(rows)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>My run (single sample, your network will vary):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>model</th>
+<th style="text-align: right;">dt (s)</th>
+<th style="text-align: right;">out tok</th>
+<th style="text-align: right;">tok/s</th>
+<th style="text-align: right;">thoughts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gemini-3.5-flash/minimal</code></td>
+<td style="text-align: right;">3.84</td>
+<td style="text-align: right;">468</td>
+<td style="text-align: right;"><strong>121.9</strong></td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.5-flash/medium</code></td>
+<td style="text-align: right;">9.77</td>
+<td style="text-align: right;">443</td>
+<td style="text-align: right;">45.3</td>
+<td style="text-align: right;">1616</td>
+</tr>
+<tr class="odd">
+<td><code>gemini-3.1-flash-lite</code></td>
+<td style="text-align: right;">3.01</td>
+<td style="text-align: right;">472</td>
+<td style="text-align: right;"><strong>156.7</strong></td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.1-pro-preview</code></td>
+<td style="text-align: right;">28.45</td>
+<td style="text-align: right;">465</td>
+<td style="text-align: right;">16.3</td>
+<td style="text-align: right;">2875</td>
+</tr>
+</tbody>
+</table>
+<p>Read carefully:</p>
+<ul>
+<li>At <code>minimal</code>, 3.5 Flash hits ~122 tok/s end-to-end. 3.1 Flash Lite is <em>faster</em> at ~157 tok/s on this prompt — Lite is the smaller model, so this is expected. Google’s “4x” figure compares against frontier models like Pro or Opus, not against their own Lite tier.</li>
+<li>At <code>medium</code> thinking, 3.5 Flash spends 1,616 reasoning tokens on a creative-writing task that arguably needs none, which drops effective throughput by 2.7x. <strong>Defaulting to <code>medium</code> is a footgun for streaming UIs.</strong> For chatbot-style latency, override to <code>minimal</code> or <code>low</code>.</li>
+<li>vs 3.1 Pro: 3.5 Flash at <code>medium</code> is <strong>2.9x faster wall-clock</strong>, and at <code>minimal</code> it’s <strong>7.4x faster</strong>, for outputs of comparable length.</li>
+</ul>
+<p>Streaming time-to-first-token (TTFT) is a more honest UX number. I re-ran the same prompt as a streaming call:</p>
+<div id="c08f8095" class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> stream_ttft(model, level<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    cfg <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> level <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        cfg <span class="op">=</span> types.GenerateContentConfig(</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>            thinking_config<span class="op">=</span>types.ThinkingConfig(thinking_level<span class="op">=</span>level))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    first <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> {<span class="st">'model'</span>: model, <span class="st">'contents'</span>: PROMPT}</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cfg: kw[<span class="st">'config'</span>] <span class="op">=</span> cfg</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">async</span> <span class="cf">for</span> chunk <span class="kw">in</span> <span class="cf">await</span> client.aio.models.generate_content_stream(<span class="op">**</span>kw):</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> chunk.text <span class="kw">and</span> first <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            first <span class="op">=</span> time.time() <span class="op">-</span> t0</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(model<span class="op">=</span><span class="ss">f"</span><span class="sc">{</span>model<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>level <span class="kw">or</span> <span class="st">'-'</span><span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>                ttft_s<span class="op">=</span><span class="bu">round</span>(first <span class="kw">or</span> <span class="op">-</span><span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>                total_s<span class="op">=</span><span class="bu">round</span>(time.time()<span class="op">-</span>t0, <span class="dv">2</span>))</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> []</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> spec <span class="kw">in</span> [(<span class="st">'gemini-3.1-flash-lite'</span>, <span class="va">None</span>),</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>             (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'minimal'</span>),</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>             (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'medium'</span>),</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>             (<span class="st">'gemini-3.1-pro-preview'</span>, <span class="va">None</span>)]:</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    rows.append(<span class="cf">await</span> stream_ttft(<span class="op">*</span>spec))</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(rows)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>model</th>
+<th style="text-align: right;">TTFT (s)</th>
+<th style="text-align: right;">total (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gemini-3.1-flash-lite</code></td>
+<td style="text-align: right;">0.62</td>
+<td style="text-align: right;">2.00</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.5-flash/minimal</code></td>
+<td style="text-align: right;">1.20</td>
+<td style="text-align: right;">2.95</td>
+</tr>
+<tr class="odd">
+<td><code>gemini-3.5-flash/medium</code></td>
+<td style="text-align: right;"><strong>5.65</strong></td>
+<td style="text-align: right;">6.93</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.1-pro-preview</code></td>
+<td style="text-align: right;"><strong>14.29</strong></td>
+<td style="text-align: right;">16.25</td>
+</tr>
+</tbody>
+</table>
+<p>This is the chart that changes how I’d deploy 3.5 Flash. With <code>medium</code> thinking (the default!), the <em>first</em> token doesn’t arrive for almost 6 seconds because the model burns reasoning tokens you can’t display. If you’re building a chat UI, set <code>thinking_level="minimal"</code> or <code>"low"</code> for free-form generation, and only bump it for tasks that actually need deliberation.</p>
+</section>
+<section id="k-token-needle-long-context-still-holds" class="level2">
+<h2 class="anchored" data-anchor-id="k-token-needle-long-context-still-holds">500K-token needle: long context still holds</h2>
+<p>3.1 Flash already had a 1M-token window. The interesting question is whether 3.5 Flash regresses anywhere when the input gets large. I built a ~524K-token haystack of plausible filler (“Compliance audits should be filed before the close of the fiscal year.” etc.), inserted a single needle 78% of the way through, and asked for it:</p>
+<div id="04d39b0a" class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> random</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>random.seed(<span class="dv">7</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>filler <span class="op">=</span> [<span class="st">"The quarterly revenue grew by 3.4 percent across the EMEA region."</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>          <span class="st">"Maintenance windows are scheduled every second Tuesday of the month."</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>          <span class="st">"Compliance audits should be filed before the close of the fiscal year."</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>          <span class="st">"The latency budget for the checkout flow is 250 milliseconds."</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>          <span class="st">"Customer onboarding requires KYC verification within 48 hours."</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>          <span class="st">"Backups are retained for ninety days in cold storage."</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>          <span class="st">"Feature flags are managed through the central configuration service."</span>,</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>          <span class="st">"The internal mailing list is rate-limited to twenty messages per hour."</span>,</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>          <span class="st">"Engineering managers review the on-call rotation at every retrospective."</span>,</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>          <span class="st">"Code reviews require two approvals from the core team."</span>]</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>random.shuffle(filler)</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>parts <span class="op">=</span> (filler <span class="op">*</span> <span class="dv">4000</span>)</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>NEEDLE <span class="op">=</span> <span class="st">"The secret access code for the Hyderabad facility is BANYAN-7421."</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>parts.insert(<span class="bu">int</span>(<span class="bu">len</span>(parts) <span class="op">*</span> <span class="fl">0.78</span>), NEEDLE)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>HAYSTACK <span class="op">=</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span>.join(parts)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>QUESTION <span class="op">=</span> <span class="st">"What is the secret access code for the Hyderabad facility? Answer with just the code."</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> find_needle(model, level<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    cfg <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> level <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>        cfg <span class="op">=</span> types.GenerateContentConfig(</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>            thinking_config<span class="op">=</span>types.ThinkingConfig(thinking_level<span class="op">=</span>level))</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> {<span class="st">'model'</span>: model, <span class="st">'contents'</span>: HAYSTACK <span class="op">+</span> <span class="st">"</span><span class="ch">\n\n</span><span class="st">"</span> <span class="op">+</span> QUESTION}</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cfg: kw[<span class="st">'config'</span>] <span class="op">=</span> cfg</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(<span class="op">**</span>kw)</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>    u <span class="op">=</span> r.usage_metadata</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(model<span class="op">=</span><span class="ss">f"</span><span class="sc">{</span>model<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>level <span class="kw">or</span> <span class="st">'-'</span><span class="sc">}</span><span class="ss">"</span>,</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>                found<span class="op">=</span><span class="st">'BANYAN-7421'</span> <span class="kw">in</span> r.text,</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>                answer<span class="op">=</span>r.text.strip()[:<span class="dv">40</span>],</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>                in_tok<span class="op">=</span>u.prompt_token_count, dt<span class="op">=</span><span class="bu">round</span>(time.time()<span class="op">-</span>t0, <span class="dv">2</span>))</span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> <span class="cf">await</span> asyncio.gather(</span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>    find_needle(<span class="st">'gemini-3.1-flash-lite'</span>),</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>    find_needle(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'minimal'</span>),</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>    find_needle(<span class="st">'gemini-3.5-flash'</span>, <span class="st">'medium'</span>),</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(rows)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>model</th>
+<th style="text-align: center;">found</th>
+<th>answer</th>
+<th style="text-align: right;">in_tok</th>
+<th style="text-align: right;">dt (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gemini-3.1-flash-lite</code></td>
+<td style="text-align: center;">True</td>
+<td>BANYAN-7421</td>
+<td style="text-align: right;">524,037</td>
+<td style="text-align: right;">5.24</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.5-flash/minimal</code></td>
+<td style="text-align: center;">True</td>
+<td>BANYAN-7421</td>
+<td style="text-align: right;">524,037</td>
+<td style="text-align: right;">5.11</td>
+</tr>
+<tr class="odd">
+<td><code>gemini-3.5-flash/medium</code></td>
+<td style="text-align: center;">True</td>
+<td>BANYAN-7421</td>
+<td style="text-align: right;">524,037</td>
+<td style="text-align: right;">7.12</td>
+</tr>
+</tbody>
+</table>
+<p>All three retrieve correctly. The interesting datapoint is the latency: at half-a-million input tokens, 3.5 Flash at <code>minimal</code> is the same speed as 3.1 Flash Lite, while 3.1 Pro on the same prompt costs about 5x more time. This is a single needle, so it doesn’t say anything about multi-hop reasoning over long context — but the baseline retrieval is intact at the new model.</p>
+</section>
+<section id="a-tiny-coding-micro-benchmark" class="level2">
+<h2 class="anchored" data-anchor-id="a-tiny-coding-micro-benchmark">A tiny coding micro-benchmark</h2>
+<p>The benchmark Google leads with is <em>agentic coding</em> — Terminal-Bench 2.1, MCP Atlas, OSWorld. I can’t run those in a notebook, so I built a stripped-down honest version: three Python functions of increasing difficulty, ask each model to write them, then execute the result against hidden test cases.</p>
+<p>Tasks:</p>
+<ol type="1">
+<li><code>reverse_words(s)</code> — easy</li>
+<li><code>spiral_order(matrix)</code> — medium (lots of edge cases: empty, single row, single column, non-square)</li>
+<li><code>word_break(s, words)</code> — medium-hard (needs DP, not greedy)</li>
+</ol>
+<p>I run each task at each thinking level and compare to <code>gemini-3.1-flash-lite</code>.</p>
+<div id="fce5bd82" class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re, subprocess, json</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>TASKS <span class="op">=</span> [</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    {<span class="st">'name'</span>: <span class="st">'spiral_order'</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>     <span class="st">'prompt'</span>: <span class="st">'Write a Python function spiral_order(matrix: list[list[int]]) -&gt; list[int] that returns all elements of an m x n matrix in spiral (clockwise) order starting from the top-left. Handle empty matrices and non-square shapes. ONLY output a fenced python block.'</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>     <span class="st">'tests'</span>: [</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"[[1,2,3],[4,5,6],[7,8,9]]"</span>, <span class="st">"[1, 2, 3, 6, 9, 8, 7, 4, 5]"</span>),</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"[[1,2,3,4],[5,6,7,8],[9,10,11,12]]"</span>, <span class="st">"[1, 2, 3, 4, 8, 12, 11, 10, 9, 5, 6, 7]"</span>),</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"[]"</span>, <span class="st">"[]"</span>),</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"[[1]]"</span>, <span class="st">"[1]"</span>),</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"[[1,2,3]]"</span>, <span class="st">"[1, 2, 3]"</span>),</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"[[1],[2],[3]]"</span>, <span class="st">"[1, 2, 3]"</span>),</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>     ]},</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    {<span class="st">'name'</span>: <span class="st">'word_break'</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>     <span class="st">'prompt'</span>: <span class="st">'Write a Python function word_break(s: str, words: list[str]) -&gt; bool that returns True iff s can be segmented into a sequence of one or more words from the list (words may be reused). ONLY output a fenced python block.'</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>     <span class="st">'tests'</span>: [</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"'leetcode', ['leet','code']"</span>, <span class="st">"True"</span>),</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"'applepenapple', ['apple','pen']"</span>, <span class="st">"True"</span>),</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"'catsandog', ['cats','dog','sand','and','cat']"</span>, <span class="st">"False"</span>),</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"'', ['a']"</span>, <span class="st">"True"</span>),</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>         (<span class="st">"'aaaaaaa', ['aaa','aaaa']"</span>, <span class="st">"True"</span>),</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>     ]},</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract(text):</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> re.search(<span class="vs">r'```</span>(?:<span class="vs">python</span>)<span class="op">?</span><span class="dv">\s</span><span class="op">*</span><span class="kw">(</span><span class="dv">.</span><span class="op">*?</span><span class="kw">)</span><span class="vs">```'</span>, text, re.DOTALL)</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> m.group(<span class="dv">1</span>).strip() <span class="cf">if</span> m <span class="cf">else</span> text.strip()</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_tests(code, fn, tests):</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>    body <span class="op">=</span> code <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">import json</span><span class="ch">\n</span><span class="st">r=[]</span><span class="ch">\n</span><span class="st">"</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> args, expected <span class="kw">in</span> tests:</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        body <span class="op">+=</span> <span class="ss">f"try:</span><span class="ch">\n</span><span class="ss"> r.append(repr(</span><span class="sc">{</span>fn<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>args<span class="sc">}</span><span class="ss">))==</span><span class="sc">{</span>expected<span class="sc">!r}</span><span class="ss">)</span><span class="ch">\n</span><span class="ss">except: r.append(False)</span><span class="ch">\n</span><span class="ss">"</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>    body <span class="op">+=</span> <span class="st">"print(json.dumps(r))"</span></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> subprocess.run([<span class="st">'python3'</span>, <span class="st">'-c'</span>, body], capture_output<span class="op">=</span><span class="va">True</span>, text<span class="op">=</span><span class="va">True</span>, timeout<span class="op">=</span><span class="dv">6</span>)</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> p.returncode <span class="op">!=</span> <span class="dv">0</span>: <span class="cf">return</span> <span class="dv">0</span>, <span class="bu">len</span>(tests)</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>    res <span class="op">=</span> json.loads(p.stdout.strip().split(<span class="st">'</span><span class="ch">\n</span><span class="st">'</span>)[<span class="op">-</span><span class="dv">1</span>])</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">sum</span>(res), <span class="bu">len</span>(res)</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> ask(model, prompt, level<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>    cfg <span class="op">=</span> types.GenerateContentConfig(</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>        thinking_config<span class="op">=</span>types.ThinkingConfig(thinking_level<span class="op">=</span>level)) <span class="cf">if</span> level <span class="cf">else</span> <span class="va">None</span></span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>    kw <span class="op">=</span> {<span class="st">'model'</span>: model, <span class="st">'contents'</span>: prompt}</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> cfg: kw[<span class="st">'config'</span>] <span class="op">=</span> cfg</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(<span class="op">**</span>kw)</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (r.text, <span class="bu">round</span>(time.time()<span class="op">-</span>t0, <span class="dv">2</span>),</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>            <span class="bu">getattr</span>(r.usage_metadata, <span class="st">'thoughts_token_count'</span>, <span class="va">None</span>) <span class="kw">or</span> <span class="dv">0</span>)</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> []</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>configs <span class="op">=</span> [(<span class="st">'gemini-3.1-flash-lite'</span>, <span class="va">None</span>),</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>           (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'minimal'</span>),</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>           (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'low'</span>),</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>           (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'medium'</span>),</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>           (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'high'</span>)]</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> task <span class="kw">in</span> TASKS:</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a>    rs <span class="op">=</span> <span class="cf">await</span> asyncio.gather(<span class="op">*</span>[ask(m, task[<span class="st">'prompt'</span>], l) <span class="cf">for</span> m, l <span class="kw">in</span> configs])</span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (m, l), (text, dt, th) <span class="kw">in</span> <span class="bu">zip</span>(configs, rs):</span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>        p, t <span class="op">=</span> run_tests(extract(text), task[<span class="st">'name'</span>], task[<span class="st">'tests'</span>])</span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>        rows.append({<span class="st">'task'</span>: task[<span class="st">'name'</span>],</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>                     <span class="st">'label'</span>: <span class="st">'lite'</span> <span class="cf">if</span> <span class="st">'lite'</span> <span class="kw">in</span> m <span class="cf">else</span> <span class="ss">f'flash/</span><span class="sc">{</span>l<span class="sc">}</span><span class="ss">'</span>,</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>                     <span class="st">'dt_s'</span>: dt, <span class="st">'thoughts'</span>: th, <span class="st">'pass'</span>: <span class="ss">f'</span><span class="sc">{</span>p<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>t<span class="sc">}</span><span class="ss">'</span>})</span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(rows)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>Results from my run (single sample per cell, so noisy on close calls):</p>
+<p><strong><code>spiral_order</code></strong> (everyone passed all 6 tests):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>label</th>
+<th style="text-align: right;">dt (s)</th>
+<th style="text-align: right;">thoughts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>lite</td>
+<td style="text-align: right;">1.88</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td>flash/minimal</td>
+<td style="text-align: right;">1.99</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td>flash/low</td>
+<td style="text-align: right;">4.11</td>
+<td style="text-align: right;">408</td>
+</tr>
+<tr class="even">
+<td>flash/medium</td>
+<td style="text-align: right;">7.29</td>
+<td style="text-align: right;">1,241</td>
+</tr>
+<tr class="odd">
+<td>flash/high</td>
+<td style="text-align: right;">11.44</td>
+<td style="text-align: right;">2,192</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>word_break</code></strong>:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>label</th>
+<th style="text-align: right;">dt (s)</th>
+<th style="text-align: right;">thoughts</th>
+<th>pass</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>lite</td>
+<td style="text-align: right;">1.16</td>
+<td style="text-align: right;">0</td>
+<td>5/5</td>
+</tr>
+<tr class="even">
+<td>flash/minimal</td>
+<td style="text-align: right;">1.98</td>
+<td style="text-align: right;">0</td>
+<td>5/5</td>
+</tr>
+<tr class="odd">
+<td>flash/low</td>
+<td style="text-align: right;">3.40</td>
+<td style="text-align: right;">298</td>
+<td>5/5</td>
+</tr>
+<tr class="even">
+<td>flash/medium</td>
+<td style="text-align: right;">8.43</td>
+<td style="text-align: right;">1,619</td>
+<td><strong>4/5</strong></td>
+</tr>
+<tr class="odd">
+<td>flash/high</td>
+<td style="text-align: right;">6.57</td>
+<td style="text-align: right;">1,050</td>
+<td>5/5</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>flash/medium</code> regression on <code>word_break</code> (4/5 vs 5/5 for both flanking levels) is the kind of thing that worries me. On a single sample it could be noise — <code>medium</code> thoughts overshot and the model produced an over-engineered solution that broke on the <code>aaaaaaa</code> case. With <em>n=1</em> I can’t claim a real regression, but it does demonstrate that <em>more thinking ≠ better</em> and that the bug-shaped middle of the thinking range is real enough to land in a single trial.</p>
+<p>What I’d say with conviction:</p>
+<ul>
+<li>For these size-of-leetcode-easy problems, <code>minimal</code> is enough and is the cheapest defensible default.</li>
+<li>The <code>medium</code> default is calibrated for harder tasks (Terminal-Bench, multi-file refactors). On toy puzzles it spends 8-10x more compute for the same answer.</li>
+</ul>
+</section>
+<section id="agentic-tool-use-same-accuracy-lower-latency" class="level2">
+<h2 class="anchored" data-anchor-id="agentic-tool-use-same-accuracy-lower-latency">Agentic tool use: same accuracy, lower latency</h2>
+<p>Same harness, slightly more interesting task: give the model two Python functions over an in-memory employee DB, ask it to compute total engineering-department salary. The optimal trace is <code>list_employee_ids()</code> + 3 <code>get_employee()</code> calls for the 3 eng employees. I logged every call.</p>
+<div id="c105ec94" class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>EMPLOYEES <span class="op">=</span> {</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">'E101'</span>: {<span class="st">'name'</span>: <span class="st">'Asha Rao'</span>,   <span class="st">'dept'</span>: <span class="st">'eng'</span>,     <span class="st">'salary'</span>: <span class="dv">95000</span>},</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">'E102'</span>: {<span class="st">'name'</span>: <span class="st">'Ben Kumar'</span>,  <span class="st">'dept'</span>: <span class="st">'eng'</span>,     <span class="st">'salary'</span>: <span class="dv">105000</span>},</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">'E103'</span>: {<span class="st">'name'</span>: <span class="st">'Cara Singh'</span>, <span class="st">'dept'</span>: <span class="st">'sales'</span>,   <span class="st">'salary'</span>: <span class="dv">80000</span>},</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">'E104'</span>: {<span class="st">'name'</span>: <span class="st">'Devi Iyer'</span>,  <span class="st">'dept'</span>: <span class="st">'eng'</span>,     <span class="st">'salary'</span>: <span class="dv">120000</span>},</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">'E105'</span>: {<span class="st">'name'</span>: <span class="st">'Eli Bose'</span>,   <span class="st">'dept'</span>: <span class="st">'support'</span>, <span class="st">'salary'</span>: <span class="dv">60000</span>},</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>LOG <span class="op">=</span> []</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> list_employee_ids() <span class="op">-&gt;</span> <span class="bu">dict</span>:</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""List all employee IDs in the database."""</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    LOG.append(<span class="st">'list_employee_ids'</span>)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {<span class="st">'ids'</span>: <span class="bu">list</span>(EMPLOYEES.keys())}</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_employee(employee_id: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">dict</span>:</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Look up an employee by their ID. Returns name, department, and salary."""</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    LOG.append(<span class="ss">f'get_employee(</span><span class="sc">{</span>employee_id<span class="sc">}</span><span class="ss">)'</span>)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> EMPLOYEES.get(employee_id, {<span class="st">'error'</span>: <span class="st">'not found'</span>})</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>PROMPT <span class="op">=</span> (<span class="st">"Using the tools, find the total salary spend across the engineering "</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>          <span class="st">"department. Report just the total amount in USD."</span>)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a><span class="cf">async</span> <span class="kw">def</span> run_agent(model, level<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    LOG.clear()</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    cfg_kw <span class="op">=</span> {<span class="st">'tools'</span>: [list_employee_ids, get_employee]}</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> level <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        cfg_kw[<span class="st">'thinking_config'</span>] <span class="op">=</span> types.ThinkingConfig(thinking_level<span class="op">=</span>level)</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    cfg <span class="op">=</span> types.GenerateContentConfig(<span class="op">**</span>cfg_kw)</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    t0 <span class="op">=</span> time.time()</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>    r <span class="op">=</span> <span class="cf">await</span> client.aio.models.generate_content(</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>        model<span class="op">=</span>model, contents<span class="op">=</span>PROMPT, config<span class="op">=</span>cfg)</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(model<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>model<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>level <span class="kw">or</span> <span class="st">"-"</span><span class="sc">}</span><span class="ss">'</span>,</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>                answer<span class="op">=</span>r.text.strip()[:<span class="dv">20</span>],</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>                n_calls<span class="op">=</span><span class="bu">len</span>(LOG), trace<span class="op">=</span><span class="bu">list</span>(LOG),</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>                dt<span class="op">=</span><span class="bu">round</span>(time.time()<span class="op">-</span>t0, <span class="dv">2</span>))</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> spec <span class="kw">in</span> [(<span class="st">'gemini-3.1-flash-lite'</span>, <span class="va">None</span>),</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>             (<span class="st">'gemini-3.1-pro-preview'</span>, <span class="va">None</span>),</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>             (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'minimal'</span>),</span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>             (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'low'</span>),</span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>             (<span class="st">'gemini-3.5-flash'</span>, <span class="st">'medium'</span>)]:</span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="cf">await</span> run_agent(<span class="op">*</span>spec))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>model</th>
+<th>answer</th>
+<th style="text-align: right;">n_calls</th>
+<th style="text-align: right;">dt (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gemini-3.1-flash-lite</code></td>
+<td>320000</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">6.98</td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.1-pro-preview</code></td>
+<td>$320,000</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">9.34</td>
+</tr>
+<tr class="odd">
+<td><code>gemini-3.5-flash/minimal</code></td>
+<td>$320,000</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"><strong>3.05</strong></td>
+</tr>
+<tr class="even">
+<td><code>gemini-3.5-flash/low</code></td>
+<td>$320,000</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">4.63</td>
+</tr>
+<tr class="odd">
+<td><code>gemini-3.5-flash/medium</code></td>
+<td>$320,000</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">4.88</td>
+</tr>
+</tbody>
+</table>
+<p>Two things to notice:</p>
+<ul>
+<li><strong>All five models get the right answer</strong> ($95K + $105K + $120K = $320K), but <strong>none of them find the optimal trace.</strong> Every model calls <code>get_employee</code> for all 5 employees instead of filtering on <code>dept == 'eng'</code> after the list. That’s not a 3.5 vs 3.1 distinction — it’s a property of how these models do tool use (“fetch everything, reason later”) that hasn’t changed.</li>
+<li><strong><code>3.5-flash/minimal</code> is ~2.3x faster than <code>3.1-flash-lite</code> here.</strong> That’s the surprising data point: at the cheapest thinking setting, 3.5 Flash is <em>faster</em> than 3.1 Flash Lite on a tool-using task, even though Lite is the smaller architecture. My guess is the per-step latency of the tool-call loop has been reduced in 3.5 (fewer round-trips, smarter batching). I can’t verify this from the outside, but the wall-clock is real.</li>
+</ul>
+</section>
+<section id="putting-it-together-when-to-reach-for-3.5-flash" class="level2">
+<h2 class="anchored" data-anchor-id="putting-it-together-when-to-reach-for-3.5-flash">Putting it together: when to reach for 3.5 Flash</h2>
+<p>Based on the runs above, here’s the policy I’m adopting on my own projects:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>use case</th>
+<th>model</th>
+<th>thinking_level</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>chatbot/freeform generation</td>
+<td><code>gemini-3.5-flash</code></td>
+<td><code>minimal</code></td>
+</tr>
+<tr class="even">
+<td>classification / extraction</td>
+<td><code>gemini-3.5-flash</code></td>
+<td><code>minimal</code></td>
+</tr>
+<tr class="odd">
+<td>code-edit suggestions</td>
+<td><code>gemini-3.5-flash</code></td>
+<td><code>low</code></td>
+</tr>
+<tr class="even">
+<td>agentic tool use</td>
+<td><code>gemini-3.5-flash</code></td>
+<td><code>low</code></td>
+</tr>
+<tr class="odd">
+<td>novel reasoning / math</td>
+<td><code>gemini-3.5-flash</code></td>
+<td><code>medium</code> (default)</td>
+</tr>
+<tr class="even">
+<td>my old <code>3.1-pro-preview</code> slot</td>
+<td><code>gemini-3.5-flash</code></td>
+<td><code>high</code>, falls back to <code>3.1-pro</code> if scores drop</td>
+</tr>
+</tbody>
+</table>
+<p>The two things to remember:</p>
+<ol type="1">
+<li><strong><code>medium</code> is the new default and it costs you ~1,500 reasoning tokens per call</strong> even for easy prompts. If you were on <code>3.1-flash-lite</code>, the drop-in is <code>3.5-flash/minimal</code>, not the bare <code>3.5-flash</code>.</li>
+<li><strong>TTFT under default settings is multi-second.</strong> If you’re streaming to a UI, drop the level or pre-warm with a probe call.</li>
+</ol>
+</section>
+<section id="gemini-omni-what-i-would-have-measured" class="level2">
+<h2 class="anchored" data-anchor-id="gemini-omni-what-i-would-have-measured">Gemini Omni — what I would have measured</h2>
+<p>Gemini Omni was announced <a href="https://blog.google/products/gemini/">at I/O</a> as a <em>unified multimodal</em> model: text + image + audio + video in, and (eventually) text + image + audio + video out. The first product surface is video generation — submit images, audio clips, a script, and get a video that respects all of them.</p>
+<p>Per the I/O announcement and follow-up posts (<a href="https://decrypt.co/368393/google-unveils-gemini-omni-next-gen-ai-video-builder-simulate-world">Decrypt coverage</a>, <a href="https://9to5google.com/2026/05/19/google-io-2026-news/">9to5Google liveblog</a>):</p>
+<ul>
+<li><strong>Where it lives today:</strong> Gemini app + Google Flow for AI Plus / Pro / Ultra subscribers. <em>Not</em> on the public Gemini API as of 2026-05-20.</li>
+<li><strong>Output format:</strong> ~10-second video clips, 1280x720, async generation (submit, poll).</li>
+<li><strong>Input modalities:</strong> text, images, audio, video — combined in one prompt.</li>
+<li><strong>Notable hold-back:</strong> Google explicitly delayed the riskiest feature — generating a video of a specific named person from a single reference photo — citing safety review.</li>
+</ul>
+<p>I tried the obvious model IDs against the developer API:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> [<span class="st">'gemini-omni'</span>, <span class="st">'gemini-omni-preview'</span>, <span class="st">'gemini-omni-flash'</span>,</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>          <span class="st">'gemini-3.5-omni'</span>, <span class="st">'gemini-3-omni'</span>]:</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        client.models.generate_content(model<span class="op">=</span>m, contents<span class="op">=</span><span class="st">'ping'</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>m<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span><span class="bu">str</span>(e)<span class="sc">.</span>splitlines()[<span class="dv">0</span>][:<span class="dv">80</span>]<span class="sc">}</span><span class="ss">'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<pre><code>gemini-omni: 404 NOT_FOUND. models/gemini-omni is not found for API version v1beta
+gemini-omni-preview: 404 NOT_FOUND.
+gemini-omni-flash: 404 NOT_FOUND.
+gemini-3.5-omni: 404 NOT_FOUND.
+gemini-3-omni: 404 NOT_FOUND.</code></pre>
+<p>Every plausible model ID returns 404. The closest available endpoints in <code>client.models.list()</code> are:</p>
+<ul>
+<li><code>veo-3.1-generate-preview</code> / <code>veo-3.1-fast-generate-preview</code> — the existing text-and-image-to-video model</li>
+<li><code>gemini-3.1-flash-live-preview</code> — the existing real-time multimodal <em>streaming</em> model (audio + video in, audio out)</li>
+</ul>
+<p>Neither is Omni. Veo doesn’t take audio input or accept reasoning instructions; the live preview doesn’t generate video.</p>
+<p>If/when Omni hits the API, the experiments I’d run — and that I’ll come back and add to this post — are:</p>
+<ol type="1">
+<li><strong>Audio-grounded video.</strong> Upload a 5-second voice memo + a single still photo; ask Omni to animate the photo such that the lip-sync matches the audio. This is the test that distinguishes Omni from Veo (text→video) and from the existing live preview (audio in, audio out).</li>
+<li><strong>Style transfer with a reference image.</strong> Provide a photo of a teaching whiteboard + a 30-second explanation script + a “make this a Khan Academy style chalkboard walkthrough” instruction. Measure whether the output respects all three inputs or just the script.</li>
+<li><strong>Edit-by-instruction.</strong> Submit a 10-second clip + a textual edit (“remove the person in the background, brighten the foreground”). This is the test that justifies the “world understanding” framing.</li>
+<li><strong>Round-trip latency.</strong> End-to-end time from API submit to first video frame, at the documented “10-second clip” length. Anything under 30s is genuinely new; the 1-3 minute number from the API leaks would put Omni in the same UX bracket as today’s Veo.</li>
+</ol>
+<p>For now, the honest summary is: Omni is a consumer release. Treat all “Omni does X” claims about API behaviour, pricing, and quality with skepticism until Google actually publishes the model card and pricing. I’ll update this post when the API rolls out.</p>
+</section>
+<section id="takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="takeaways">Takeaways</h2>
+<ul>
+<li><strong><code>gemini-3.5-flash</code> is a real upgrade over <code>3.1-flash-lite</code></strong> for any task that benefits from light reasoning, but the new <code>medium</code> default makes it <em>slower</em> than 3.1-flash-lite on prompts that don’t need thinking. Set <code>thinking_level="minimal"</code> unless you have a reason not to.</li>
+<li>The <code>thinking_level</code> enum is more honest than the old integer budget — it makes “this prompt didn’t need thinking” representable instead of guessable. But because the default moved from <code>high</code> (3.1) to <code>medium</code> (3.5), your old code will now spend ~1.5x more thinking tokens on average without warning.</li>
+<li><strong>Streaming TTFT is the metric that bit me.</strong> At default settings, 3.5 Flash spends 5+ seconds reasoning before emitting the first token. For chat UIs this matters more than total throughput.</li>
+<li><strong>Long context (524K tokens) works the same as on 3.1.</strong> No measurable regression on single-needle retrieval.</li>
+<li><strong>Omni is announced, not released (for developers).</strong> The Gemini app and Flow have it; the API doesn’t. Plan accordingly.</li>
+</ul>
+</section>
+<section id="reproducing-this" class="level2">
+<h2 class="anchored" data-anchor-id="reproducing-this">Reproducing this</h2>
+<p>Everything above runs against the public Gemini API with <code>google-genai</code> ≥ 1.56.0 and a single env var (<code>GEMINI_API_KEY</code>). The five probes are small enough to drop into one notebook — total token spend for all the measurements in this post was a few hundred thousand input tokens (mostly the haystack) plus a few thousand output tokens, well under $1 at posted <a href="https://ai.google.dev/gemini-api/docs/pricing">pricing</a>.</p>
+</section>
+<section id="links" class="level2">
+<h2 class="anchored" data-anchor-id="links">Links</h2>
+<ul>
+<li><a href="https://deepmind.google/models/gemini/flash/">Gemini 3.5 Flash announcement (Google DeepMind)</a></li>
+<li><a href="https://deepmind.google/models/model-cards/gemini-3-5-flash/">Gemini 3.5 model card</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/interactions/whats-new-gemini-3.5">3.1 → 3.5 migration guide (thinking_level)</a></li>
+<li><a href="https://ai.google.dev/gemini-api/docs/pricing">Gemini API pricing</a></li>
+<li><a href="../posts/2026-04-03-gemma4-vs-gemini.html">My April post that this builds on (3.1 Flash vs Gemma 4)</a></li>
+</ul>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
