@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-05-20">
+<meta name="description" content="RGB has skin texture; thermal does not. A small dark blob inside a face on thermal looks like every other small dark blob — anywhere on the face, anywhere on the room. This post unpacks why off-the-shelf models fail on thermal nostrils (per the bake-off in part 1) and proposes four research-grade fixes: anatomical priors as a regulariser, paired-RGB label projection, T-FAKE synthetic pretraining, and using the breath-rate signal itself as self-supervision.">
+
+<title>Why Nostril Detection on Thermal is Fundamentally Harder than on RGB — and Four Ways Around It – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-9482772de5f96bc669c49da57733e8fb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-ba0ea52c466f323bb4a80d9892c7c8cb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-9482772de5f96bc669c49da57733e8fb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+
+<meta property="og:title" content="Why Nostril Detection on Thermal is Fundamentally Harder than on RGB — and Four Ways Around It – Nipun Batra Blog">
+<meta property="og:description" content="RGB has skin texture; thermal does not. A small dark blob inside a face on thermal looks like every other small dark blob — anywhere on the face, anywhere on the room. This post unpacks why off-the-shelf models fail on thermal nostrils (per the bake-off in part 1) and proposes four research-grade fixes: anatomical priors as a regulariser, paired-RGB label projection, T-FAKE synthetic pretraining, and using the breath-rate signal itself as self-supervision.">
+<meta property="og:image" content="nostril-bench/outputs/bar_error.png">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="Why Nostril Detection on Thermal is Fundamentally Harder than on RGB — and Four Ways Around It – Nipun Batra Blog">
+<meta name="twitter:description" content="RGB has skin texture; thermal does not. A small dark blob inside a face on thermal looks like every other small dark blob — anywhere on the face, anywhere on the room. This post unpacks why off-the-shelf models fail on thermal nostrils (per the bake-off in part 1) and proposes four research-grade fixes: anatomical priors as a regulariser, paired-RGB label projection, T-FAKE synthetic pretraining, and using the breath-rate signal itself as self-supervision.">
+<meta name="twitter:image" content="nostril-bench/outputs/bar_error.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <div class="quarto-title-block"><div><h1 class="title">Why Nostril Detection on Thermal is Fundamentally Harder than on RGB — and Four Ways Around It</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+                  <div>
+        <div class="description">
+          RGB has skin texture; thermal does not. A small dark blob inside a face on thermal looks like every other small dark blob — anywhere on the face, anywhere on the room. This post unpacks why off-the-shelf models fail on thermal nostrils (per the bake-off in part 1) and proposes four research-grade fixes: anatomical priors as a regulariser, paired-RGB label projection, T-FAKE synthetic pretraining, and using the breath-rate signal itself as self-supervision.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">thermal-imaging</div>
+                <div class="quarto-category">keypoint-detection</div>
+                <div class="quarto-category">computer-vision</div>
+                <div class="quarto-category">anatomical-priors</div>
+                <div class="quarto-category">synthetic-data</div>
+                <div class="quarto-category">multimodal</div>
+                <div class="quarto-category">breath-monitoring</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">May 20, 2026</p>
+      </div>
+    </div>
+    
+      <div>
+      <div class="quarto-title-meta-heading">Modified</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date-modified">May 20, 2026</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#the-information-problem" id="toc-the-information-problem" class="nav-link active" data-scroll-target="#the-information-problem">The information problem</a>
+  <ul class="collapse">
+  <li><a href="#problem-1-thermal-nostrils-look-like-every-other-small-cool-spot" id="toc-problem-1-thermal-nostrils-look-like-every-other-small-cool-spot" class="nav-link" data-scroll-target="#problem-1-thermal-nostrils-look-like-every-other-small-cool-spot">Problem 1 — Thermal nostrils look like every other small cool spot</a></li>
+  <li><a href="#problem-2-the-signal-is-temporal-not-spatial" id="toc-problem-2-the-signal-is-temporal-not-spatial" class="nav-link" data-scroll-target="#problem-2-the-signal-is-temporal-not-spatial">Problem 2 — The signal is temporal, not spatial</a></li>
+  <li><a href="#problem-3-resolution-and-scale" id="toc-problem-3-resolution-and-scale" class="nav-link" data-scroll-target="#problem-3-resolution-and-scale">Problem 3 — Resolution and scale</a></li>
+  </ul></li>
+  <li><a href="#why-the-bake-off-looked-the-way-it-did" id="toc-why-the-bake-off-looked-the-way-it-did" class="nav-link" data-scroll-target="#why-the-bake-off-looked-the-way-it-did">Why the bake-off looked the way it did</a></li>
+  <li><a href="#four-ways-forward" id="toc-four-ways-forward" class="nav-link" data-scroll-target="#four-ways-forward">Four ways forward</a>
+  <ul class="collapse">
+  <li><a href="#fix-1-lean-harder-on-anatomical-priors-hierarchical-detection" id="toc-fix-1-lean-harder-on-anatomical-priors-hierarchical-detection" class="nav-link" data-scroll-target="#fix-1-lean-harder-on-anatomical-priors-hierarchical-detection">Fix 1 — Lean harder on anatomical priors (hierarchical detection)</a></li>
+  <li><a href="#fix-2-project-labels-from-paired-rgb-thermal" id="toc-fix-2-project-labels-from-paired-rgb-thermal" class="nav-link" data-scroll-target="#fix-2-project-labels-from-paired-rgb-thermal">Fix 2 — Project labels from paired RGB → thermal</a></li>
+  <li><a href="#fix-3-pretrain-on-synthetic-thermal-t-fake" id="toc-fix-3-pretrain-on-synthetic-thermal-t-fake" class="nav-link" data-scroll-target="#fix-3-pretrain-on-synthetic-thermal-t-fake">Fix 3 — Pretrain on synthetic thermal (T-FAKE)</a></li>
+  <li><a href="#fix-4-use-breath-rate-as-self-supervision" id="toc-fix-4-use-breath-rate-as-self-supervision" class="nav-link" data-scroll-target="#fix-4-use-breath-rate-as-self-supervision">Fix 4 — Use breath-rate as self-supervision</a></li>
+  </ul></li>
+  <li><a href="#what-id-reach-for-first-in-practice" id="toc-what-id-reach-for-first-in-practice" class="nav-link" data-scroll-target="#what-id-reach-for-first-in-practice">What I’d reach for first in practice</a></li>
+  <li><a href="#what-this-post-is-not-doing" id="toc-what-this-post-is-not-doing" class="nav-link" data-scroll-target="#what-this-post-is-not-doing">What this post is <em>not</em> doing</a></li>
+  <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<p>The <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">bake-off in part 1</a> showed that off-the-shelf RGB-trained models fall apart on thermal nostril detection — Sapiens2-0.4b produced ~72 px mean error on thermal vs ~5 px on RGB; even MediaPipe FaceMesh was off by 18 px. This post argues that the failure is <strong>not</strong> just a matter of “more training data on thermal” — it is partly an <strong>information problem in the thermal modality itself</strong>, and proposes four concrete routes around it.</p>
+<p>This is part 4 of the <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">thermal nostril series</a> (parts 2 and 3 cover few-shot finetuning and hierarchical RGB detection respectively).</p>
+<section id="the-information-problem" class="level2">
+<h2 class="anchored" data-anchor-id="the-information-problem">The information problem</h2>
+<p>A nostril keypoint is a specific anatomical point — the <strong>lateral edge of the nasal alae</strong>. On an RGB face there are multiple co-located cues that pin it down:</p>
+<ol type="1">
+<li><strong>Tonal boundary</strong> between skin and the <em>opening</em> of the nostril, which is darker because it’s a small cavity.</li>
+<li><strong>Specular highlight</strong> on the convex side of the alae from any directional light source.</li>
+<li><strong>Skin micro-texture</strong> (pores, lashes near the nose root) that gives the model a stable local descriptor.</li>
+<li><strong>Colour cue</strong> — the inside of the nostril is often a different chromaticity (more red) from the surrounding skin.</li>
+</ol>
+<p>A pretrained model has implicitly learned to combine these. Remove them all and you are left with thermal — where the signal is <strong>temperature</strong>, and where the dominant cue for a nostril is:</p>
+<blockquote class="blockquote">
+<p><em>A small region that is several degrees cooler than the surrounding skin during inhalation, and warmer than the surrounding skin during exhalation.</em></p>
+</blockquote>
+<p>That description has two problems.</p>
+<section id="problem-1-thermal-nostrils-look-like-every-other-small-cool-spot" class="level3">
+<h3 class="anchored" data-anchor-id="problem-1-thermal-nostrils-look-like-every-other-small-cool-spot">Problem 1 — Thermal nostrils look like every other small cool spot</h3>
+<p>A nostril on thermal looks like a small low-intensity blob ~5-15 px across. So does:</p>
+<ul>
+<li>The mouth opening (especially when relaxed-open).</li>
+<li>The eyebrow shadow line in some subjects.</li>
+<li>A small bead of sweat that has just evaporated and cooled the skin underneath.</li>
+<li>The inside of the ear canal.</li>
+<li>A patch where the subject leant against a cool surface 30 seconds earlier (heat dissipation lag).</li>
+<li>Any small distractor in the background that happens to be cool — a USB-C port, a coffee mug, a dark interior of a half-open door.</li>
+</ul>
+<p>The model has <em>no</em> photometric way to distinguish these cases. Sapiens2 and MediaPipe both demonstrate this exact failure on the bake-off samples — Sapiens2 puts its nostril predictions on the ears (cool because they’re poorly perfused), MediaPipe puts them in the middle of the upper lip area (cool because the philtrum has less subcutaneous fat).</p>
+<div class="callout callout-style-simple callout-note">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><strong>The fundamental ambiguity</strong>: in a <em>single</em> thermal frame, “small cool blob within face region” does not uniquely identify nostrils.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="problem-2-the-signal-is-temporal-not-spatial" class="level3">
+<h3 class="anchored" data-anchor-id="problem-2-the-signal-is-temporal-not-spatial">Problem 2 — The signal is temporal, not spatial</h3>
+<p>In a single thermal frame, both nostrils are often almost-invisible (especially mid-breath, when temperature has equalised). The cue that <em>makes</em> nostrils stand out — the periodic warm-cool oscillation as a subject breathes — only exists across <strong>time</strong>.</p>
+<p>This means single-frame thermal models are fundamentally working against the modality. A static thermal frame of a sleeping subject has almost no information about where the nostrils are <em>until</em> you compare it to a frame 2 seconds later.</p>
+</section>
+<section id="problem-3-resolution-and-scale" class="level3">
+<h3 class="anchored" data-anchor-id="problem-3-resolution-and-scale">Problem 3 — Resolution and scale</h3>
+<p>Most thermographic cameras have native resolutions of 320×240 to 640×480 pixels. At a normal seated distance, a face is ~150×200 px, and <strong>a single nostril alae is ~3-5 px wide</strong>. That is right at or below the spatial-feature scale that most ViT-style backbones can resolve (ViT patches are usually 14-16 px). Sapiens2 at 0.4B works at a 1024×768 input — but its receptive field for the first attention layer is still 16 px, larger than the entire feature we’re trying to localise.</p>
+</section>
+</section>
+<section id="why-the-bake-off-looked-the-way-it-did" class="level2">
+<h2 class="anchored" data-anchor-id="why-the-bake-off-looked-the-way-it-did">Why the bake-off looked the way it did</h2>
+<p>Bringing all this back to the <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">actual experimental results</a>:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="nostril-bench/outputs/bar_error.png" class="img-fluid figure-img"></p>
+<figcaption>From part 1: mean nostril localisation error on 10 SF-TL54 subjects, gray vs iron thermal palette. Off-the-shelf models trained on RGB are at 8–72 px error on thermal.</figcaption>
+</figure>
+</div>
+<ul>
+<li><strong>Sapiens2 (72 px)</strong> has the most parameters and the most keypoints, but its pretraining bias is <em>fine-grained skin texture</em>. With that signal absent on thermal, it relies on the next-most-discriminative cue — face <em>outline</em> — and snaps its 308-keypoint template to whichever bright/dark edges the thermal frame happens to expose. On most subjects those edges are at the ears or hairline, hence the systematic ear-direction bias.</li>
+<li><strong>DWPose (8 px)</strong> is closer to a coincidence than competence. Its top-down RTMPose-style design first does a coarse face localisation that <em>does</em> work on thermal (because the face-vs-background distinction is high-contrast on thermal — the body is hot, the background is cool). Once the face crop is right, the nose-tip block is fed a 256×256 patch where the nostrils are the only sub-face-size dark spots, and the model lands on them ~80% of the time.</li>
+<li><strong>MediaPipe (18 px)</strong> is also doing a coarse-then-fine cascade (face detection → mesh fitting). The mesh has 478 vertices, several near the nostrils, but the <em>fitted</em> mesh has no anatomical knowledge of where on the nose tip the alae actually are on a thermal face. It settles ~18-20 px above the alae centre, in the middle of the broader low-temperature nose region.</li>
+</ul>
+<p>In short: <strong>the only models that worked were the ones that already had a coarse face detector providing geometric prior</strong>. That is the key insight, and it points directly at the first fix below.</p>
+</section>
+<section id="four-ways-forward" class="level2">
+<h2 class="anchored" data-anchor-id="four-ways-forward">Four ways forward</h2>
+<section id="fix-1-lean-harder-on-anatomical-priors-hierarchical-detection" class="level3">
+<h3 class="anchored" data-anchor-id="fix-1-lean-harder-on-anatomical-priors-hierarchical-detection">Fix 1 — Lean harder on anatomical priors (hierarchical detection)</h3>
+<p>Treat nostril detection as the <em>last</em> stage of a hierarchical pipeline that has already done all the easy localisations:</p>
+<ol type="1">
+<li>Detect the head outline (this works on thermal — body vs background is a strong intensity contrast).</li>
+<li>Detect the eye region (the periorbital area is hotter than surrounding skin; the boundary is a strong feature).</li>
+<li>Snap a coarse face template that places the nose midway between the eyes, at roughly 1/3 of the face’s vertical extent.</li>
+<li><em>Only inside that 30×30 px region</em>, find the two coolest local minima — those are the nostrils.</li>
+</ol>
+<p>This converts an ill-posed dense prediction problem into a well-posed constrained one. <strong>DWPose’s accidental win</strong> in the bake-off is essentially because it already does steps 1–3 implicitly via its RTMDet face detector.</p>
+<p>Part 3 of this series shows the version of this for <strong>RGB</strong> images (where the same hierarchical principle holds, just with different per-stage signals). The same architecture applies on thermal — the per-stage primitives change, but the principle of “small landmarks only after large landmarks are pinned down” is universal.</p>
+</section>
+<section id="fix-2-project-labels-from-paired-rgb-thermal" class="level3">
+<h3 class="anchored" data-anchor-id="fix-2-project-labels-from-paired-rgb-thermal">Fix 2 — Project labels from paired RGB → thermal</h3>
+<p>SF-TL54 itself shows you a free supervision signal: every thermal frame has a <strong>paired RGB frame</strong>, captured by a co-mounted RGB sensor with known extrinsic calibration. The RGB frame is where MediaPipe / Sapiens2 etc. work reliably.</p>
+<pre><code>paired_rgb -&gt; MediaPipe FaceMesh -&gt; 478 RGB landmarks
+              |
+              v
+       extrinsic homography (RGB cam -&gt; thermal cam)
+              |
+              v
+              -&gt; 478 *thermal-coordinate* landmarks (free GT)</code></pre>
+<p>If the two cameras are aligned to within a few pixels — a calibration that takes 20 minutes with a checkerboard target — you get <strong>labelled thermal frames for free, at the rate your RGB camera produces them</strong>. You can then bootstrap a thermal-specific model from any RGB-paired sequence — no human labelling, no manual landmark clicks.</p>
+<p>This is exactly the approach that made <a href="https://dl.acm.org/doi/10.1145/3757376.3771410">TFD68</a> (SIGGRAPH Asia 2025) feasible — 28k thermal images annotated by projection from a high-quality RGB landmarker.</p>
+</section>
+<section id="fix-3-pretrain-on-synthetic-thermal-t-fake" class="level3">
+<h3 class="anchored" data-anchor-id="fix-3-pretrain-on-synthetic-thermal-t-fake">Fix 3 — Pretrain on synthetic thermal (T-FAKE)</h3>
+<p>The <a href="https://arxiv.org/abs/2408.15127">T-FAKE dataset</a> generates 100k synthetic thermal faces from a parametric head model, with <em>known</em> nostril positions in the thermal frame. The synthetic-to-real gap on thermal is much smaller than it is on RGB (no chromatic information to mismatch, no specular highlights to model wrong). A model pretrained on T-FAKE and finetuned on ~50 real thermal frames substantially outperforms one trained from scratch on either alone.</p>
+<p>This is the most data-efficient route in practical terms — the synthetic data is free, the small real set is what makes the predictions calibrated.</p>
+</section>
+<section id="fix-4-use-breath-rate-as-self-supervision" class="level3">
+<h3 class="anchored" data-anchor-id="fix-4-use-breath-rate-as-self-supervision">Fix 4 — Use breath-rate as self-supervision</h3>
+<p>The most interesting route in my view. The whole reason to localise nostrils on thermal is to measure the <em>temperature oscillation</em> — that periodic signal is the entire pipeline output. So:</p>
+<ol type="1">
+<li>Run a coarse face detector to localise the head region.</li>
+<li>For every pixel inside the face region, compute the temporal FFT magnitude in the 0.1–0.4 Hz band (the breathing-rate band).</li>
+<li>The pixels with the <strong>strongest periodicity in that band</strong> are the nostrils, <em>by definition</em>.</li>
+</ol>
+<p>This is “annotate the data the way you would have measured it anyway”. No GT clicks, no synthetic data, no paired RGB needed — just a 10-second clip of the subject breathing. Add this as a self-supervised loss on top of whatever spatial model you train, and you get a model that is biased toward landmarks that are <em>physically meaningful for the downstream task</em> rather than landmarks that are visually salient on a static frame.</p>
+<p>The downside: requires video, not single frames. The upside: video is what you’d be processing anyway for breath-rate monitoring, so the cost is zero relative to the deployment scenario.</p>
+</section>
+</section>
+<section id="what-id-reach-for-first-in-practice" class="level2">
+<h2 class="anchored" data-anchor-id="what-id-reach-for-first-in-practice">What I’d reach for first in practice</h2>
+<p>If I had to ship a thermal-nostril detector tomorrow:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 52%">
+<col style="width: 26%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Constraint</th>
+<th>Pick</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>No labels, no time, single thermal frames</td>
+<td><strong>DWPose</strong></td>
+<td>Works zero-shot well enough. Median ~8 px.</td>
+</tr>
+<tr class="even">
+<td>30 labelled frames available, want best single-frame model</td>
+<td><strong>Finetune a tiny head on Sapiens2 backbone</strong> (part 2 of this series)</td>
+<td>Backbone features transfer; only the head needs to be re-aimed.</td>
+</tr>
+<tr class="odd">
+<td>Paired thermal + RGB streams available</td>
+<td><strong>Project from RGB MediaPipe</strong> + use thermal-only model for failure cases</td>
+<td>Free labels, lowest engineering cost.</td>
+</tr>
+<tr class="even">
+<td>Need true breath-rate signal</td>
+<td><strong>Temporal FFT band-pass on every face pixel</strong></td>
+<td>Avoids the localisation problem entirely.</td>
+</tr>
+</tbody>
+</table>
+<p>The four fixes are not mutually exclusive. The strongest single-frame pipeline almost certainly combines (1) anatomical-prior hierarchical detection with (3) T-FAKE synthetic pretraining + a small fraction of (2) paired-RGB labels for real-domain calibration. Add (4) on top during deployment when you have video.</p>
+</section>
+<section id="what-this-post-is-not-doing" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-post-is-not-doing">What this post is <em>not</em> doing</h2>
+<p>I haven’t measured any of the four fixes here. This post is a <em>framework for thinking about the problem</em> informed by the experimental finding in part 1 that off-the-shelf models fail. Parts 2 and 3 show working implementations of fixes 1 and parts of 3. Fix 4 (breath-rate self-supervision) is the most novel of the four and I don’t have a working implementation yet — let me know if you want to collaborate on it.</p>
+</section>
+<section id="links" class="level2">
+<h2 class="anchored" data-anchor-id="links">Links</h2>
+<ul>
+<li>Part 1 of this series: <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">the bake-off</a></li>
+<li>T-FAKE synthetic thermal dataset: <a href="https://arxiv.org/abs/2408.15127">arXiv:2408.15127</a></li>
+<li>TFD68 paired-projection annotations: <a href="https://dl.acm.org/doi/10.1145/3757376.3771410">SIGGRAPH Asia 2025</a></li>
+<li>SF-TL54 dataset: <a href="https://huggingface.co/datasets/issai/SFTL54">HF dataset card</a></li>
+</ul>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Why Nostril Detection on Thermal is Fundamentally Harder than on RGB — and Four Ways Around It"</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-05-20"</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> "2026-05-20"</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [thermal-imaging, keypoint-detection, computer-vision, anatomical-priors, synthetic-data, multimodal, breath-monitoring]</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "RGB has skin texture; thermal does not. A small dark blob inside a face on thermal looks like every other small dark blob — anywhere on the face, anywhere on the room. This post unpacks why off-the-shelf models fail on thermal nostrils (per the bake-off in part 1) and proposes four research-grade fixes: anatomical priors as a regulariser, paired-RGB label projection, T-FAKE synthetic pretraining, and using the breath-rate signal itself as self-supervision."</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - nostril-bench/outputs/*.png</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - nostril-bench/inputs/*.png</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>The <span class="co">[</span><span class="ot">bake-off in part 1</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> showed that off-the-shelf RGB-trained models fall apart on thermal nostril detection — Sapiens2-0.4b produced ~72 px mean error on thermal vs ~5 px on RGB; even MediaPipe FaceMesh was off by 18 px. This post argues that the failure is **not** just a matter of "more training data on thermal" — it is partly an **information problem in the thermal modality itself**, and proposes four concrete routes around it.</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>This is part 4 of the <span class="co">[</span><span class="ot">thermal nostril series</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> (parts 2 and 3 cover few-shot finetuning and hierarchical RGB detection respectively).</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="fu">## The information problem</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>A nostril keypoint is a specific anatomical point — the **lateral edge of the nasal alae**. On an RGB face there are multiple co-located cues that pin it down:</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Tonal boundary** between skin and the *opening* of the nostril, which is darker because it's a small cavity.</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Specular highlight** on the convex side of the alae from any directional light source.</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Skin micro-texture** (pores, lashes near the nose root) that gives the model a stable local descriptor.</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Colour cue** — the inside of the nostril is often a different chromaticity (more red) from the surrounding skin.</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>A pretrained model has implicitly learned to combine these. Remove them all and you are left with thermal — where the signal is **temperature**, and where the dominant cue for a nostril is:</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *A small region that is several degrees cooler than the surrounding skin during inhalation, and warmer than the surrounding skin during exhalation.*</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>That description has two problems.</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="fu">### Problem 1 — Thermal nostrils look like every other small cool spot</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>A nostril on thermal looks like a small low-intensity blob ~5-15 px across. So does:</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The mouth opening (especially when relaxed-open).</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The eyebrow shadow line in some subjects.</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>A small bead of sweat that has just evaporated and cooled the skin underneath.</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The inside of the ear canal.</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>A patch where the subject leant against a cool surface 30 seconds earlier (heat dissipation lag).</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Any small distractor in the background that happens to be cool — a USB-C port, a coffee mug, a dark interior of a half-open door.</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>The model has *no* photometric way to distinguish these cases. Sapiens2 and MediaPipe both demonstrate this exact failure on the bake-off samples — Sapiens2 puts its nostril predictions on the ears (cool because they're poorly perfused), MediaPipe puts them in the middle of the upper lip area (cool because the philtrum has less subcutaneous fat).</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>::: {.callout-note appearance="simple"}</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>**The fundamental ambiguity**: in a *single* thermal frame, "small cool blob within face region" does not uniquely identify nostrils.</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="fu">### Problem 2 — The signal is temporal, not spatial</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>In a single thermal frame, both nostrils are often almost-invisible (especially mid-breath, when temperature has equalised). The cue that *makes* nostrils stand out — the periodic warm-cool oscillation as a subject breathes — only exists across **time**.</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>This means single-frame thermal models are fundamentally working against the modality. A static thermal frame of a sleeping subject has almost no information about where the nostrils are *until* you compare it to a frame 2 seconds later.</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a><span class="fu">### Problem 3 — Resolution and scale</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>Most thermographic cameras have native resolutions of 320×240 to 640×480 pixels. At a normal seated distance, a face is ~150×200 px, and **a single nostril alae is ~3-5 px wide**. That is right at or below the spatial-feature scale that most ViT-style backbones can resolve (ViT patches are usually 14-16 px). Sapiens2 at 0.4B works at a 1024×768 input — but its receptive field for the first attention layer is still 16 px, larger than the entire feature we're trying to localise.</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why the bake-off looked the way it did</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>Bringing all this back to the <span class="co">[</span><span class="ot">actual experimental results</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span>:</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a><span class="al">![From part 1: mean nostril localisation error on 10 SF-TL54 subjects, gray vs iron thermal palette. Off-the-shelf models trained on RGB are at 8–72 px error on thermal.](nostril-bench/outputs/bar_error.png)</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Sapiens2 (72 px)** has the most parameters and the most keypoints, but its pretraining bias is *fine-grained skin texture*. With that signal absent on thermal, it relies on the next-most-discriminative cue — face *outline* — and snaps its 308-keypoint template to whichever bright/dark edges the thermal frame happens to expose. On most subjects those edges are at the ears or hairline, hence the systematic ear-direction bias.</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**DWPose (8 px)** is closer to a coincidence than competence. Its top-down RTMPose-style design first does a coarse face localisation that *does* work on thermal (because the face-vs-background distinction is high-contrast on thermal — the body is hot, the background is cool). Once the face crop is right, the nose-tip block is fed a 256×256 patch where the nostrils are the only sub-face-size dark spots, and the model lands on them ~80% of the time.</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**MediaPipe (18 px)** is also doing a coarse-then-fine cascade (face detection → mesh fitting). The mesh has 478 vertices, several near the nostrils, but the *fitted* mesh has no anatomical knowledge of where on the nose tip the alae actually are on a thermal face. It settles ~18-20 px above the alae centre, in the middle of the broader low-temperature nose region.</span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>In short: **the only models that worked were the ones that already had a coarse face detector providing geometric prior**. That is the key insight, and it points directly at the first fix below.</span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a><span class="fu">## Four ways forward</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a><span class="fu">### Fix 1 — Lean harder on anatomical priors (hierarchical detection)</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>Treat nostril detection as the *last* stage of a hierarchical pipeline that has already done all the easy localisations:</span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Detect the head outline (this works on thermal — body vs background is a strong intensity contrast).</span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Detect the eye region (the periorbital area is hotter than surrounding skin; the boundary is a strong feature).</span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Snap a coarse face template that places the nose midway between the eyes, at roughly 1/3 of the face's vertical extent.</span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>*Only inside that 30×30 px region*, find the two coolest local minima — those are the nostrils.</span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>This converts an ill-posed dense prediction problem into a well-posed constrained one. **DWPose's accidental win** in the bake-off is essentially because it already does steps 1–3 implicitly via its RTMDet face detector.</span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>Part 3 of this series shows the version of this for **RGB** images (where the same hierarchical principle holds, just with different per-stage signals). The same architecture applies on thermal — the per-stage primitives change, but the principle of "small landmarks only after large landmarks are pinned down" is universal.</span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a><span class="fu">### Fix 2 — Project labels from paired RGB → thermal</span></span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>SF-TL54 itself shows you a free supervision signal: every thermal frame has a **paired RGB frame**, captured by a co-mounted RGB sensor with known extrinsic calibration. The RGB frame is where MediaPipe / Sapiens2 etc. work reliably.</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a><span class="in">paired_rgb -&gt; MediaPipe FaceMesh -&gt; 478 RGB landmarks</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a><span class="in">              |</span></span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a><span class="in">              v</span></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a><span class="in">       extrinsic homography (RGB cam -&gt; thermal cam)</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a><span class="in">              |</span></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a><span class="in">              v</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a><span class="in">              -&gt; 478 *thermal-coordinate* landmarks (free GT)</span></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>If the two cameras are aligned to within a few pixels — a calibration that takes 20 minutes with a checkerboard target — you get **labelled thermal frames for free, at the rate your RGB camera produces them**. You can then bootstrap a thermal-specific model from any RGB-paired sequence — no human labelling, no manual landmark clicks.</span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>This is exactly the approach that made <span class="co">[</span><span class="ot">TFD68</span><span class="co">](https://dl.acm.org/doi/10.1145/3757376.3771410)</span> (SIGGRAPH Asia 2025) feasible — 28k thermal images annotated by projection from a high-quality RGB landmarker.</span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a><span class="fu">### Fix 3 — Pretrain on synthetic thermal (T-FAKE)</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>The <span class="co">[</span><span class="ot">T-FAKE dataset</span><span class="co">](https://arxiv.org/abs/2408.15127)</span> generates 100k synthetic thermal faces from a parametric head model, with *known* nostril positions in the thermal frame. The synthetic-to-real gap on thermal is much smaller than it is on RGB (no chromatic information to mismatch, no specular highlights to model wrong). A model pretrained on T-FAKE and finetuned on ~50 real thermal frames substantially outperforms one trained from scratch on either alone.</span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>This is the most data-efficient route in practical terms — the synthetic data is free, the small real set is what makes the predictions calibrated.</span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a><span class="fu">### Fix 4 — Use breath-rate as self-supervision</span></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>The most interesting route in my view. The whole reason to localise nostrils on thermal is to measure the *temperature oscillation* — that periodic signal is the entire pipeline output. So:</span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Run a coarse face detector to localise the head region.</span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>For every pixel inside the face region, compute the temporal FFT magnitude in the 0.1–0.4 Hz band (the breathing-rate band).</span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>The pixels with the **strongest periodicity in that band** are the nostrils, *by definition*.</span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a>This is "annotate the data the way you would have measured it anyway". No GT clicks, no synthetic data, no paired RGB needed — just a 10-second clip of the subject breathing. Add this as a self-supervised loss on top of whatever spatial model you train, and you get a model that is biased toward landmarks that are *physically meaningful for the downstream task* rather than landmarks that are visually salient on a static frame.</span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a>The downside: requires video, not single frames. The upside: video is what you'd be processing anyway for breath-rate monitoring, so the cost is zero relative to the deployment scenario.</span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd reach for first in practice</span></span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a>If I had to ship a thermal-nostril detector tomorrow:</span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Constraint <span class="pp">|</span> Pick <span class="pp">|</span> Why <span class="pp">|</span></span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a><span class="pp">|------------|------|-----|</span></span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> No labels, no time, single thermal frames <span class="pp">|</span> **DWPose** <span class="pp">|</span> Works zero-shot well enough. Median ~8 px. <span class="pp">|</span></span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 30 labelled frames available, want best single-frame model <span class="pp">|</span> **Finetune a tiny head on Sapiens2 backbone** (part 2 of this series) <span class="pp">|</span> Backbone features transfer; only the head needs to be re-aimed. <span class="pp">|</span></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Paired thermal + RGB streams available <span class="pp">|</span> **Project from RGB MediaPipe** + use thermal-only model for failure cases <span class="pp">|</span> Free labels, lowest engineering cost. <span class="pp">|</span></span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Need true breath-rate signal <span class="pp">|</span> **Temporal FFT band-pass on every face pixel** <span class="pp">|</span> Avoids the localisation problem entirely. <span class="pp">|</span></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a>The four fixes are not mutually exclusive. The strongest single-frame pipeline almost certainly combines (1) anatomical-prior hierarchical detection with (3) T-FAKE synthetic pretraining + a small fraction of (2) paired-RGB labels for real-domain calibration. Add (4) on top during deployment when you have video.</span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this post is *not* doing</span></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>I haven't measured any of the four fixes here. This post is a *framework for thinking about the problem* informed by the experimental finding in part 1 that off-the-shelf models fail. Parts 2 and 3 show working implementations of fixes 1 and parts of 3. Fix 4 (breath-rate self-supervision) is the most novel of the four and I don't have a working implementation yet — let me know if you want to collaborate on it.</span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Part 1 of this series: <span class="co">[</span><span class="ot">the bake-off</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span></span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>T-FAKE synthetic thermal dataset: <span class="co">[</span><span class="ot">arXiv:2408.15127</span><span class="co">](https://arxiv.org/abs/2408.15127)</span></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>TFD68 paired-projection annotations: <span class="co">[</span><span class="ot">SIGGRAPH Asia 2025</span><span class="co">](https://dl.acm.org/doi/10.1145/3757376.3771410)</span></span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>SF-TL54 dataset: <span class="co">[</span><span class="ot">HF dataset card</span><span class="co">](https://huggingface.co/datasets/issai/SFTL54)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
