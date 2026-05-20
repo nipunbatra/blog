@@ -15,7 +15,6 @@ import numpy as np
 from run_all import (
     run_sapiens, run_vitpose, run_dwpose, run_mediapipe,
     annotate_panel, overlay_gt_nostrils, stack_panels, load_image_3ch,
-    SAPIENS_NOSTRIL_LEFT, SAPIENS_NOSTRIL_RIGHT,
     COCOWB_NOSTRIL_LEFT, COCOWB_NOSTRIL_RIGHT,
     MEDIAPIPE_NOSTRIL_LEFT, MEDIAPIPE_NOSTRIL_RIGHT,
 )
@@ -48,8 +47,8 @@ def run_one_image(path, gt, sapiens_size, label_dir):
     results["models"][f"sapiens2_{sapiens_size}"] = r
     panels.append(annotate_panel(
         image, f"Sapiens2-{sapiens_size}", r["kp"], r["score"],
-        nostril_left_idx=SAPIENS_NOSTRIL_LEFT,
-        nostril_right_idx=SAPIENS_NOSTRIL_RIGHT,
+        nostril_left_idx=r["alae_left_idx"],
+        nostril_right_idx=r["alae_right_idx"],
         time_s=r["elapsed_s"], nose_color=(0, 255, 0)))
 
     # ViTPose+ (body-only baseline; no face kpts)
@@ -82,12 +81,12 @@ def run_one_image(path, gt, sapiens_size, label_dir):
         r = run_mediapipe(image)
     except Exception as e:
         r = {"kp": [], "score": [], "elapsed_s": 0, "n_above_thresh": 0,
-             "error": str(e)}
+             "error": str(e), "alae_left_idx": -2, "alae_right_idx": -1}
     results["models"]["mediapipe_facemesh"] = r
     panels.append(annotate_panel(
         image, "MediaPipe FaceMesh (478)", r.get("kp", []), r.get("score", []),
-        nostril_left_idx=MEDIAPIPE_NOSTRIL_LEFT,
-        nostril_right_idx=MEDIAPIPE_NOSTRIL_RIGHT,
+        nostril_left_idx=r.get("alae_left_idx", MEDIAPIPE_NOSTRIL_LEFT),
+        nostril_right_idx=r.get("alae_right_idx", MEDIAPIPE_NOSTRIL_RIGHT),
         time_s=r["elapsed_s"], nose_color=(255, 0, 255)))
 
     # GT overlay
@@ -115,17 +114,21 @@ def main(image_list, sapiens_size, out_dir):
         # compute per-model nostril error
         per = {}
         if gt is not None:
-            gt_l, gt_r = gt[1], gt[3]
+            # SFTL54 nose_tip[1] = subject's right nostril centre,
+            # nose_tip[3] = subject's left  nostril centre (between outer alae and tip).
+            gt_r, gt_l = gt[1], gt[3]
             for name, info in r["models"].items():
                 kp = info.get("kp", [])
                 if not kp:
                     per[name] = {"err_l": None, "err_r": None,
                                  "time_ms": info["elapsed_s"] * 1000}
                     continue
-                if "mediapipe" in name:
-                    l, rr = MEDIAPIPE_NOSTRIL_LEFT, MEDIAPIPE_NOSTRIL_RIGHT
-                else:
-                    l, rr = COCOWB_NOSTRIL_LEFT, COCOWB_NOSTRIL_RIGHT  # same idx for sapiens too
+                if "mediapipe" in name or "sapiens" in name:
+                    # use the appended alae-centre indices
+                    l = info.get("alae_left_idx", -2)
+                    rr = info.get("alae_right_idx", -1)
+                else:  # dwpose / vitpose+ COCO-WholeBody
+                    l, rr = COCOWB_NOSTRIL_LEFT, COCOWB_NOSTRIL_RIGHT
                 if l < len(kp) and rr < len(kp):
                     per[name] = {"err_l": euclid(kp[l], gt_l),
                                  "err_r": euclid(kp[rr], gt_r),

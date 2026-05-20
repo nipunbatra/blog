@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 OUT = Path("/Users/nipun/git/blog/posts/nostril-bench/outputs")
-SUBSET = OUT / "subset_0.4b"
+SUBSET = OUT / "subset_0.4b_v5"
 
 
 def load_summary(path):
@@ -48,7 +48,7 @@ COL = {"gray": "#4c72b0", "iron": "#dd8452"}
 
 
 def bar_error(per):
-    fig, ax = plt.subplots(figsize=(6.5, 3.5), dpi=110)
+    fig, ax = plt.subplots(figsize=(6.5, 3.5), dpi=220)
     width = 0.38
     x = np.arange(len(MODELS))
     for i, mod in enumerate(MODALITIES):
@@ -71,7 +71,7 @@ def bar_error(per):
 
 
 def bar_pck(per):
-    fig, ax = plt.subplots(figsize=(7.5, 3.5), dpi=110)
+    fig, ax = plt.subplots(figsize=(7.5, 3.5), dpi=220)
     width = 0.18
     x = np.arange(len(MODELS))
     radii = [5, 10, 20, 40]
@@ -96,7 +96,7 @@ def bar_pck(per):
 
 
 def bar_speed(times):
-    fig, ax = plt.subplots(figsize=(6.5, 3.2), dpi=110)
+    fig, ax = plt.subplots(figsize=(6.5, 3.2), dpi=220)
     x = np.arange(len(MODELS))
     vals = [np.mean(times[(m, "gray")]) if (m, "gray") in times else 0
             for m in MODELS]

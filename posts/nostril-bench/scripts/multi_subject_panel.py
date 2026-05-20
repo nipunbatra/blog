@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 
 OUT = Path("/Users/nipun/git/blog/posts/nostril-bench/outputs")
-SUBSET = OUT / "subset_0.4b"
+SUBSET = OUT / "subset_0.4b_v5"
 
 SUBJECTS = [
     "10_1_2_1_1020_36_1",
