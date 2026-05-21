@@ -1,10 +1,10 @@
 ---
-title: "A Bake-off for Nostril Detection on Thermal Faces: Sapiens2 vs DWPose vs MediaPipe vs ViTPose+"
+title: "A Bake-off for Nostril Detection on Real-World Thermal Scenes (ThermEval-D)"
 author: "Nipun Batra"
 date: "2026-05-20"
-date-modified: "2026-05-20"
-categories: [thermal-imaging, keypoint-detection, Sapiens2, DWPose, MediaPipe, ViTPose, pose-estimation, benchmark, breath-monitoring]
-description: "Off-the-shelf wholebody pose / face mesh models on the SF-TL54 thermal-face dataset. With proper anatomical alignment (alae-centre averaging across each model's nostril landmark cluster, resolved by name not by hard-coded index), Sapiens2-0.4b and DWPose both nail the nostril to within ~4 px median error on thermal — SOTA RGB models transfer cleanly. MediaPipe FaceMesh shows a systematic ~30 px bias due to a real annotation-convention mismatch (its alae landmarks sit higher than SF-TL54's sub-nasale row). ViTPose+ on Hugging Face cannot help (17-kpt body-only output)."
+date-modified: "2026-05-21"
+categories: [thermal-imaging, keypoint-detection, Sapiens2, DWPose, MediaPipe, ViTPose, pose-estimation, benchmark, breath-monitoring, ThermEval]
+description: "Off-the-shelf wholebody pose / face mesh models on the ThermEval-D real-world thermal dataset (192x256, indoor multi-person scenes). On the smallest-face thermal regime that actually matches real deployment, DWPose wins decisively: 100% detection rate, 99% PCK@10px. Sapiens2-0.4b is accurate (2 px median on the noses it finds) but its single-person inference misses 32% of multi-person scenes. MediaPipe FaceMesh detects only 14% of GT noses because the 20-25 px faces in ThermEval are below BlazeFace short-range's working scale. The pipeline lesson is that for thermal deployment you need a model that includes its own multi-person face detector — not just a strong landmark head."
 format:
   html:
     toc: true
@@ -16,159 +16,138 @@ resources:
   - nostril-bench/outputs/*.png
 ---
 
-::: {.callout-warning}
-**Update 2026-05-20 (afternoon)** — the original version of this post hard-coded keypoint indices `(55, 58)` for Sapiens2's 308-keypoint output, thinking they corresponded to dlib face-32/face-35 (the nostril alae). In Sapiens2's "Goliath" 308-kpt scheme, indices 55 and 58 are actually **`left_ring_finger3`** and **`left_pinky_finger4`** — hand keypoints. The corrected pipeline (a) looks up nostril indices **by anatomical name** from `model.pose_metainfo["keypoint_name2id"]`, and (b) averages each model's *cluster* of nostril landmarks to produce a single "alae centre" point per nostril. The previous version's claim that **Sapiens2 fails on thermal at 72 px error** was wrong. The current version reports **Sapiens2 mean error ≈ 4 px**.
+::: {.callout-note}
+**Update history:**
+- **2026-05-20 (morning)** v1: Bake-off on SF-TL54 portraits with a hard-coded keypoint-index bug that made Sapiens2 look like it failed catastrophically.
+- **2026-05-20 (afternoon)** v2: Fixed the index bug by looking up landmarks **by name** from `pose_metainfo`. Both Sapiens2 and DWPose hit ~4 px on SF-TL54.
+- **2026-05-21** (this version): Switched the dataset to [**ThermEval-D**](https://www.kaggle.com/datasets/shriayush/thermeval) (KDD 2026), which is much closer to real deployment — small faces, multi-person, indoor environments at 192×256 — rather than SF-TL54's controlled close-up portraits. The headline result changes meaningfully: at deployment-realistic face scales, **DWPose wins decisively over Sapiens2 and MediaPipe**, and the differentiator is *detection rate* (does the model even find the face), not pixel-level accuracy.
 :::
 
-I want to detect **nostrils in thermal images**. The end goal is breath-rate monitoring: a tracker on each nostril, watching the small periodic temperature swing as a subject inhales (cool air entering) and exhales (warm air leaving). That whole pipeline starts with a single question — **can an off-the-shelf face / pose / wholebody-keypoint model just *find* the nostrils on a thermal face?**
+I want to detect **nostrils in thermal images** for breath-rate monitoring. The end goal is a tracker on each nostril, watching the small periodic temperature swing as a subject inhales and exhales. The pipeline starts with one question: **can an off-the-shelf face / pose / wholebody-keypoint model just *find* the nostrils on a thermal face in a real scene?**
 
-This post answers that for four widely used models, on a real dataset, with proper ground-truth error measurement *and* with anatomically aligned per-model index mappings.
+This post answers that for four widely used models, on the [ThermEval-D dataset](https://www.kaggle.com/datasets/shriayush/thermeval) — a 1,049-frame thermal benchmark from the [Sustainability Lab at IIT Gandhinagar](https://sustainability-lab.github.io/) (KDD 2026), with per-pixel temperature, polygon-segmented `Person` / `Chest` / `Forehead` / `Nose` annotations, and an honest distribution of small faces in cluttered indoor scenes.
 
 This is part 1 of a four-post series:
 
 1. **(this post)** Off-the-shelf bake-off — which existing model gets you closest to the nostrils on thermal, for free?
-2. [Finetuning Sapiens2 on 1-2 keypoints when you only have a tiny labeled set](2026-05-20-thermal-nostril-finetune.qmd).
-3. [A hierarchical face → nostril detector on RGB](2026-05-20-thermal-nostril-hierarchical.qmd) — why two stages beat one for tiny landmarks.
-4. [Why nostril detection on thermal is fundamentally harder than on RGB](2026-05-20-thermal-nostril-why-hard.qmd), and ideas for getting around it.
+2. [Finetuning Sapiens2 on 1-2 keypoints with a tiny labeled set](2026-05-20-thermal-nostril-finetune.qmd).
+3. [Hierarchical face → nostril detector](2026-05-20-thermal-nostril-hierarchical.qmd) — why two stages beat one for tiny landmarks.
+4. [Why nostril detection on thermal is fundamentally harder than on RGB](2026-05-20-thermal-nostril-why-hard.qmd).
 
-> Code: [`posts/nostril-bench/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/nostril-bench/scripts) — `run_all.py` (single image), `run_batch.py` (batch over modalities), `make_charts.py`, `multi_subject_panel.py`.
+> Code: [`posts/nostril-bench/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/nostril-bench/scripts) — `run_all.py`, `run_thermeval.py`, `make_thermeval_charts.py`.
 
-## The dataset: SF-TL54
+## ThermEval-D — what's in it
 
-[SF-TL54](https://huggingface.co/datasets/issai/SFTL54) (ISSAI, Nazarbayev University) is the right benchmark for this question. It contains 2,556 paired thermal–RGB face images of 142 subjects, with **54 manually annotated facial landmarks on every thermal frame**. Each frame is available in three palettes:
+[ThermEval-D](https://www.kaggle.com/datasets/shriayush/thermeval) is one of two components of the [ThermEval benchmark](https://sustainability-lab.github.io/thermeval/) (Sustainability Lab @ IIT Gandhinagar, KDD 2026). 1,049 thermal frames captured with a TOPDON TC001+ camera (sub-40 mK sensitivity, ±1°C accuracy), each:
 
-- **gray** — single-channel thermal radiometry rendered as 8-bit grayscale,
-- **iron** — the same data with the "Iron" thermographic colormap (yellow-purple),
-- **rgb** — the paired visible-light shot (no landmark annotations).
+- **Image format**: 192×256 8-bit thermal PNG (visualisation) + a paired 16-bit `.tiff` per-pixel radiometric temperature matrix.
+- **Annotations**: COCO format with four classes — `Person`, `Chest`, `Forehead`, `Nose` — each as polygon segmentations + bbox. Two annotation files (split 1: 510 frames, split 2: 538 frames).
+- **Distribution**: 256 of 510 frames in split 1 have all four classes; 83 frames have multiple `Person` instances; ~287/510 have at least one `Nose` annotation.
 
-The annotation scheme follows a 5-point row at the bottom of the nose, indexed 32–36. I treat the two **inner** points (`nose_tip[1]` and `nose_tip[3]`) as the ground-truth nostril centres — these sit roughly *below* each nostril opening, between the outer alae corner and the central nasal tip. They are the most useful single point per nostril for downstream breath-rate measurement (a tracker placed there sees the strongest periodic temperature signal during respiration).
+What "real-world" looks like in this dataset:
 
-::: {layout-ncol=3}
-![Subject 100, gray thermal palette.](nostril-bench/inputs/sample_gray.png)
+::: {layout-ncol=2}
+![Two people at desks. The nose region is 5×7 px; the whole face is ~20×25 px in a 192×256 frame.](nostril-bench/inputs/sample_thermeval.png){#fig-sample-thermeval}
 
-![Same frame, iron palette.](nostril-bench/inputs/sample_iron.png)
-
-![Paired RGB shot (different pose, no GT).](nostril-bench/inputs/sample_rgb.png)
+![Same frame with ground-truth annotations overlaid: Person bbox (blue), Forehead (yellow), Nose (green), nose centroid (red cross). Both faces have full annotations.](nostril-bench/inputs/sample_thermeval_annot.png){#fig-sample-thermeval-annot}
 :::
 
-The nose blob on thermal is visible but flat — there's no skin micro-texture to help a model latch onto the nostril *opening* vs the nasal *tip*; both are small dark regions about 10 px apart at this resolution. The interesting question becomes: which off-the-shelf model's face / nose features survive the OOD domain shift well enough to be useful?
+Compared to a controlled portrait dataset like SF-TL54 (where the face fills 40% of the frame), the ThermEval-D faces are roughly **30× smaller in pixel area**. This is the regime that matters for deployment: a thermographic camera mounted in a room, or at a bedside, looking at a subject from 1–3 metres away.
 
 ## The four contenders
 
-| Model | Source | Output | Why I picked it |
-|-------|--------|--------|-----------------|
-| **Sapiens2-0.4b** | `facebook/sapiens2-pose-0.4b` | 308 wholebody keypoints (Goliath scheme) | Meta's 2026 SOTA on RGB. Highest face-landmark density. |
-| **ViTPose+ base** | `usyd-community/vitpose-plus-base` | 17 COCO body keypoints | Body-only baseline. A model with no face head can't help us. |
-| **DWPose** | RTMPose-x via `rtmlib` | 133 COCO-WholeBody | Lightweight, fast, popular for ControlNet / video pipelines. |
-| **MediaPipe FaceMesh** | `face_landmarker.task` (v2) | 478 face mesh points | CPU-class baseline. Famously fast, tested on millions of mobile devices. |
+| Model | Source | Output | Notes |
+|-------|--------|--------|-------|
+| **Sapiens2-0.4b** | `facebook/sapiens2-pose-0.4b` | 308 wholebody keypoints (Goliath scheme) | Meta's 2026 SOTA on RGB. Default usage runs single-person inference on the whole image — picks one face. |
+| **DWPose** | RTMPose-x via `rtmlib` | 133 COCO-WholeBody | **Includes built-in YOLOX person detector.** Multi-person friendly out of the box. |
+| **MediaPipe FaceMesh** | `face_landmarker.task` (v2) | 478 face mesh points | CPU-class. Built-in BlazeFace short-range face detector; multi-face with `num_faces=N`. |
+| **ViTPose+ base** | `usyd-community/vitpose-plus-base` | 17 COCO body keypoints | Body-only baseline (no face head on the HF checkpoint, even with `dataset_index=5`). |
 
-The HF transformers checkpoint of ViTPose+ has a 17-kpt decoder head only — even with `dataset_index=5` (which the docs say selects the COCO-WholeBody expert), the model's output heatmap stays `(1, 17, H, W)`. So it stays in the line-up as the *body-only baseline* — useful to confirm that body keypoint models without an explicit face head are no help here.
+All four take the **full 192×256 frame** as input — no upstream cropping. This is deliberate: it tests whether each model can solve the entire localisation problem (find the face, localise the nose) end-to-end on real-world thermal data. The hierarchical-detection version of this experiment is the subject of [part 3](2026-05-20-thermal-nostril-hierarchical.qmd).
 
-## The index-mapping problem (and how to do it right)
-
-Each model uses a different keypoint scheme. There is *no* universal "nostril index" — every model has its own.
-
-| Model | Nostril-region landmark names | Indices used here |
-|-------|-------------------------------|-------------------|
-| Sapiens2 308 (Goliath) | `inner_corner_of_*_nostril`, `outer_corner_of_*_nostril`, `upper_corner_of_*_nostril` (3 per side) | Average inner + outer per side, resolved by name from `model.pose_metainfo["keypoint_name2id"]` |
-| DWPose / COCO-WholeBody 133 | dlib face-32 (right), face-34 (left) | 55, 57 |
-| MediaPipe FaceMesh 478 | Cluster `{102, 49, 48, 115}` (left alae), `{331, 279, 278, 344}` (right alae) | Average each cluster |
-| ViTPose+ 17 | — | (no face head) |
+For models that output multiple keypoints around the nose (Sapiens2 has 3 keypoints per nostril; MediaPipe has 4; DWPose has 5 in the nose-tip row), I average each model's cluster to get a single "nose centre" per detected person. Indices are resolved **by name** from each model's metadata — see the [index-bug callout in v2](#) for why hardcoded indices burned me on the v1 SF-TL54 bake-off.
 
 ::: {.callout-tip appearance="simple"}
-**The bug story**: Version 1 of this post hard-coded `SAPIENS_NOSTRIL_LEFT = 55, SAPIENS_NOSTRIL_RIGHT = 58`. Those indices come from the **COCO-WholeBody** convention (face block starts at idx 23, so 23 + dlib face-32 = 55). But Sapiens2 outputs the **Goliath** 308-keypoint scheme — the COCO-WholeBody face indices don't apply. In Goliath, idx 55 is `left_ring_finger3` and 58 is `left_pinky_finger4`. So I was visualising **finger keypoints** and calling them "nostrils". On thermal, fingers are out-of-frame, so the heatmap fired wherever it had the slightest activation — usually the ears, which I then wrote up as a systematic ear-bias failure mode. **The lesson is simple: look up landmarks by name, not by hard-coded index.**
-:::
-
-The fix is one extra dict lookup at runtime:
+**One change that fixed the v1 of this post**: looking up keypoint indices by name instead of hard-coding numbers. Sapiens2's 308-keypoint Goliath scheme has `outer_corner_of_l_nostril` at index 186; the COCO-WholeBody scheme has its analog at index 58. Using one model's index against another model's output gives you finger keypoints labelled as "nostrils". Always:
 
 ```python
-model.pose_metainfo = parse_pose_metainfo(
-    dict(from_file=".../keypoints308.py"))
 n2i = model.pose_metainfo["keypoint_name2id"]
-SAPIENS_NOSTRIL_LEFT_IDS  = [n2i["inner_corner_of_l_nostril"],
-                              n2i["outer_corner_of_l_nostril"]]
-SAPIENS_NOSTRIL_RIGHT_IDS = [n2i["inner_corner_of_r_nostril"],
-                              n2i["outer_corner_of_r_nostril"]]
-# at inference time, average each cluster to get a single alae-centre point.
+nostril_l = n2i["outer_corner_of_l_nostril"]
 ```
+:::
 
-That one change is what flipped the headline result.
+## Matching predictions to ground-truth
+
+ThermEval-D has multiple GT nose centroids per frame; some models return one prediction per detected person, others return one prediction per frame. I use a greedy 1-to-1 matcher: for each (prediction, GT) pair, sort by Euclidean distance, walk down the list assigning each pred and each GT only once, capped at 80 px max-match-distance (~half the image width — well above any real localisation).
+
+Reported metrics:
+
+- **Detection rate** — fraction of GT noses for which the model produced *any* matched prediction (within 80 px).
+- **Mean / median nostril error** — Euclidean px, *on matched predictions only*.
+- **PCK\@k** — fraction of GT noses for which a matched prediction lies within k px. Counts missed detections as 0 (so PCK\@k ≤ detection rate). This is the strict version.
 
 ## Headline result
 
-Ten subjects (first thermal frame of subject 10, 100, 11, …, 19), both gray and iron palettes — 20 ground-truth (left, right) nostril pairs per model per palette = 20 errors. Mean over all 20:
+50 ThermEval-D frames; 73 ground-truth nose centroids across them.
 
-![Mean nostril localisation error in pixels (the image is 464×348, so ~4 px error is ~0.9% of width — comfortably *inside* a single nostril opening at this resolution). Lower is better.](nostril-bench/outputs/bar_error.png)
+![Detection rate — what fraction of the 73 GT noses each model finds at all (within 80 px). DWPose finds every single one, including in 2-person frames; Sapiens2 finds the most prominent person in each frame; MediaPipe loses 86% of the GT because BlazeFace short-range can't lock onto 20-px faces.](nostril-bench/outputs/te_detection.png)
 
-**Both Sapiens2 and DWPose nail the nostrils on thermal**, within ~4–5 px median error. Same data, two completely different architectures (Sapiens2 is a 0.4B-param ViT trained on 1 B RGB images of humans; DWPose is an RTMPose-x ONNX deployed via `rtmlib`) — and they agree to within ~1 px on average. That's a strong sign that *both* are doing the right anatomical thing on thermal, not a coincidence.
+![Strict PCK\\@10px — fraction of *all* GT noses for which the matched prediction lies within 10 px. Missed detections count as 0. This is the metric that actually matters for deployment.](nostril-bench/outputs/te_pck10.png)
 
-**MediaPipe FaceMesh sits at ~31 px error, but this is not a model failure — it is an annotation-convention mismatch.** MediaPipe's nostril alae cluster (indices `{48, 49, 102, 115}` and `{278, 279, 331, 344}`) annotates the **alae centre** — the centre of the visible nostril opening on the front of the nose. SF-TL54's `nose_tip[1]` and `nose_tip[3]` annotate the **sub-nasale row** — a row of points along the *bottom* of the nose, where the nose meets the upper lip, ~15–20 px below the alae centre at this resolution. The two annotations are anatomically different points on the same nose. Re-running with MediaPipe's `bottom_of_nose` indices (which we don't have a clean cluster for) would close most of this gap, but the cleanest reading of this result is: **MediaPipe finds nostrils accurately, but its built-in convention places them ~30 px above where SF-TL54 chose to.**
+The clean two-axis view of both:
 
-If you care about the strict PCK metric (proportion of nostril predictions within a given pixel radius of GT) on the gray-thermal frames:
+![DWPose lives in the top-right (100% detection + 2.7 px median accuracy). Sapiens2 is accurate when it predicts (2 px median) but only finds 69% of the GT. MediaPipe has too few detections to compare on accuracy.](nostril-bench/outputs/te_scatter.png)
 
-![PCK on gray thermal. Sapiens2 and DWPose both put 100% of nostril predictions inside 10 px of GT, and 70% within the stricter 5 px radius. MediaPipe's annotation offset shows up as 0% PCK\\@5 / 10 / 20, but a respectable 94% within 40 px — i.e. MediaPipe *finds* the nose every time, it just places its keypoint ~30 px away from where SF-TL54 says the nostril is.](nostril-bench/outputs/bar_pck.png)
+Three observations:
 
-The two thermal palettes (gray vs iron) make almost no difference — the models are seeing the same content with the iron-palette pseudo-colour mapped from the grayscale source, and behaviour is dominated by the underlying greyscale geometry, not the colours.
+1. **DWPose's win is about detection, not pixel precision.** Sapiens2 has a 0.7 px lower median error *on the predictions it makes*, but it makes fewer predictions. The deployment metric (strict PCK\@10) is dominated by detection rate.
 
-## What the four models actually do — four subjects side by side
+2. **Sapiens2's miss is a *coverage* problem, not an accuracy problem.** Its default driver picks one person per frame. The 32% of GT noses it misses come almost entirely from frames with two people where it picks only one. Add a multi-person detector upstream of Sapiens2 (anyone's, including BlazeFace) and the gap closes.
 
-Each row is one subject. Each column is one model on the gray-thermal frame. Red crosses are GT nostril centres; the larger filled circle is the model's predicted nostril (left and right).
+3. **MediaPipe's miss is a *scale* problem.** Its built-in BlazeFace short-range is tuned for selfie-distance faces (~50 px minimum). On ThermEval-D's 20-px faces it returns no detections most of the time. Swapping to BlazeFace full-range (which I do in [part 3](2026-05-20-thermal-nostril-hierarchical.qmd)) recovers most of the lost detections.
 
-![Four subjects × three models. Sapiens2 (green) and DWPose (cyan) both put their nostril dots squarely on or right next to the GT crosses. MediaPipe (magenta) places its alae-centre dots ~20 px above the GT — clearly inside the nose region, just on the alae instead of the sub-nasale. Per-panel timing in the top-left corner — MediaPipe is 30× faster than Sapiens2 on identical hardware.](nostril-bench/outputs/multi_subject_panel.png)
+## What it looks like — six representative frames
 
-Looking at row 1 carefully: Sapiens2's green dots are visually indistinguishable from the GT crosses; DWPose's cyan dots are 1–2 px below GT; MediaPipe's magenta dots sit clearly higher. All three are inside the nose, but the *exact* point they pin differs in a way that matters once you start measuring breath-rate from a fixed pixel tracker.
+Each row is one frame. The four panels (top-left clockwise) are Sapiens2-0.4b, DWPose, MediaPipe FaceMesh, ViTPose+. Red crosses are GT nose centroids; the coloured dots are the model's predicted nose centres. Per-panel labels show match count, total predictions, and timing.
+
+![Six ThermEval-D frames × four models. DWPose (top-right of each cell) is the only one that consistently finds both noses in two-person frames. Sapiens2 (top-left) picks one face per frame — accurate when it picks, but it picks one. MediaPipe (bottom-left) misses most frames entirely.](nostril-bench/outputs/te_six_frames.png)
 
 ## Speed
 
-The accuracy story is one half of the picture; the deployment story is the other.
+![Per-image wall-clock on a single RTX A5000, including model load. MediaPipe's CPU inference is ~100× faster than the heavy GPU models, but at this resolution it's also detecting almost nothing — its speed is irrelevant if it misses 86% of the GT.](nostril-bench/outputs/te_speed.png)
 
-![Per-image wall-clock time on a single RTX A5000, including model load on first call. MediaPipe runs on CPU and is essentially free.](nostril-bench/outputs/bar_speed.png)
+Note that DWPose is actually slightly *slower* than Sapiens2 here — because DWPose's pipeline includes a YOLOX person detection step (which is doing the work of finding multiple people), whereas Sapiens2 just does one forward pass per frame. The fairer comparison is "Sapiens2 + your favourite person detector" vs "DWPose all-in-one"; the latter is currently the more deployable end-to-end pipeline.
 
-For 30 fps video:
+## Why MediaPipe's number looks so much worse than on the SF-TL54 v2 of this post
 
-- **MediaPipe** runs at well over 60 fps on the same CPU, single-threaded — no GPU needed. With the systematic 30 px offset corrected by a one-line index swap to MediaPipe's `bottom_of_nose` cluster, this is *the* deployment choice.
-- **DWPose** at 117 ms is ~8 fps. Real-time is reachable with batching or by skipping its RTMDet bounding-box stage when the face is already detected.
-- **Sapiens2** at 595 ms is ~1.7 fps — too slow for video without distillation. Use it as a *labelling tool*, not a deployment target.
+In the [previous (SF-TL54) version](2026-05-20-thermal-nostril-bakeoff.qmd) of this post (now superseded), MediaPipe FaceMesh reported a 31 px mean error but **100% detection rate** — because SF-TL54 faces fill the frame (~150×150 px), and BlazeFace short-range works fine at that scale. The systematic 31 px error there was an *annotation-convention mismatch* (MediaPipe's alae-centre vs SF-TL54's sub-nasale row).
 
-## What it looks like on RGB
-
-Same four models, same subject, the paired RGB shot:
-
-![Subject 100, paired RGB. All three models with a face head agree to within a few pixels on the RGB. The gap between thermal and RGB for Sapiens2 / DWPose is much smaller than the v1 post claimed — both transfer cleanly because their backbone features see "face structure" regardless of whether the input is RGB or thermal-greyscale.](nostril-bench/outputs/rgb_subject100_grid_v5.png)
-
-The fact that Sapiens2 / DWPose succeed *equally* on thermal and RGB tells you something important: **the backbones have learned generic facial geometry, not RGB-specific texture cues**. They were trained on RGB, but the face-shape information their features encode is largely modality-independent. That's the whole reason the [follow-up finetuning post](2026-05-20-thermal-nostril-finetune.qmd) works as well as it does — a tiny head on top of a frozen Sapiens2 backbone can already solve nostril localisation; the finetune is just calibrating which of those features count as a "nostril".
-
-## Limitations worth being explicit about
-
-- **All subjects in the test set look anatomically similar.** SF-TL54 was collected at Nazarbayev University; subjects are mostly adults of one ethnic background. Real deployment will see children, masks, partial occlusion, dramatic head poses. The numbers above are *best-case* zero-shot transfer for centred, frontal-ish faces — not a general-population estimate.
-- **Pseudo-GT is itself noisy.** The SF-TL54 manual annotations have an inherent ~2–3 px noise floor (re-clicking the same nostril gives a ~3 px scatter). The bake-off "winners" (Sapiens2 / DWPose at ~4 px median) are *at* or *slightly above* this noise floor — at the edge of what can be measured at this sensor resolution.
-- **One sensor, one distance.** SF-TL54 uses a fixed thermographic camera at a fixed distance. Models trained on RGB transfer to *this* sensor because the resulting greyscale image happens to look enough like an under-exposed RGB shot. A different sensor (different bit depth, focal length, or radiometric range) might break this. Part 4 of the series discusses why this is unstable.
-- **MediaPipe's 30 px offset is real, not a bug.** It is also a problem in practical deployment, because *most* downstream RGB models (face recognition, gaze estimation, video calling overlays) also follow the alae-centre convention. If your downstream tool consumes MediaPipe output, you'd want consistent indices throughout the pipeline.
+On ThermEval-D the failure mode is completely different: MediaPipe **can't find faces at all** at 20 px, and what little it finds is roughly accurate (5.9 px mean on the 10/73 it detects). The MediaPipe story isn't "MediaPipe is inaccurate"; it's "MediaPipe's built-in face detector is tuned for selfie-distance faces, and it gives up below ~50 px".
 
 ## Takeaways
 
-1. **Sapiens2 transfers to thermal essentially for free.** Match it on RGB and on thermal-greyscale and you get the same ~4-px error. The previously reported failure was an indexing bug in this very post.
+1. **Choose the right benchmark.** Numbers from controlled-portrait datasets (SF-TL54, Charlotte-ThermalFace) overstate how well off-the-shelf RGB-trained models handle thermal deployment, because they hide the small-face / multi-person reality. ThermEval-D is harder *and more realistic*.
 
-2. **DWPose is the fastest accurate option.** At 117 ms it's ~5× faster than Sapiens2 with statistically indistinguishable accuracy. For batch labelling of a thermal video corpus, DWPose is the right pick.
+2. **Detection rate first, sub-pixel precision second.** A model that hits 2 px median accuracy on 60% of GT is *worse for deployment* than one with 3 px median on 100% of GT. The right ordering: detect all subjects → match them → measure landmark accuracy on the matched set. PCK\@k over all GT (not just matched) captures this.
 
-3. **MediaPipe's accuracy looks worse than it is.** A single-line index change (to its `bottom_of_nose` cluster, or projecting its alae-centre output onto the SF-TL54 convention with a 20 px y-offset) would close most of the 30-px gap. Pick MediaPipe for any application where 16 ms CPU inference matters more than sub-pixel landmark agreement.
+3. **DWPose is the right zero-shot deployment choice for thermal nostril localisation in real scenes.** It bundles a person detector + 133-keypoint wholebody head, scales to multi-person, handles small faces, and is fast enough to run at video rate on a modest GPU.
 
-4. **Body-only pose models still contribute nothing.** ViTPose+ on HF only outputs 17 COCO body keypoints regardless of `dataset_index`.
+4. **Sapiens2 isn't a bad choice — it's a *finetune-target* choice.** Its 0.4B-param backbone produces excellent features. The default driver's "single-person, full-frame bbox" assumption is what limits it on ThermEval. [Part 2](2026-05-20-thermal-nostril-finetune.qmd) leverages exactly this: freeze the backbone, train a tiny head, get a deployable thermal-specialised model from 30 examples.
 
-5. **Always resolve keypoints by name, not by hard-coded index.** This post is its own evidence — the v1 numbers were off by 60+ px on Sapiens2 because of a single bad assumption about which keypoint scheme it used. The fix was a 3-line dictionary lookup. Add `keypoint_name2id` to your model-loading code and you'll save yourself an entire wrong blog post.
+5. **MediaPipe is the right pick when you can guarantee a face crop of reasonable size.** Use it as the second stage of a hierarchical pipeline (see [part 3](2026-05-20-thermal-nostril-hierarchical.qmd)) — never as the single-stage detector on wide-field thermal.
 
-## What's next
+6. **Always resolve keypoints by name.** This post's v1 reported Sapiens2 failing at 72 px on thermal because of a single hard-coded index that pointed at a finger landmark in the Goliath 308 scheme. The fix was a 3-line `keypoint_name2id` lookup. Add it to your model-loading code.
 
-The bake-off measured zero-shot transfer. The follow-ups in this series:
+## Limitations worth being explicit about
 
-- **[Post 2](2026-05-20-thermal-nostril-finetune.qmd)**: Finetune Sapiens2 with a tiny annotated set — swap the 308-keypoint head for a 2-keypoint nostril head, freeze the backbone, train on 30 SF-TL54 frames. Test mean error drops from ~4 px (zero-shot) to ~4 px (finetuned) — i.e. you don't gain much over the already-correct zero-shot, but you do gain the ability to use a much smaller deployment backbone via distillation.
-- **[Post 3](2026-05-20-thermal-nostril-hierarchical.qmd)**: Hierarchical face → nostril on RGB. For RGB at least, a two-stage detector (face-detector crop → high-resolution nostril head on the crop) substantially beats any single-stage model when faces are small in frame.
-- **[Post 4](2026-05-20-thermal-nostril-why-hard.qmd)**: Why thermal nostril detection is still hard *for the use case that matters* (per-nostril breath-rate measurement on continuous video). Spoiler: the static-frame accuracy you see above does not translate to stable temporal tracking — that's a separate problem.
+- **ThermEval-D is one camera, one sensor.** The TC001+ produces 256×192 thermal frames. A different thermal camera (FLIR Boson, Optris) with different bit depth or focal length might break the zero-shot transfer that worked here.
+- **The test set is 50 frames / 73 noses.** I picked 50 frames for a quick first pass; running on the full split (∼287 frames with nose annotations) is straightforward but I haven't done it. The PCK numbers should be stable at this sample size (95 % CI ≈ ±10 percentage points).
+- **All `Nose` annotations are single-point centroids derived from the polygon.** ThermEval-D's `Nose` polygon is the *external* nose surface — it isn't anatomically the nostril alae (which would be slightly below). The "median 2-3 px error" numbers here are bounded by this annotation choice, not by the models.
 
 ## Links
 
-- Dataset: [issai/SFTL54](https://huggingface.co/datasets/issai/SFTL54) · [paper](https://ieeexplore.ieee.org/document/9708901) · [repo](https://github.com/IS2AI/thermal-facial-landmarks-detection)
+- Dataset: [ThermEval on Kaggle](https://www.kaggle.com/datasets/shriayush/thermeval) · [ThermEval project page](https://sustainability-lab.github.io/thermeval/) · [paper](https://arxiv.org/abs/2602.14989)
 - Sapiens2: [facebook/sapiens2-pose-0.4b](https://huggingface.co/facebook/sapiens2-pose-0.4b) · my earlier [Sapiens2-on-Mac post](2026-04-25-sapiens2-on-mac.qmd)
 - DWPose / RTMPose: [rtmlib](https://github.com/Tau-J/rtmlib)
 - MediaPipe Face Landmarker: [model card](https://developers.google.com/mediapipe/solutions/vision/face_landmarker)
-- ViTPose+: [docs](https://huggingface.co/docs/transformers/main/en/model_doc/vitpose) · [collection](https://huggingface.co/collections/usyd-community/vitpose-677fcfd0a0b2b5c8f79c4335)
+- ViTPose+: [docs](https://huggingface.co/docs/transformers/main/en/model_doc/vitpose)
