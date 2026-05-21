@@ -4,7 +4,7 @@ author: "Nipun Batra"
 date: "2026-05-21"
 date-modified: "2026-05-21"
 categories: [Gemini, image-generation, thermal-imaging, evaluation, paper-prototype, Nano-Banana]
-description: "I ran Gemini 3.1 Flash Image Preview (Nano Banana 2) AND Gemini 3 Pro Image Preview (Nano Banana Pro) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each against a real thermal photograph of the same subject. All 14 outputs (7 per model) look 'thermal' (iron palette, glowing face) and all 14 make the same characteristic physical errors. The bigger Pro model averages +1 to +2 judge points over Flash and doesn't collapse on the second self-critique iteration the way Flash does — but both hit the same ceiling at 7/10. The literature confirms the prior: every recent thermal-generation paper (ThermalGen NeurIPS 2025, T-FAKE CVPR 2025, ThermVision-DB 2026) uses a generator finetuned on real thermal data, with a physics-aware loss. Zero-shot general-purpose generation is not on the leaderboard."
+description: "I ran Gemini 3.1 Flash Image Preview (Nano Banana 2) AND Gemini 3 Pro Image Preview (Nano Banana Pro) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each against a real thermal photograph. All 14 outputs (7 per Gemini model) make the same physical errors. The bigger Pro averages +0.9 judge points but ceiling stays at 7/10 — pure scaling doesn't fix the modality gap. The literature priors (T-FAKE CVPR 2025, ThermalGen NeurIPS 2025, ThermVision-DB 2026) all use finetuned generators with physics-aware losses. So I ran ThermalGen's pretrained RGB→thermal model on the same image — and it produces visibly more correct thermal physics (canthi-correct eyes, cool hair, no glowing pupils) than any Gemini output. Surprising kicker: the Gemini-3.5 judge scores ThermalGen LOWER (3-4/10) than Gemini's own outputs (7/10), because the judge is biased toward Gemini-style 'fancy-thermal-looking' images. Don't use LLMs to judge thermal physics."
 format:
   html:
     toc: true
@@ -25,6 +25,8 @@ resources:
 **The result**: all seven Flash generations look "thermal" (iron palette, glowing face, dark background). All seven also make the same three physical errors — bright pupils, hot eyeglass lenses, and a hallucinated colour-scale UI on the side. The best Gemini-judge score across any Flash strategy was **7/10**, achieved on a single self-critique step. A second self-critique step pushed Flash into hallucinating a network of bright veins on the forehead and dropped the score back to 5/10.
 
 **The 7B-parameter question** (literally, [does scaling fix this?](#does-a-stronger-model-help-nano-banana-pro-vs-flash)): the bigger Nano Banana Pro model is +1 to +2 points on 5 of the 7 attempts, AND it stays at 7/10 on the second self-critique iteration where Flash collapsed to 5/10. But the ceiling is still **7/10**. Every Pro generation still has glowing pupils, still hallucinates a temperature legend, and still draws the wrong subject. **Scaling the model improves how often you get the best output; it doesn't raise the best output.**
+
+**The dedicated-model question** (does a thermal-specialised generator actually do better?): [running ThermalGen's pretrained weights](#what-if-we-actually-run-a-thermal-specialised-model) — the SOTA RGB→thermal generator from NeurIPS 2025 — on the same image produces visibly more correct thermal physics than any Gemini output. The eyes are dark with bright canthi (correct), the hair is uniformly cool (correct), there are no hallucinated UI bars. But the Gemini-3.5-Flash judge scores ThermalGen *lower* (3-4/10) than Gemini's own outputs (7/10), because the judge has a "Gemini-style" bias — it expects glowing eyes and dramatic colour scales. **The 7/10 ceiling isn't a ceiling on physics; it's a ceiling on "thermal images that look like what an LLM thinks a thermal image should look like." Don't use LLMs to judge thermal physics.**
 
 **The implication for the paper**: Gemini is doing thermal *style transfer*, not thermal *modality conversion*. The look matches; the physics doesn't. Synthetic thermal from a general-purpose generator is probably not a substitute for real thermal data when training a downstream physics-sensitive task (e.g., breath-rate from nostril temperature).
 
@@ -429,6 +431,87 @@ These are the *modality-gap* errors. They survive scaling because they require t
 ### The bigger lesson
 
 Scaling improves **consistency and resilience** (fewer bad runs, less collapse on iteration) but doesn't raise the **physics ceiling**. For a downstream task that depends on thermal physics being correct (a nostril temperature tracker, an early-warning fever screener, a clinical thermography classifier), Pro is no better than Flash. For a downstream task that depends only on thermal *style* (e.g., a face detector that just needs to see iron-palette faces during training to handle test-time thermal inputs), Pro is meaningfully better because it produces fewer artefacts.
+
+## What if we actually run a thermal-specialised model?
+
+The literature priors above were that every recent SOTA thermal-generation paper uses a generator finetuned on real thermal data. Of those, **[ThermalGen (NeurIPS 2025)](https://github.com/arplaboratory/ThermalGen)** ships [pretrained weights on Hugging Face](https://huggingface.co/collections/xjh19972/thermalgen-models-68d863b498a89060c05fae2f) — `xjh19972/ThermalGen-{B,L,XL}-2` — with a one-script demo. It's a flow-based SiT model (Scalable Interpolant Transformer) that takes an RGB image + a dataset-index conditioning label and outputs a single-channel thermal latent decoded by a thermal-specific KL-VAE.
+
+So instead of speculating about whether a thermal-specialised model would do better, I can just run it.
+
+### Setup
+
+```bash
+git clone https://github.com/arplaboratory/ThermalGen
+pip install diffusers torchdiffeq
+```
+
+```python
+from thermalgen_demo import ThermalGenSIT
+model = ThermalGenSIT.from_pretrained("xjh19972/ThermalGen-L-2-concat").cuda()
+rgb_tensor = eval_transform(rgb_pil).unsqueeze(0).cuda()
+dataset_idx = torch.tensor([7])   # M3FD class; affects thermal "style"
+pred_thermal = model(rgb_tensor, dataset_idx)  # (1, 1, 256, 256)
+```
+
+The model produces a **single-channel grayscale thermal image** (not iron-palette). To put it on equal footing with the Gemini iron-palette outputs for visual comparison, I post-process with `cv2.applyColorMap(grayscale, cv2.COLORMAP_INFERNO)` — a close visual match to the FLIR Iron palette used in SF-TL54.
+
+I ran both the smallest (B-2, 0.3B params) and the recommended (L-2-concat, 0.6B params) checkpoints, across several `dataset_idx` values (M3FD = 7, FLIR = 21, Caltech = 4, KAIST = 14, LLVIP = 5). Best face-fidelity output: L-2-concat with `dataset_idx=7` and `cfg=1.0`. **Inference time on RTX A5000: ~5 seconds.** Each Gemini Pro inference took ~30 seconds. ThermalGen is ~6× faster on top of being a much smaller model.
+
+### Visual comparison
+
+::: {.column-page}
+![Side-by-side: real SF-TL54 thermal | Gemini Flash best (7/10 judge) | Gemini Pro best (7/10 judge) | ThermalGen-L-2-concat output, iron-colorized (judge-scored 4/10) | ThermalGen-L-2-concat native grayscale. Look at the *eyes* across the row: in the real thermal they are dark with the canthi (inner corners) bright. The two Gemini outputs render the eyes uniformly glowing bright. ThermalGen correctly puts dark hollows where the eyes are with subtle bright canthi. Look at the *hair*: real and ThermalGen both correctly render it cool/dark; Gemini does too but adds excessive structure.](thermal-genai/outputs/thermalgen_vs_gemini.png)
+:::
+
+By eye, **ThermalGen's output is the most physically correct** of the four AI-generated images:
+
+- **Eyes are dark hollows with bright inner canthi** — this is the textbook real-thermal eye signature, faithfully reproduced.
+- **Hair is uniformly cool** — no spurious bright strands.
+- **The forehead is the brightest region** — correct (thin skin + high vascularity).
+- **No glowing pupils, no hot eyeglass lenses, no hallucinated temperature legend bar.**
+- **Identity is preserved** — the generated face has the same structural features as the SF-TL54 RGB input.
+
+### But the Gemini judge scores ThermalGen LOWER (3–4/10)
+
+| Model | Best human-readable physics | Gemini-3.5-Flash judge score |
+|-------|----------------------------|-----------------------------:|
+| Gemini Flash | weak — glowing pupils, hot lenses, etc. | **7/10** |
+| Gemini Pro | weak — same failures, just more consistent | **7/10** |
+| **ThermalGen-L-2-concat** | **strong — canthi-correct eyes, cool hair** | **4/10** |
+
+**This is a striking meta-finding.** The Gemini-3.5-Flash judge, given the same prompt, scores Gemini's own (physically incorrect) outputs *higher* than ThermalGen's (physically more correct) output. The judge's stated reasons for the low ThermalGen score include things like:
+
+> *"The candidate lacks the necessary thermal contrast and fails to depict correct relative temperature distribution."*
+>
+> *"The candidate incorrectly displays hair as hot and eyes as dark, cool regions, reversing standard facial thermal patterns."*
+
+The second quote is striking — real thermal faces do show eyes as dark relative to surrounding orbital tissue (that's exactly what the SF-TL54 reference shows). The judge is misreading the reference image and applying an incorrect prior ("eyes should glow"), then scoring against that prior.
+
+Why? Two hypotheses, both plausible, probably both true:
+
+1. **The Gemini judge has a "Gemini-style" bias.** It has likely seen many AI-generated "thermal-looking" images in training (the kind with glowing eyes and a colour scale on the side — visually dramatic but physically wrong) and treats those as canonical. When shown a subtler, more correct thermal image, the judge interprets the subtlety as "lack of contrast / detail".
+2. **The Gemini judge is reading the *reference* (real thermal) wrong.** Even with the real SF-TL54 image right there, the judge sometimes describes it in terms that don't match what's in the pixels (e.g., calling closed-eyelid darkness a "lack of feature definition" rather than the actual cool-eyelid signature).
+
+### Implications
+
+This flips one of the earlier conclusions of the post on its head. **The "ceiling" of 7/10 isn't a real ceiling on thermal-physics correctness — it's a ceiling on "thermal images that look like what Gemini thinks a thermal image should look like".** A dedicated thermal generator that gets the physics RIGHT can score below Gemini's outputs because it doesn't share Gemini's visual biases.
+
+**For the paper, this means three things:**
+
+- **Don't use Gemini-as-judge for thermal physics evaluation.** It's biased toward Gemini-style outputs.
+- **Use quantitative pixel-level metrics instead.** The list from the earlier paper-direction section becomes urgent — eye/orbital ratio, structural similarity to real thermal in masked face regions, etc. A pixel-by-pixel comparison would show ThermalGen winning by a margin the LLM judge can't see.
+- **The right comparison is downstream-task performance.** Train a thermal nostril detector on (a) Gemini-generated thermal data and (b) ThermalGen-generated thermal data, test on real thermal — that's the deployment-relevant gap. My prior: (b) will win by a lot.
+
+### What ThermalGen still doesn't fix
+
+- **It's grayscale natively.** The model outputs a single-channel image; iron-palette is a post-processing convention. If your downstream pipeline expects iron-palette input, you need to standardise the colormap.
+- **Class-conditioning is per-dataset, not anatomical.** ThermalGen was trained on automotive / surveillance datasets (M3FD, FLIR, KAIST, etc.), not face datasets. The "thermal style" you get depends on which dataset's class label you pass. For face work, M3FD (idx 7) gave the best output in my testing — but a face-specific class doesn't exist.
+- **No identity-preservation guarantee.** Like Gemini, the output face is *similar to* the input RGB face, not identical. For applications that need to track the same person across modalities, you'd still want an explicit identity loss.
+- **256×256 input/output only.** The current weights are trained at 256×256. Higher resolutions require retraining.
+
+### Bottom line on this section
+
+The thermal-generation literature was right. **A specialised generator trained on real thermal data produces visibly more correct physics than a general-purpose generator of any size**, *even if* a generic LLM judge can't tell the difference. If you're building a thermal-data-synthesis pipeline today, ThermalGen is the better starting point than Gemini — and the only one that produces images consistent with actual LWIR physics.
 
 ## Implications for the upcoming paper
 
