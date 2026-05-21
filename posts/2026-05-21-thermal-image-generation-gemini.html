@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-05-21">
+<meta name="description" content="I ran Gemini 3.1 Flash Image Preview (a.k.a. Nano Banana 2) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each one against a real thermal photograph of the same subject. All four strategies produce visually-thermal-looking outputs but make the same characteristic physical errors: eyes glow brightest (wrong — should be cool), eyeglass lenses render hot (wrong — glass blocks LWIR), and the model hallucinates a temperature legend bar. A 2-step self-critique loop briefly hits 7/10 then diverges into hallucinated vein patterns. For a paper-grade thermal-data-synthesis pipeline, Gemini gives you style match but not physics match.">
+
+<title>Can Gemini 3.1 Flash Image Generate Believable Thermal Faces? Four Prompting Strategies vs.&nbsp;a Real Thermal Photograph – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-82e37cb7b6434006901e7fa82e7d06ec.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-577833abe1b92350236646abf7bf8d21.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-9482772de5f96bc669c49da57733e8fb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-ba0ea52c466f323bb4a80d9892c7c8cb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-9482772de5f96bc669c49da57733e8fb.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+
+<meta property="og:title" content="Can Gemini 3.1 Flash Image Generate Believable Thermal Faces? Four Prompting Strategies vs.&nbsp;a Real Thermal Photograph – Nipun Batra Blog">
+<meta property="og:description" content="I ran Gemini 3.1 Flash Image Preview (a.k.a. Nano Banana 2) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each one against a real thermal photograph of the same subject. All four strategies produce visually-thermal-looking outputs but make the same characteristic physical errors: eyes glow brightest (wrong — should be cool), eyeglass lenses render hot (wrong — glass blocks LWIR), and the model hallucinates a temperature legend bar. A 2-step self-critique loop briefly hits 7/10 then diverges into hallucinated vein patterns. For a paper-grade thermal-data-synthesis pipeline, Gemini gives you style match but not physics match.">
+<meta property="og:image" content="thermal-genai/outputs/source_rgb.png">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="Can Gemini 3.1 Flash Image Generate Believable Thermal Faces? Four Prompting Strategies vs.&nbsp;a Real Thermal Photograph – Nipun Batra Blog">
+<meta name="twitter:description" content="I ran Gemini 3.1 Flash Image Preview (a.k.a. Nano Banana 2) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each one against a real thermal photograph of the same subject. All four strategies produce visually-thermal-looking outputs but make the same characteristic physical errors: eyes glow brightest (wrong — should be cool), eyeglass lenses render hot (wrong — glass blocks LWIR), and the model hallucinates a temperature legend bar. A 2-step self-critique loop briefly hits 7/10 then diverges into hallucinated vein patterns. For a paper-grade thermal-data-synthesis pipeline, Gemini gives you style match but not physics match.">
+<meta name="twitter:image" content="thermal-genai/outputs/source_rgb.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <div class="quarto-title-block"><div><h1 class="title">Can Gemini 3.1 Flash Image Generate Believable Thermal Faces? Four Prompting Strategies vs.&nbsp;a Real Thermal Photograph</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+                  <div>
+        <div class="description">
+          I ran Gemini 3.1 Flash Image Preview (a.k.a. Nano Banana 2) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each one against a real thermal photograph of the same subject. All four strategies produce visually-thermal-looking outputs but make the same characteristic physical errors: eyes glow brightest (wrong — should be cool), eyeglass lenses render hot (wrong — glass blocks LWIR), and the model hallucinates a temperature legend bar. A 2-step self-critique loop briefly hits 7/10 then diverges into hallucinated vein patterns. For a paper-grade thermal-data-synthesis pipeline, Gemini gives you style match but not physics match.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">Gemini</div>
+                <div class="quarto-category">image-generation</div>
+                <div class="quarto-category">thermal-imaging</div>
+                <div class="quarto-category">evaluation</div>
+                <div class="quarto-category">paper-prototype</div>
+                <div class="quarto-category">Nano-Banana</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">May 21, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#tldr" id="toc-tldr" class="nav-link active" data-scroll-target="#tldr">TL;DR</a></li>
+  <li><a href="#background-why-a-general-image-generator-should-fail-on-thermal" id="toc-background-why-a-general-image-generator-should-fail-on-thermal" class="nav-link" data-scroll-target="#background-why-a-general-image-generator-should-fail-on-thermal">Background — why a general image generator should fail on thermal</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#ground-truth-the-source-rgb-and-real-thermal" id="toc-ground-truth-the-source-rgb-and-real-thermal" class="nav-link" data-scroll-target="#ground-truth-the-source-rgb-and-real-thermal">Ground truth: the source RGB and real thermal</a></li>
+  <li><a href="#experiment-1-caption-only-generation-no-rgb-input" id="toc-experiment-1-caption-only-generation-no-rgb-input" class="nav-link" data-scroll-target="#experiment-1-caption-only-generation-no-rgb-input">Experiment 1 — caption-only generation (no RGB input)</a>
+  <ul class="collapse">
+  <li><a href="#a-generic-caption" id="toc-a-generic-caption" class="nav-link" data-scroll-target="#a-generic-caption">1a — generic caption</a></li>
+  <li><a href="#b-rgb-derived-caption-gemini-captioned-the-rgb-photo" id="toc-b-rgb-derived-caption-gemini-captioned-the-rgb-photo" class="nav-link" data-scroll-target="#b-rgb-derived-caption-gemini-captioned-the-rgb-photo">1b — RGB-derived caption (Gemini captioned the RGB photo)</a></li>
+  <li><a href="#c-explicit-thermal-physics-caption-hand-written" id="toc-c-explicit-thermal-physics-caption-hand-written" class="nav-link" data-scroll-target="#c-explicit-thermal-physics-caption-hand-written">1c — explicit thermal-physics caption (hand-written)</a></li>
+  <li><a href="#d-geminis-own-caption-of-the-real-thermal-fed-back-as-the-prompt" id="toc-d-geminis-own-caption-of-the-real-thermal-fed-back-as-the-prompt" class="nav-link" data-scroll-target="#d-geminis-own-caption-of-the-real-thermal-fed-back-as-the-prompt">1d — Gemini’s own caption of the real thermal, fed back as the prompt</a></li>
+  <li><a href="#putting-all-four-caption-only-generations-together" id="toc-putting-all-four-caption-only-generations-together" class="nav-link" data-scroll-target="#putting-all-four-caption-only-generations-together">Putting all four caption-only generations together</a></li>
+  </ul></li>
+  <li><a href="#experiment-2-rgb-image-thermal-physics-caption-thermal" id="toc-experiment-2-rgb-image-thermal-physics-caption-thermal" class="nav-link" data-scroll-target="#experiment-2-rgb-image-thermal-physics-caption-thermal">Experiment 2 — RGB image + thermal-physics caption → thermal</a></li>
+  <li><a href="#experiment-3-self-critique-loop" id="toc-experiment-3-self-critique-loop" class="nav-link" data-scroll-target="#experiment-3-self-critique-loop">Experiment 3 — self-critique loop</a>
+  <ul class="collapse">
+  <li><a href="#iteration-0-starting-point" id="toc-iteration-0-starting-point" class="nav-link" data-scroll-target="#iteration-0-starting-point">Iteration 0: starting point</a></li>
+  <li><a href="#iteration-1-regenerate-with-the-critique-as-input" id="toc-iteration-1-regenerate-with-the-critique-as-input" class="nav-link" data-scroll-target="#iteration-1-regenerate-with-the-critique-as-input">Iteration 1: regenerate with the critique as input</a></li>
+  <li><a href="#iteration-2-regenerate-again" id="toc-iteration-2-regenerate-again" class="nav-link" data-scroll-target="#iteration-2-regenerate-again">Iteration 2: regenerate again</a></li>
+  </ul></li>
+  <li><a href="#putting-all-seven-generations-side-by-side" id="toc-putting-all-seven-generations-side-by-side" class="nav-link" data-scroll-target="#putting-all-seven-generations-side-by-side">Putting all seven generations side by side</a></li>
+  <li><a href="#the-failure-mode-catalogue" id="toc-the-failure-mode-catalogue" class="nav-link" data-scroll-target="#the-failure-mode-catalogue">The failure-mode catalogue</a>
+  <ul class="collapse">
+  <li><a href="#glowing-pupils-iris-appears-in-77-generations" id="toc-glowing-pupils-iris-appears-in-77-generations" class="nav-link" data-scroll-target="#glowing-pupils-iris-appears-in-77-generations">1. Glowing pupils / iris (appears in 7/7 generations)</a></li>
+  <li><a href="#hot-eyeglass-lenses-appears-in-37-generations" id="toc-hot-eyeglass-lenses-appears-in-37-generations" class="nav-link" data-scroll-target="#hot-eyeglass-lenses-appears-in-37-generations">2. Hot eyeglass lenses (appears in 3/7 generations)</a></li>
+  <li><a href="#hallucinated-temperature-legend-bar-appears-in-47-generations" id="toc-hallucinated-temperature-legend-bar-appears-in-47-generations" class="nav-link" data-scroll-target="#hallucinated-temperature-legend-bar-appears-in-47-generations">3. Hallucinated temperature legend bar (appears in 4/7 generations)</a></li>
+  <li><a href="#wrong-subject-identity-appears-in-77-generations" id="toc-wrong-subject-identity-appears-in-77-generations" class="nav-link" data-scroll-target="#wrong-subject-identity-appears-in-77-generations">4. Wrong subject identity (appears in 7/7 generations)</a></li>
+  <li><a href="#lightning-vein-patterns-at-iter-2-appears-in-17-generations" id="toc-lightning-vein-patterns-at-iter-2-appears-in-17-generations" class="nav-link" data-scroll-target="#lightning-vein-patterns-at-iter-2-appears-in-17-generations">5. Lightning-vein patterns at iter 2 (appears in 1/7 generations)</a></li>
+  <li><a href="#wrong-absolute-temperature-scale-appears-in-all-generations-with-legends" id="toc-wrong-absolute-temperature-scale-appears-in-all-generations-with-legends" class="nav-link" data-scroll-target="#wrong-absolute-temperature-scale-appears-in-all-generations-with-legends">6. Wrong absolute temperature scale (appears in all generations with legends)</a></li>
+  <li><a href="#uniform-background-appears-in-57" id="toc-uniform-background-appears-in-57" class="nav-link" data-scroll-target="#uniform-background-appears-in-57">7. Uniform background (appears in 5/7)</a></li>
+  </ul></li>
+  <li><a href="#implications-for-the-upcoming-paper" id="toc-implications-for-the-upcoming-paper" class="nav-link" data-scroll-target="#implications-for-the-upcoming-paper">Implications for the upcoming paper</a></li>
+  <li><a href="#what-id-run-next-if-i-were-writing-the-paper" id="toc-what-id-run-next-if-i-were-writing-the-paper" class="nav-link" data-scroll-target="#what-id-run-next-if-i-were-writing-the-paper">What I’d run next if I were writing the paper</a></li>
+  <li><a href="#what-this-experiment-is-not" id="toc-what-this-experiment-is-not" class="nav-link" data-scroll-target="#what-this-experiment-is-not">What this experiment is <em>not</em></a></li>
+  <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<section id="tldr" class="level2">
+<h2 class="anchored" data-anchor-id="tldr">TL;DR</h2>
+<p><strong>The question</strong>: can a state-of-the-art general-purpose image generator (Gemini 3.1 Flash Image Preview, sold as “Nano Banana 2”) synthesise <em>physically plausible</em> thermal (LWIR) face images? If yes, that’s a cheap data-augmentation pipeline for the small thermal-face datasets I use in <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">the thermal-nostril series</a>. If no, the failure modes should be informative — they motivate a thermal-specific generator.</p>
+<p><strong>The setup</strong>: real RGB photograph and matching real thermal photograph of the same subject (from <a href="https://huggingface.co/datasets/issai/SFTL54">SF-TL54</a>). Four prompting strategies, each generating a thermal image; a fifth strategy adds a 2-iteration self-critique loop. Every generation is then scored by Gemini-3.5-flash against the real thermal as a ground-truth reference.</p>
+<p><strong>The result</strong>: all seven generations look “thermal” (iron palette, glowing face, dark background). All seven also make the same three physical errors — bright pupils, hot eyeglass lenses, and a hallucinated colour-scale UI on the side. The best Gemini-judge score across any strategy was <strong>7/10</strong>, achieved on a single self-critique step. A second self-critique step pushed the model into hallucinating a network of bright veins on the forehead and dropped the score back to 5/10.</p>
+<p><strong>The implication for the paper</strong>: Gemini is doing thermal <em>style transfer</em>, not thermal <em>modality conversion</em>. The look matches; the physics doesn’t. Synthetic thermal from a general-purpose generator is probably not a substitute for real thermal data when training a downstream physics-sensitive task (e.g., breath-rate from nostril temperature).</p>
+<blockquote class="blockquote">
+<p>Code: <a href="https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py"><code>posts/thermal-genai/scripts/run_experiments.py</code></a> — single script that ran every experiment in this post (~3 minutes total, ~$0.50 in Gemini API spend).</p>
+</blockquote>
+</section>
+<section id="background-why-a-general-image-generator-should-fail-on-thermal" class="level2">
+<h2 class="anchored" data-anchor-id="background-why-a-general-image-generator-should-fail-on-thermal">Background — why a general image generator should fail on thermal</h2>
+<p>Thermal imaging measures <em>emitted</em> electromagnetic radiation in the 8-14 µm band (long-wave infrared, LWIR). The signal is roughly proportional to surface temperature for objects close to body temperature. A few thermal-physics facts that any thermal image <em>must</em> respect:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Anatomy</th>
+<th>Real-thermal behaviour</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Forehead, cheeks</strong></td>
+<td>Warm (bright yellow on iron palette)</td>
+<td>Thin skin, dense vascularisation</td>
+</tr>
+<tr class="even">
+<td><strong>Eyelids closed</strong></td>
+<td>Cool (dark)</td>
+<td>Eyelid is thin avascular tissue; under the eyelid the cornea is cooled by evaporation</td>
+</tr>
+<tr class="odd">
+<td><strong>Open-eye sclera</strong></td>
+<td>Cool — <em>cooler than periorbital skin</em></td>
+<td>Tear film evaporates ⇒ thermal cooling</td>
+</tr>
+<tr class="even">
+<td><strong>Inner canthus (corner of eye toward nose)</strong></td>
+<td>Hot (often the brightest spot)</td>
+<td>Bone-thin, fed by ophthalmic vessels</td>
+</tr>
+<tr class="odd">
+<td><strong>Nose tip</strong></td>
+<td>Cool (markedly darker than surrounding cheek)</td>
+<td>Cartilage, poor perfusion, cooled by inhalation</td>
+</tr>
+<tr class="even">
+<td><strong>Eyeglass lenses</strong></td>
+<td>Cold (dark) — they <em>block</em> the eye’s thermal signal</td>
+<td>Glass and most polymers are opaque in LWIR</td>
+</tr>
+<tr class="odd">
+<td><strong>Hair</strong></td>
+<td>Cool to very cool</td>
+<td>Insulator; little body heat reaches the outer layer</td>
+</tr>
+<tr class="even">
+<td><strong>Background wall</strong></td>
+<td>Spatially varied (warm electronics, cool radiators-off, mid walls)</td>
+<td>Real rooms have heterogeneous thermal scenes</td>
+</tr>
+</tbody>
+</table>
+<p>A general-purpose image generator like Gemini Nano Banana has been trained on <strong>billions of RGB images</strong> and (almost certainly) a tiny single-digit-percentage fraction of thermal images. It will have learned the <em>visual</em> signature of thermal (iron palette, glowing skin, dark background) but is unlikely to have learned which anatomical regions should be hot vs cold — and <em>why</em>. The interesting question is exactly <strong>how the failures manifest</strong>.</p>
+</section>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install google-genai==1.56.0 pillow matplotlib</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">GEMINI_API_KEY</span><span class="op">=</span>...</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Two models:</p>
+<ul>
+<li><strong>Image generation</strong>: <code>gemini-3.1-flash-image-preview</code> — the current best-balance image-generation model on the Gemini API as of 2026-05 (a.k.a. Nano Banana 2). Faster than Nano Banana Pro, almost as capable.</li>
+<li><strong>Captioning / critique / scoring</strong>: <code>gemini-3.5-flash</code> — the text-only model. Same model used in <a href="2026-05-20-gemini-3.5-flash-and-omni.html">the parallel Gemini-3.5-Flash benchmark post</a>.</li>
+</ul>
+<p>The full experiment is <strong>one Python script</strong> (<a href="https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py"><code>run_experiments.py</code></a>, ~200 lines). It runs all four prompt strategies, executes the self-critique loop, runs Gemini-as-judge on every output, and saves a JSON summary. Total cost: ~$0.50 in Gemini API spend, ~3 minutes wall-clock.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> google <span class="im">import</span> genai</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> genai.Client()</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>IMAGE_MODEL <span class="op">=</span> <span class="st">"gemini-3.1-flash-image-preview"</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>TEXT_MODEL  <span class="op">=</span> <span class="st">"gemini-3.5-flash"</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_image(prompt_parts, save_as):</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    resp <span class="op">=</span> client.models.generate_content(</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        model<span class="op">=</span>IMAGE_MODEL, contents<span class="op">=</span>prompt_parts)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> resp.parts:</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> p.inline_data:</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            Image.<span class="bu">open</span>(io.BytesIO(p.inline_data.data)).save(save_as)<span class="op">;</span> <span class="cf">return</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="ground-truth-the-source-rgb-and-real-thermal" class="level2">
+<h2 class="anchored" data-anchor-id="ground-truth-the-source-rgb-and-real-thermal">Ground truth: the source RGB and real thermal</h2>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="thermal-genai/outputs/source_rgb.png" class="img-fluid figure-img"></p>
+<figcaption>Real RGB photograph — SF-TL54 subject 100. Frontal portrait, no glasses, dark blue collar shirt, office chair, plain wall.</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="thermal-genai/outputs/source_thermal_real.png" class="img-fluid figure-img"></p>
+<figcaption>Real LWIR thermal photograph of the SAME subject in roughly the same pose, iron palette. This is the ground-truth target.</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="thermal-genai/outputs/source_thermeval.png" class="img-fluid figure-img"></p>
+<figcaption>A second real LWIR image (different subject, from ThermEval-D) included as a cross-modality check.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<p>Read the real-thermal panel carefully — this is what we want any reasonable thermal-generation pipeline to reproduce:</p>
+<ul>
+<li><strong>Face skin</strong> is the warm orange across the cheeks and forehead.</li>
+<li><strong>Closed eyelids</strong> are <em>darker</em> than the surrounding orbital region — you can clearly see the dark eyelid stripe across both eyes.</li>
+<li><strong>The hair</strong> is the coolest part of the face — almost black.</li>
+<li><strong>The nose</strong> has a subtle dark patch on the tip (cartilage = cooler) while the bridge and alae are warm.</li>
+<li><strong>The shirt collar</strong> at the bottom of the frame transitions cool→warm where it meets the neck.</li>
+<li><strong>No glasses, no temperature-scale legend bar, no glowing pupils.</strong></li>
+</ul>
+<p>Everything Gemini does below will be measured against these features.</p>
+</section>
+<section id="experiment-1-caption-only-generation-no-rgb-input" class="level2">
+<h2 class="anchored" data-anchor-id="experiment-1-caption-only-generation-no-rgb-input">Experiment 1 — caption-only generation (no RGB input)</h2>
+<p>The hardest version of the task: invent both the subject and the thermal physics from a text prompt alone. Four caption styles, each producing one image.</p>
+<section id="a-generic-caption" class="level3">
+<h3 class="anchored" data-anchor-id="a-generic-caption">1a — generic caption</h3>
+<blockquote class="blockquote">
+<p><em>“A thermal infrared image of a human face. Iron color palette.”</em></p>
+</blockquote>
+<p>The minimal prompt — a tourist’s idea of what to ask for.</p>
+<div id="fig-1a" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-1a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1a_generic.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-1a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Gemini-1a-generic output. Pretty stylised. Eyes are the brightest spot on the face (wrong direction — real-thermal eyes are darker than orbital region).
+</figcaption>
+</figure>
+</div>
+<p>Gemini-3.5 judge: <strong>5/10</strong> — <em>“While the candidate captures basic temperature distributions, it physically misrepresents thermal radiation by rendering fine visible-light details like irises and sharp edges.”</em></p>
+</section>
+<section id="b-rgb-derived-caption-gemini-captioned-the-rgb-photo" class="level3">
+<h3 class="anchored" data-anchor-id="b-rgb-derived-caption-gemini-captioned-the-rgb-photo">1b — RGB-derived caption (Gemini captioned the RGB photo)</h3>
+<p>I gave Gemini-3.5-flash the real RGB photo and asked it to write a one-sentence semantic caption. It produced:</p>
+<blockquote class="blockquote">
+<p><em>“A man with short dark hair wearing a dark blue collared shirt sits in a black-framed office chair against a plain, off-white wall, his head turned slightly to his right with his gaze directed off-camera.”</em></p>
+</blockquote>
+<p>I then prompted the image generator with <code>f"A thermal infrared image of: {caption}. Iron color palette."</code></p>
+<div id="fig-1b" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-1b-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1b_rgb_derived.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-1b-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Gemini-1b-RGB-caption output. The semantic context (office chair, dark shirt, plain background) is rendered, but the subject is a different person. The face is roughly correct (warm skin, cool hair) but the wall behind is shown as the hottest surface in the scene, which is physically backwards.
+</figcaption>
+</figure>
+</div>
+<p>Gemini-3.5 judge: <strong>6/10</strong> — <em>“While the candidate correctly depicts the hot regions around the eyes, the hair is physically too warm and the background wall is implausibly rendered as the hottest surface on the scale.”</em></p>
+</section>
+<section id="c-explicit-thermal-physics-caption-hand-written" class="level3">
+<h3 class="anchored" data-anchor-id="c-explicit-thermal-physics-caption-hand-written">1c — explicit thermal-physics caption (hand-written)</h3>
+<blockquote class="blockquote">
+<p><em>“A thermal infrared image of a human face on iron color palette. Hot regions (bright yellow/white): periorbital area (around eyes), carotid region (sides of neck), exhaled air around the nostrils. Cool regions (dark purple/black): hair, eyeglasses (if any), the tip of the nose, ears, and any cloth fabric. The face skin should be warmer than the cool background room.”</em></p>
+</blockquote>
+<p>This is the prompt that has <em>the most thermal physics baked in</em>. We tell the model exactly which regions should be hot and which should be cold.</p>
+<div id="fig-1c" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-1c-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1c_thermal_physics.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-1c-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Gemini-1c-thermal-physics output. Surprisingly, the model decided to ADD eyeglasses to the face — even though the prompt explicitly said glasses should be cold (dark). And the glasses’ lenses are rendered HOT, not cold. The model also added a temperature legend bar on the right side with calibration numbers (18 °C - 38 °C).
+</figcaption>
+</figure>
+</div>
+<p>Gemini-3.5 judge: <strong>5/10</strong> — <em>“While the cool hair and warm neck are physically plausible, the image incorrectly depicts the glasses’ lenses as transparent to thermal radiation instead of opaque.”</em></p>
+<p>Two specific failures worth calling out:</p>
+<ol type="1">
+<li><strong>The generator invented glasses despite the prompt.</strong> A common failure when prompts list many salient concepts: the model includes everything it heard, even if the prompt said “if any”. For thermal data synthesis this is a problem — you don’t want the model deciding which accessories the subject is wearing.</li>
+<li><strong>The lenses are bright/hot, not dark/cold.</strong> This is the classic thermal-physics error. In real LWIR, glass is opaque — lenses appear as the <em>darkest</em> feature of the face because they block the eye’s thermal signal. Gemini renders them as if they’re transparent and slightly warmed by skin contact.</li>
+</ol>
+</section>
+<section id="d-geminis-own-caption-of-the-real-thermal-fed-back-as-the-prompt" class="level3">
+<h3 class="anchored" data-anchor-id="d-geminis-own-caption-of-the-real-thermal-fed-back-as-the-prompt">1d — Gemini’s own caption of the real thermal, fed back as the prompt</h3>
+<p>This is the most novel of the four. I gave Gemini-3.5-flash the REAL thermal image and asked it to describe what it sees. It produced:</p>
+<blockquote class="blockquote">
+<p><em>“This thermal image displays a person’s face and neck, where the warmest (brightest yellow and white) regions are concentrated on the face, particularly around the cheeks, forehead, and inner ear area, while the cooler regions (purple/dark blue) are visible in the hair, neck collar, and background.”</em></p>
+</blockquote>
+<p>Then I fed <em>Gemini’s own thermal description</em> back to the image generator with <code>f"A thermal infrared image of a human face. {therm_cap} Iron palette."</code></p>
+<div id="fig-1d" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-1d-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1d_gemini_thermcap.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-1d-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: Gemini-1d-self-caption output. The most visually plausible of the four caption-only attempts: hot orbital ring, cool hair, dark background. Still has the glowing-pupil artefact.
+</figcaption>
+</figure>
+</div>
+<p>Gemini-3.5 judge: <strong>6/10</strong> — <em>“While the relative temperatures of the eyes, nose, and hair are largely correct, the candidate image displays excessive high-frequency skin texture that contradicts realistic thermal diffusion.”</em></p>
+<p>Note the irony: the <em>text</em> model can describe a real thermal image largely accurately, but when its own description is given back to the <em>image</em> model, the resulting image still has the classic eye-glow and texture errors. The two modalities of the same model family don’t share a consistent understanding of thermal physics.</p>
+</section>
+<section id="putting-all-four-caption-only-generations-together" class="level3">
+<h3 class="anchored" data-anchor-id="putting-all-four-caption-only-generations-together">Putting all four caption-only generations together</h3>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-grid-1a" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-grid-1a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1a_generic.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-grid-1a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5: 1a generic — 5/10
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-grid-1b" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-grid-1b-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1b_rgb_derived.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-grid-1b-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6: 1b RGB-caption — 6/10
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-grid-1c" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-grid-1c-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1c_thermal_physics.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-grid-1c-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7: 1c thermal-physics — 5/10
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-grid-1d" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-grid-1d-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp1d_gemini_thermcap.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-grid-1d-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;8: 1d Gemini-therm-caption — 6/10
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<p>All four are recognisable as “thermal images”. None of them are anyone we’ve seen before, and none match the SF-TL54 subject. The 1-point spread between 5/10 and 6/10 is below the noise floor of the Gemini judge — practically, all four are the same quality.</p>
+</section>
+</section>
+<section id="experiment-2-rgb-image-thermal-physics-caption-thermal" class="level2">
+<h2 class="anchored" data-anchor-id="experiment-2-rgb-image-thermal-physics-caption-thermal">Experiment 2 — RGB image + thermal-physics caption → thermal</h2>
+<p>Now I give Gemini the <em>actual</em> SF-TL54 RGB photo of subject 100, plus a thermal-physics caption telling it exactly what should be hot and cold. The hypothesis: if the model can see the actual subject, it should at least preserve the silhouette and identity, even if the physics is still off.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> (<span class="st">"I am giving you a real RGB photograph of a person. Generate the "</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>          <span class="st">"corresponding long-wave infrared (LWIR) thermal image of the SAME "</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>          <span class="st">"subject in the SAME pose. Use the iron color palette: warm regions "</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>          <span class="st">"(skin) should be yellow/orange/red, cool regions should be dark "</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>          <span class="st">"purple/black. The eyes / periorbital area should be the hottest, "</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>          <span class="st">"the eyeglasses (if any) should be cold (dark), the hair cool, the "</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>          <span class="st">"background room cool. Match the silhouette of the input photo exactly."</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>rgb_img <span class="op">=</span> Image.<span class="bu">open</span>(<span class="st">"source_rgb.png"</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>gen_image([prompt, rgb_img], <span class="st">"exp3_rgb_plus_thermcap.png"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-rgb-input" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-rgb-input-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/source_rgb.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-rgb-input-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;9: Real RGB (input to Gemini).
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div id="fig-exp2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-exp2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp3_rgb_plus_thermcap.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-exp2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;10: Gemini’s thermal output, conditioned on the RGB + the physics caption above.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<p>Gemini-3.5 judge: <strong>6/10</strong> — <em>“The candidate successfully depicts hot orbital regions and cool hair, but inaccurately renders fine skin textures and lacks the characteristic cold nose tip of the reference.”</em></p>
+<p>What worked:</p>
+<ul>
+<li><strong>Pose</strong> is loosely preserved (frontal, slight head turn).</li>
+<li><strong>Hair</strong> is correctly cool.</li>
+<li><strong>Background</strong> is uniform dark — closer to the real thermal than experiment 1b which made it bright.</li>
+<li><strong>No eyeglasses hallucinated</strong> — the input RGB shows no glasses, so the model didn’t add them.</li>
+</ul>
+<p>What’s still wrong:</p>
+<ul>
+<li><strong>Identity</strong> isn’t preserved — the generated face looks Asian rather than the original subject (who is Central Asian). The model is doing “style transfer to thermal” rather than “modality conversion of this specific person”.</li>
+<li><strong>Eyes still glow bright yellow</strong> — same failure as caption-only.</li>
+<li><strong>No cool nose tip</strong>, which is one of the most reliable thermal signatures.</li>
+<li><strong>Hallucinated temperature legend</strong> along the right edge — same as 1c, despite the prompt not requesting one.</li>
+</ul>
+<p>The RGB-conditioned score (6/10) is the same as the best caption-only score (6/10). <strong>Adding the source RGB photo gave essentially zero quantitative improvement.</strong> That’s a striking finding: the model isn’t really <em>using</em> the RGB conditioning for thermal-physics reasoning; it’s using it as a weak style/composition reference.</p>
+</section>
+<section id="experiment-3-self-critique-loop" class="level2">
+<h2 class="anchored" data-anchor-id="experiment-3-self-critique-loop">Experiment 3 — self-critique loop</h2>
+<p>The most realistic deployment scenario: a human in the loop providing feedback, except the human is replaced by Gemini judging Gemini.</p>
+<p>Per iteration:</p>
+<ol type="1">
+<li>Show Gemini-3.5 the <strong>real</strong> thermal photograph (REFERENCE) and the current generated candidate.</li>
+<li>Ask Gemini-3.5 to enumerate <strong>specific physical errors</strong> in the candidate.</li>
+<li>Feed those critiques back as conditioning into Gemini-3.1-Flash-Image to regenerate.</li>
+<li>Score the new candidate.</li>
+</ol>
+<section id="iteration-0-starting-point" class="level3">
+<h3 class="anchored" data-anchor-id="iteration-0-starting-point">Iteration 0: starting point</h3>
+<p>This is the experiment-2 output (6/10). The Gemini critique of it:</p>
+<blockquote class="blockquote">
+<p><em>“Based on the thermal physics of long-wave infrared (LWIR) imaging, here are four specific physical errors in the AI-generated CANDIDATE image:</em></p>
+<p><em>1. <strong>The Eyes (Visible Pupil/Iris):</strong> The candidate shows distinct, dark pupils and irises. In real LWIR, the wet surface of the eye is uniformly warm and highly emissive, appearing as a solid bright region without visible-light optical details like pupils.</em></p>
+<p><em>2. <strong>The Nose Temperature:</strong> The candidate’s nose is rendered warm. Physically, the nose consists of cartilage with poor blood circulation and is cooled by inhalation, meaning it should appear significantly colder (dark purple) as shown in the reference.</em></p>
+<p><em>3. <strong>High-Contrast Skin Freckles/Blemishes:</strong> The candidate shows small, dark, high-contrast spots corresponding to skin pigmentation. LWIR cameras detect temperature and emissivity, not melanin; pigment-based freckles do not have a different thermal signature and should not appear.</em></p>
+<p><em>4. <strong>Sharp, Hyper-Detailed Hair Strands:</strong> The candidate shows sharp, individual hair strands and textures. Hair acts as a bulk insulator; real thermal images show hair as a diffused, cooler, and softer mass rather than high-contrast, thread-like lines.”</em></p>
+</blockquote>
+<p>That critique is genuinely good — accurate thermal physics, specific to where the errors are in the image. It identifies the four main failure modes that I noticed by eye too.</p>
+</section>
+<section id="iteration-1-regenerate-with-the-critique-as-input" class="level3">
+<h3 class="anchored" data-anchor-id="iteration-1-regenerate-with-the-critique-as-input">Iteration 1: regenerate with the critique as input</h3>
+<p>The critique was fed back to the image generator with a prompt of the form <code>"I will give you an RGB photograph and a list of thermal-physics corrections. Generate a new LWIR thermal image of the same subject, fixing all the listed issues. {critique}"</code>.</p>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-real-target" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-real-target-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/source_thermal_real.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-real-target-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;11: Real thermal (target)
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-iter0" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-iter0-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp3_rgb_plus_thermcap.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-iter0-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;12: Iter 0 (RGB + caption) — 6/10
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-iter1" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-iter1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp4_refined_iter1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-iter1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;13: <strong>Iter 1 (after critique) — 7/10</strong>
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div id="fig-iter2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-iter2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp4_refined_iter2.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-iter2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;14: Iter 2 (after 2nd critique) — 5/10
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<p><strong>Iter 1 is the best generation across the entire experiment.</strong> Looking at it carefully:</p>
+<ul>
+<li>The orbital region is bright yellow and the central eye area is cooler than 1c-1d.</li>
+<li>The nose has a <em>more</em> cool tone than iter 0.</li>
+<li>The forehead is correctly the warmest part of the face.</li>
+<li>The hair is markedly cool.</li>
+<li>The temperature legend bar reappears (probably because the model still associates “thermal physics” with “show a calibration scale”) — but the legend is anchored to a plausible range (29-35 °C).</li>
+</ul>
+<p>Gemini-3.5 judge: <strong>7/10</strong> — <em>“The candidate correctly depicts hot eyes and a cool nose, but inaccurately represents the insulating hair as warmer than the bare skin of the forehead.”</em></p>
+</section>
+<section id="iteration-2-regenerate-again" class="level3">
+<h3 class="anchored" data-anchor-id="iteration-2-regenerate-again">Iteration 2: regenerate again</h3>
+<p>The second-iteration critique was:</p>
+<blockquote class="blockquote">
+<p><em>“1. <strong>Unphysiologically glowing eyes:</strong> The candidate’s entire eyes glow uniformly white-hot. In reality, wet corneas cool due to evaporation, leaving only the inner corners (canthi) hot…</em></p>
+<p><em>2. <strong>Under-temperature forehead:</strong> …</em></p>
+<p><em>3. <strong>Incorrect hair insulation:</strong> …</em></p>
+<p><em>4. <strong>Lack of vascular detail:</strong> The candidate features flat, airbrushed thermal gradients. It misses the distinct hot pathways of superficial blood vessels (such as the temporal arteries) visible on the reference’s forehead and temples.”</em></p>
+</blockquote>
+<p>The critique pushed for <em>more</em> anatomical detail in the form of visible blood vessels. The model interpreted this as: “draw bright vein-network patterns across the forehead and cheeks”. The result:</p>
+<div id="fig-iter2-detail" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-iter2-detail-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/exp4_refined_iter2.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-iter2-detail-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;15: Iter 2 — Gemini’s response to “add vascular detail”. A lightning-bolt mesh of bright lines covers the forehead and cheeks. Real LWIR thermal <em>does</em> sometimes show prominent surface vessels (especially the temporal vein), but as 1-2 sinuous lines, not a uniform high-contrast mesh.
+</figcaption>
+</figure>
+</div>
+<p>Judge score crashes back to <strong>5/10</strong> — <em>“The candidate exhibits physically unrealistic glowing ear cartilage, cold dark pupils, and highly exaggerated vascular lines on the forehead and neck.”</em></p>
+<p>This is a recurring pattern with self-critique loops on creative-generation tasks: <strong>one iteration converges toward the target; subsequent iterations over-correct</strong> because the critique step doesn’t know when to stop. The model keeps inventing new edits because it’s been instructed to find issues, and the generator over-applies them. <strong>For a paper-grade pipeline, use exactly one critique step or add an explicit “stop if no concrete, <em>physical</em> errors remain” termination condition to the critique prompt.</strong></p>
+</section>
+</section>
+<section id="putting-all-seven-generations-side-by-side" class="level2">
+<h2 class="anchored" data-anchor-id="putting-all-seven-generations-side-by-side">Putting all seven generations side by side</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 17%">
+<col style="width: 22%">
+<col style="width: 44%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Attempt</th>
+<th>Strategy</th>
+<th style="text-align: right;">Judge score</th>
+<th>One-line reason (Gemini)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1a</td>
+<td>Generic caption</td>
+<td style="text-align: right;">5/10</td>
+<td>“Renders fine visible-light details like irises and sharp edges”</td>
+</tr>
+<tr class="even">
+<td>1b</td>
+<td>RGB-derived caption</td>
+<td style="text-align: right;">6/10</td>
+<td>“Hair physically too warm; background wall implausibly rendered as hottest”</td>
+</tr>
+<tr class="odd">
+<td>1c</td>
+<td>Thermal-physics caption (explicit)</td>
+<td style="text-align: right;">5/10</td>
+<td>“Glasses’ lenses depicted as transparent instead of opaque”</td>
+</tr>
+<tr class="even">
+<td>1d</td>
+<td>Gemini’s own thermal caption</td>
+<td style="text-align: right;">6/10</td>
+<td>“Excessive high-frequency skin texture contradicts thermal diffusion”</td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>RGB image + physics caption</td>
+<td style="text-align: right;">6/10</td>
+<td>“Lacks the characteristic cold nose tip”</td>
+</tr>
+<tr class="even">
+<td>3 iter 1</td>
+<td>Self-critique × 1</td>
+<td style="text-align: right;"><strong>7/10</strong></td>
+<td>“Insulating hair shown warmer than bare-skin forehead”</td>
+</tr>
+<tr class="odd">
+<td>3 iter 2</td>
+<td>Self-critique × 2</td>
+<td style="text-align: right;">5/10</td>
+<td>“Glowing ear cartilage; exaggerated vascular lines”</td>
+</tr>
+</tbody>
+</table>
+<p>The score ceiling across every strategy is <strong>7/10</strong>. No strategy reached 8/10. The standard deviation between the strategies is ~1 point — small. <strong>The choice of prompting strategy makes a tiny difference; the underlying model’s grasp of thermal physics is the limit.</strong></p>
+</section>
+<section id="the-failure-mode-catalogue" class="level2">
+<h2 class="anchored" data-anchor-id="the-failure-mode-catalogue">The failure-mode catalogue</h2>
+<p>Cross-referencing the seven generations, here are the recurring errors. These are the things to look for when evaluating <em>any</em> thermal image generated by a general-purpose model:</p>
+<section id="glowing-pupils-iris-appears-in-77-generations" class="level3">
+<h3 class="anchored" data-anchor-id="glowing-pupils-iris-appears-in-77-generations">1. Glowing pupils / iris (appears in 7/7 generations)</h3>
+<p><strong>What’s wrong</strong>: every generated image has bright, distinct pupils or irises in the eye region. In real LWIR, eyes either appear as dark eyelids (closed) or as a homogeneous warm region (open) — never as RGB-style pupils with optical details.</p>
+<p><strong>Why the model does it</strong>: it has seen millions of RGB face photographs where the eye is the most salient feature with the most colour contrast. Even when palette-shifted to iron, the model preserves the eye as the brightest spot of the face.</p>
+</section>
+<section id="hot-eyeglass-lenses-appears-in-37-generations" class="level3">
+<h3 class="anchored" data-anchor-id="hot-eyeglass-lenses-appears-in-37-generations">2. Hot eyeglass lenses (appears in 3/7 generations)</h3>
+<p><strong>What’s wrong</strong>: when the model decides to render glasses, the lenses are bright (warm) instead of dark (cold). In real LWIR, glass and most lens polymers are opaque in the 8-14 µm band — lenses appear as the <em>darkest</em> feature of the face because they block the eye’s thermal signal.</p>
+<p><strong>Why the model does it</strong>: glass is <em>transparent</em> in RGB, and the model has learned “glasses are transparent”. It has no signal about how the material behaves at LWIR wavelengths.</p>
+</section>
+<section id="hallucinated-temperature-legend-bar-appears-in-47-generations" class="level3">
+<h3 class="anchored" data-anchor-id="hallucinated-temperature-legend-bar-appears-in-47-generations">3. Hallucinated temperature legend bar (appears in 4/7 generations)</h3>
+<p><strong>What’s wrong</strong>: a vertical colour scale appears on the right edge of the image, often with numerical temperature ranges (e.g., 18 °C - 38 °C).</p>
+<p><strong>Why the model does it</strong>: the training corpus presumably included many thermography PR images that have the calibration UI overlaid, and the model has internalised “thermal image = picture with a colour scale on the side”. Real <em>radiometric</em> thermal frames don’t have UI baked in.</p>
+</section>
+<section id="wrong-subject-identity-appears-in-77-generations" class="level3">
+<h3 class="anchored" data-anchor-id="wrong-subject-identity-appears-in-77-generations">4. Wrong subject identity (appears in 7/7 generations)</h3>
+<p><strong>What’s wrong</strong>: even with the source RGB photograph included as a reference, the generated thermal shows a different individual — same broad demographic, same pose, but not the same face.</p>
+<p><strong>Why the model does it</strong>: Nano Banana 2 is style-transferring, not modality-converting. Identity preservation is not part of its objective.</p>
+</section>
+<section id="lightning-vein-patterns-at-iter-2-appears-in-17-generations" class="level3">
+<h3 class="anchored" data-anchor-id="lightning-vein-patterns-at-iter-2-appears-in-17-generations">5. Lightning-vein patterns at iter 2 (appears in 1/7 generations)</h3>
+<p><strong>What’s wrong</strong>: in the over-iterated self-critique loop, the model adds a mesh of bright lines across the forehead and cheeks intended to represent superficial blood vessels.</p>
+<p><strong>Why the model does it</strong>: the critique prompt asked for “vascular detail” without quantifying it, and the model over-applies. Real LWIR forehead vessels appear as 1-3 sinuous bright lines (mostly the temporal vein), not a uniform high-contrast network.</p>
+</section>
+<section id="wrong-absolute-temperature-scale-appears-in-all-generations-with-legends" class="level3">
+<h3 class="anchored" data-anchor-id="wrong-absolute-temperature-scale-appears-in-all-generations-with-legends">6. Wrong absolute temperature scale (appears in all generations with legends)</h3>
+<p><strong>What’s wrong</strong>: when legend bars appear, the numerical ranges are arbitrary. One generation shows 18-38 °C; another shows 29-35 °C. The model has no way to know what absolute temperatures are in the scene from a text prompt.</p>
+<p><strong>Why the model does it</strong>: it has no access to real radiometric values; the legend numbers are pure hallucination.</p>
+</section>
+<section id="uniform-background-appears-in-57" class="level3">
+<h3 class="anchored" data-anchor-id="uniform-background-appears-in-57">7. Uniform background (appears in 5/7)</h3>
+<p><strong>What’s wrong</strong>: the background of most generations is a single dark blue tone. Real-room thermal backgrounds are spatially varied: warm electronics, cool radiators-off, mid-temperature walls, etc.</p>
+<p><strong>Why the model does it</strong>: simplification — easier for the generator to produce a clean dark background than to reason about scene thermodynamics.</p>
+</section>
+</section>
+<section id="implications-for-the-upcoming-paper" class="level2">
+<h2 class="anchored" data-anchor-id="implications-for-the-upcoming-paper">Implications for the upcoming paper</h2>
+<p>Three takeaways from this experiment:</p>
+<ol type="1">
+<li><p><strong>Style match ≠ modality match.</strong> Gemini consistently produces images that <em>look</em> thermal (correct palette, correct overall warm-on-face / cool-on-hair distribution, correct silhouette). But the thermal <em>physics</em> — which regions are hot and cold and why — is consistently wrong, and wrong in stable ways across all four prompting strategies. <strong>Style-based augmentation might still help a model that trains on visual texture</strong> (e.g., a face detector that doesn’t care if eyes are hot or cold). <strong>It cannot help a model that needs thermal physics correct</strong> (e.g., a nostril localiser tracking breath-rate temperature swings).</p></li>
+<li><p><strong>Self-critique helps once, then hurts.</strong> A single-iteration self-critique loop produces the best result across the whole experiment (7/10). Further iterations diverge because there’s no convergence signal. For a paper that uses Gemini to <em>iteratively refine</em> a generation, <strong>stop after one critique step</strong>, OR add an explicit termination condition (“if no concrete physical errors remain, output ‘NO CHANGES NEEDED’”).</p></li>
+<li><p><strong>Real thermal data still wins.</strong> The cheapest scaling path for a thermal model isn’t synthetic Gemini data; it’s projecting labels from paired-RGB (<a href="https://dl.acm.org/doi/10.1145/3757376.3771410">as TFD68 did</a>, see also <a href="../posts/2026-05-20-thermal-nostril-why-hard.html">part 4 of the nostril series</a>) or capturing more thermal video with an inexpensive TC001+ (~$350) at scale.</p></li>
+</ol>
+</section>
+<section id="what-id-run-next-if-i-were-writing-the-paper" class="level2">
+<h2 class="anchored" data-anchor-id="what-id-run-next-if-i-were-writing-the-paper">What I’d run next if I were writing the paper</h2>
+<ul>
+<li><strong>Quantitative thermal-physics metrics.</strong> Replace Gemini’s 1-10 judge with measurable features: (1) mean luminance of the iris region vs the periorbital ring (the iris should be <em>cooler</em>, so iris/orbital &lt; 1.0); (2) presence of a temperature bar UI as a binary feature; (3) Pearson correlation between generated-thermal pixels and real-thermal pixels, masked to the face region. Each metric is a number, not an LLM opinion.</li>
+<li><strong>Larger N.</strong> Run all four prompt strategies on 50 SF-TL54 subjects + 50 ThermEval-D subjects. Currently this is N=1, which is fine for failure-mode discovery but not for statistical claims.</li>
+<li><strong>Other generators.</strong> Run the same prompts through Imagen 3, Stable Diffusion 3 with a thermal LoRA, GPT-Image-1, and <code>gemini-3-pro-image-preview</code> (Nano Banana Pro). The failure-mode catalogue above is the right scaffolding for the comparison: does the next generator make the <em>same</em> errors, or different ones?</li>
+<li><strong>Thermal-finetuned generator.</strong> Take a small generator (Stable Diffusion XL Lightning, say) + finetune on ThermEval-D’s 1k thermal images. Does that close the physics gap, or does the finetune memorise specific scenes?</li>
+<li><strong>Downstream-task evaluation.</strong> Use the Gemini-generated thermal images as <em>training data</em> for a thermal nostril detector (the model from <a href="../posts/2026-05-20-thermal-nostril-finetune.html">part 2 of the nostril series</a>). Compare to a model trained on the same number of <em>real</em> thermal frames. The downstream-task gap is the actual deployment value of synthesis.</li>
+</ul>
+</section>
+<section id="what-this-experiment-is-not" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-experiment-is-not">What this experiment is <em>not</em></h2>
+<ul>
+<li><strong>Not a benchmark of Gemini 3.1 Flash Image</strong> as a general-purpose generator — it does extremely well on RGB tasks; thermal is just a specific OOD domain.</li>
+<li><strong>Not a claim that Gemini understands thermal physics is impossible</strong>. With dedicated finetuning on real thermal data + maybe a physics-aware loss term, the same architecture might do much better. This experiment measures zero-shot performance.</li>
+<li><strong>Not a quantitative paper result</strong>. The Gemini-judge scores are illustrative; a published paper would replace them with the quantitative metrics enumerated above.</li>
+</ul>
+</section>
+<section id="links" class="level2">
+<h2 class="anchored" data-anchor-id="links">Links</h2>
+<ul>
+<li>Experiment script: <a href="https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py"><code>posts/thermal-genai/scripts/run_experiments.py</code></a></li>
+<li>Saved outputs (real and generated): <a href="https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs"><code>posts/thermal-genai/outputs/</code></a></li>
+<li>Gemini image generation docs: <a href="https://ai.google.dev/gemini-api/docs/image-generation">ai.google.dev/gemini-api/docs/image-generation</a></li>
+<li>Source thermal datasets: <a href="https://huggingface.co/datasets/issai/SFTL54">SF-TL54</a> · <a href="https://www.kaggle.com/datasets/shriayush/thermeval">ThermEval-D</a></li>
+<li>Earlier Gemini-3.5-Flash measurement post: <a href="2026-05-20-gemini-3.5-flash-and-omni.html">2026-05-20-gemini-3.5-flash-and-omni</a></li>
+<li>Companion thermal-nostril series: <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">part 1</a> · <a href="../posts/2026-05-20-thermal-nostril-finetune.html">part 2</a> · <a href="../posts/2026-05-20-thermal-nostril-hierarchical.html">part 3</a> · <a href="../posts/2026-05-20-thermal-nostril-why-hard.html">part 4</a></li>
+</ul>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Can Gemini 3.1 Flash Image Generate Believable Thermal Faces? Four Prompting Strategies vs. a Real Thermal Photograph"</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-05-21"</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [Gemini, image-generation, thermal-imaging, evaluation, paper-prototype, Nano-Banana]</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "I ran Gemini 3.1 Flash Image Preview (a.k.a. Nano Banana 2) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each one against a real thermal photograph of the same subject. All four strategies produce visually-thermal-looking outputs but make the same characteristic physical errors: eyes glow brightest (wrong — should be cool), eyeglass lenses render hot (wrong — glass blocks LWIR), and the model hallucinates a temperature legend bar. A 2-step self-critique loop briefly hits 7/10 then diverges into hallucinated vein patterns. For a paper-grade thermal-data-synthesis pipeline, Gemini gives you style match but not physics match."</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">  - thermal-genai/scripts/*.py</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - thermal-genai/outputs/*.png</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - thermal-genai/outputs/*.json</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="fu">## TL;DR</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>**The question**: can a state-of-the-art general-purpose image generator (Gemini 3.1 Flash Image Preview, sold as "Nano Banana 2") synthesise *physically plausible* thermal (LWIR) face images? If yes, that's a cheap data-augmentation pipeline for the small thermal-face datasets I use in <span class="co">[</span><span class="ot">the thermal-nostril series</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span>. If no, the failure modes should be informative — they motivate a thermal-specific generator.</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>**The setup**: real RGB photograph and matching real thermal photograph of the same subject (from <span class="co">[</span><span class="ot">SF-TL54</span><span class="co">](https://huggingface.co/datasets/issai/SFTL54)</span>). Four prompting strategies, each generating a thermal image; a fifth strategy adds a 2-iteration self-critique loop. Every generation is then scored by Gemini-3.5-flash against the real thermal as a ground-truth reference.</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>**The result**: all seven generations look "thermal" (iron palette, glowing face, dark background). All seven also make the same three physical errors — bright pupils, hot eyeglass lenses, and a hallucinated colour-scale UI on the side. The best Gemini-judge score across any strategy was **7/10**, achieved on a single self-critique step. A second self-critique step pushed the model into hallucinating a network of bright veins on the forehead and dropped the score back to 5/10.</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>**The implication for the paper**: Gemini is doing thermal *style transfer*, not thermal *modality conversion*. The look matches; the physics doesn't. Synthetic thermal from a general-purpose generator is probably not a substitute for real thermal data when training a downstream physics-sensitive task (e.g., breath-rate from nostril temperature).</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Code: </span><span class="co">[</span><span class="ot">`posts/thermal-genai/scripts/run_experiments.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py)</span><span class="at"> — single script that ran every experiment in this post (~3 minutes total, ~$0.50 in Gemini API spend).</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="fu">## Background — why a general image generator should fail on thermal</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>Thermal imaging measures *emitted* electromagnetic radiation in the 8-14 µm band (long-wave infrared, LWIR). The signal is roughly proportional to surface temperature for objects close to body temperature. A few thermal-physics facts that any thermal image *must* respect:</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Anatomy <span class="pp">|</span> Real-thermal behaviour <span class="pp">|</span> Why <span class="pp">|</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Forehead, cheeks** <span class="pp">|</span> Warm (bright yellow on iron palette) <span class="pp">|</span> Thin skin, dense vascularisation <span class="pp">|</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Eyelids closed** <span class="pp">|</span> Cool (dark) <span class="pp">|</span> Eyelid is thin avascular tissue; under the eyelid the cornea is cooled by evaporation <span class="pp">|</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Open-eye sclera** <span class="pp">|</span> Cool — *cooler than periorbital skin* <span class="pp">|</span> Tear film evaporates ⇒ thermal cooling <span class="pp">|</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Inner canthus (corner of eye toward nose)** <span class="pp">|</span> Hot (often the brightest spot) <span class="pp">|</span> Bone-thin, fed by ophthalmic vessels <span class="pp">|</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Nose tip** <span class="pp">|</span> Cool (markedly darker than surrounding cheek) <span class="pp">|</span> Cartilage, poor perfusion, cooled by inhalation <span class="pp">|</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Eyeglass lenses** <span class="pp">|</span> Cold (dark) — they *block* the eye's thermal signal <span class="pp">|</span> Glass and most polymers are opaque in LWIR <span class="pp">|</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Hair** <span class="pp">|</span> Cool to very cool <span class="pp">|</span> Insulator; little body heat reaches the outer layer <span class="pp">|</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Background wall** <span class="pp">|</span> Spatially varied (warm electronics, cool radiators-off, mid walls) <span class="pp">|</span> Real rooms have heterogeneous thermal scenes <span class="pp">|</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>A general-purpose image generator like Gemini Nano Banana has been trained on **billions of RGB images** and (almost certainly) a tiny single-digit-percentage fraction of thermal images. It will have learned the *visual* signature of thermal (iron palette, glowing skin, dark background) but is unlikely to have learned which anatomical regions should be hot vs cold — and *why*. The interesting question is exactly **how the failures manifest**.</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install google-genai==1.56.0 pillow matplotlib</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">GEMINI_API_KEY</span><span class="op">=</span>...</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>Two models:</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Image generation**: <span class="in">`gemini-3.1-flash-image-preview`</span> — the current best-balance image-generation model on the Gemini API as of 2026-05 (a.k.a. Nano Banana 2). Faster than Nano Banana Pro, almost as capable.</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Captioning / critique / scoring**: <span class="in">`gemini-3.5-flash`</span> — the text-only model. Same model used in <span class="co">[</span><span class="ot">the parallel Gemini-3.5-Flash benchmark post</span><span class="co">](2026-05-20-gemini-3.5-flash-and-omni.html)</span>.</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>The full experiment is **one Python script** (<span class="co">[</span><span class="ot">`run_experiments.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py)</span>, ~200 lines). It runs all four prompt strategies, executes the self-critique loop, runs Gemini-as-judge on every output, and saves a JSON summary. Total cost: ~$0.50 in Gemini API spend, ~3 minutes wall-clock.</span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> google <span class="im">import</span> genai</span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> PIL <span class="im">import</span> Image</span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> genai.Client()</span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>IMAGE_MODEL <span class="op">=</span> <span class="st">"gemini-3.1-flash-image-preview"</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>TEXT_MODEL  <span class="op">=</span> <span class="st">"gemini-3.5-flash"</span></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gen_image(prompt_parts, save_as):</span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>    resp <span class="op">=</span> client.models.generate_content(</span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>        model<span class="op">=</span>IMAGE_MODEL, contents<span class="op">=</span>prompt_parts)</span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> resp.parts:</span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> p.inline_data:</span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>            Image.<span class="bu">open</span>(io.BytesIO(p.inline_data.data)).save(save_as)<span class="op">;</span> <span class="cf">return</span></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a><span class="fu">## Ground truth: the source RGB and real thermal</span></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a><span class="al">![Real RGB photograph — SF-TL54 subject 100. Frontal portrait, no glasses, dark blue collar shirt, office chair, plain wall.](thermal-genai/outputs/source_rgb.png)</span></span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a><span class="al">![Real LWIR thermal photograph of the SAME subject in roughly the same pose, iron palette. This is the ground-truth target.](thermal-genai/outputs/source_thermal_real.png)</span></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a><span class="al">![A second real LWIR image (different subject, from ThermEval-D) included as a cross-modality check.](thermal-genai/outputs/source_thermeval.png)</span></span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>Read the real-thermal panel carefully — this is what we want any reasonable thermal-generation pipeline to reproduce:</span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Face skin** is the warm orange across the cheeks and forehead.</span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Closed eyelids** are *darker* than the surrounding orbital region — you can clearly see the dark eyelid stripe across both eyes.</span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The hair** is the coolest part of the face — almost black.</span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The nose** has a subtle dark patch on the tip (cartilage = cooler) while the bridge and alae are warm.</span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The shirt collar** at the bottom of the frame transitions cool→warm where it meets the neck.</span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No glasses, no temperature-scale legend bar, no glowing pupils.**</span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a>Everything Gemini does below will be measured against these features.</span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a><span class="fu">## Experiment 1 — caption-only generation (no RGB input)</span></span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a>The hardest version of the task: invent both the subject and the thermal physics from a text prompt alone. Four caption styles, each producing one image.</span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1a — generic caption</span></span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"A thermal infrared image of a human face. Iron color palette."*</span></span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a>The minimal prompt — a tourist's idea of what to ask for.</span>
+<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a><span class="al">![Gemini-1a-generic output. Pretty stylised. Eyes are the brightest spot on the face (wrong direction — real-thermal eyes are darker than orbital region).](thermal-genai/outputs/exp1a_generic.png)</span>{#fig-1a}</span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a>Gemini-3.5 judge: **5/10** — *"While the candidate captures basic temperature distributions, it physically misrepresents thermal radiation by rendering fine visible-light details like irises and sharp edges."*</span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1b — RGB-derived caption (Gemini captioned the RGB photo)</span></span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a>I gave Gemini-3.5-flash the real RGB photo and asked it to write a one-sentence semantic caption. It produced:</span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"A man with short dark hair wearing a dark blue collared shirt sits in a black-framed office chair against a plain, off-white wall, his head turned slightly to his right with his gaze directed off-camera."*</span></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a>I then prompted the image generator with <span class="in">`f"A thermal infrared image of: {caption}. Iron color palette."`</span></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a><span class="al">![Gemini-1b-RGB-caption output. The semantic context (office chair, dark shirt, plain background) is rendered, but the subject is a different person. The face is roughly correct (warm skin, cool hair) but the wall behind is shown as the hottest surface in the scene, which is physically backwards.](thermal-genai/outputs/exp1b_rgb_derived.png)</span>{#fig-1b}</span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>Gemini-3.5 judge: **6/10** — *"While the candidate correctly depicts the hot regions around the eyes, the hair is physically too warm and the background wall is implausibly rendered as the hottest surface on the scale."*</span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1c — explicit thermal-physics caption (hand-written)</span></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"A thermal infrared image of a human face on iron color palette. Hot regions (bright yellow/white): periorbital area (around eyes), carotid region (sides of neck), exhaled air around the nostrils. Cool regions (dark purple/black): hair, eyeglasses (if any), the tip of the nose, ears, and any cloth fabric. The face skin should be warmer than the cool background room."*</span></span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a>This is the prompt that has *the most thermal physics baked in*. We tell the model exactly which regions should be hot and which should be cold.</span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a><span class="al">![Gemini-1c-thermal-physics output. Surprisingly, the model decided to ADD eyeglasses to the face — even though the prompt explicitly said glasses should be cold (dark). And the glasses' lenses are rendered HOT, not cold. The model also added a temperature legend bar on the right side with calibration numbers (18 °C - 38 °C).](thermal-genai/outputs/exp1c_thermal_physics.png)</span>{#fig-1c}</span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a>Gemini-3.5 judge: **5/10** — *"While the cool hair and warm neck are physically plausible, the image incorrectly depicts the glasses' lenses as transparent to thermal radiation instead of opaque."*</span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a>Two specific failures worth calling out:</span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**The generator invented glasses despite the prompt.** A common failure when prompts list many salient concepts: the model includes everything it heard, even if the prompt said "if any". For thermal data synthesis this is a problem — you don't want the model deciding which accessories the subject is wearing.</span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**The lenses are bright/hot, not dark/cold.** This is the classic thermal-physics error. In real LWIR, glass is opaque — lenses appear as the *darkest* feature of the face because they block the eye's thermal signal. Gemini renders them as if they're transparent and slightly warmed by skin contact.</span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1d — Gemini's own caption of the real thermal, fed back as the prompt</span></span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>This is the most novel of the four. I gave Gemini-3.5-flash the REAL thermal image and asked it to describe what it sees. It produced:</span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"This thermal image displays a person's face and neck, where the warmest (brightest yellow and white) regions are concentrated on the face, particularly around the cheeks, forehead, and inner ear area, while the cooler regions (purple/dark blue) are visible in the hair, neck collar, and background."*</span></span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a>Then I fed *Gemini's own thermal description* back to the image generator with <span class="in">`f"A thermal infrared image of a human face. {therm_cap} Iron palette."`</span></span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a><span class="al">![Gemini-1d-self-caption output. The most visually plausible of the four caption-only attempts: hot orbital ring, cool hair, dark background. Still has the glowing-pupil artefact.](thermal-genai/outputs/exp1d_gemini_thermcap.png)</span>{#fig-1d}</span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a>Gemini-3.5 judge: **6/10** — *"While the relative temperatures of the eyes, nose, and hair are largely correct, the candidate image displays excessive high-frequency skin texture that contradicts realistic thermal diffusion."*</span>
+<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a>Note the irony: the *text* model can describe a real thermal image largely accurately, but when its own description is given back to the *image* model, the resulting image still has the classic eye-glow and texture errors. The two modalities of the same model family don't share a consistent understanding of thermal physics.</span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a><span class="fu">### Putting all four caption-only generations together</span></span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a><span class="al">![1a generic — 5/10](thermal-genai/outputs/exp1a_generic.png)</span>{#fig-grid-1a}</span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a><span class="al">![1b RGB-caption — 6/10](thermal-genai/outputs/exp1b_rgb_derived.png)</span>{#fig-grid-1b}</span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a><span class="al">![1c thermal-physics — 5/10](thermal-genai/outputs/exp1c_thermal_physics.png)</span>{#fig-grid-1c}</span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a><span class="al">![1d Gemini-therm-caption — 6/10](thermal-genai/outputs/exp1d_gemini_thermcap.png)</span>{#fig-grid-1d}</span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a>All four are recognisable as "thermal images". None of them are anyone we've seen before, and none match the SF-TL54 subject. The 1-point spread between 5/10 and 6/10 is below the noise floor of the Gemini judge — practically, all four are the same quality.</span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a><span class="fu">## Experiment 2 — RGB image + thermal-physics caption → thermal</span></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a>Now I give Gemini the *actual* SF-TL54 RGB photo of subject 100, plus a thermal-physics caption telling it exactly what should be hot and cold. The hypothesis: if the model can see the actual subject, it should at least preserve the silhouette and identity, even if the physics is still off.</span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> (<span class="st">"I am giving you a real RGB photograph of a person. Generate the "</span></span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a>          <span class="st">"corresponding long-wave infrared (LWIR) thermal image of the SAME "</span></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a>          <span class="st">"subject in the SAME pose. Use the iron color palette: warm regions "</span></span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a>          <span class="st">"(skin) should be yellow/orange/red, cool regions should be dark "</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a>          <span class="st">"purple/black. The eyes / periorbital area should be the hottest, "</span></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a>          <span class="st">"the eyeglasses (if any) should be cold (dark), the hair cool, the "</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a>          <span class="st">"background room cool. Match the silhouette of the input photo exactly."</span>)</span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>rgb_img <span class="op">=</span> Image.<span class="bu">open</span>(<span class="st">"source_rgb.png"</span>)</span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a>gen_image([prompt, rgb_img], <span class="st">"exp3_rgb_plus_thermcap.png"</span>)</span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a><span class="al">![Real RGB (input to Gemini).](thermal-genai/outputs/source_rgb.png)</span>{#fig-rgb-input}</span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a><span class="al">![Gemini's thermal output, conditioned on the RGB + the physics caption above.](thermal-genai/outputs/exp3_rgb_plus_thermcap.png)</span>{#fig-exp2}</span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a>Gemini-3.5 judge: **6/10** — *"The candidate successfully depicts hot orbital regions and cool hair, but inaccurately renders fine skin textures and lacks the characteristic cold nose tip of the reference."*</span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a>What worked:</span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Pose** is loosely preserved (frontal, slight head turn).</span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Hair** is correctly cool.</span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Background** is uniform dark — closer to the real thermal than experiment 1b which made it bright.</span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No eyeglasses hallucinated** — the input RGB shows no glasses, so the model didn't add them.</span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a>What's still wrong:</span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Identity** isn't preserved — the generated face looks Asian rather than the original subject (who is Central Asian). The model is doing "style transfer to thermal" rather than "modality conversion of this specific person".</span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Eyes still glow bright yellow** — same failure as caption-only.</span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No cool nose tip**, which is one of the most reliable thermal signatures.</span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Hallucinated temperature legend** along the right edge — same as 1c, despite the prompt not requesting one.</span>
+<span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a>The RGB-conditioned score (6/10) is the same as the best caption-only score (6/10). **Adding the source RGB photo gave essentially zero quantitative improvement.** That's a striking finding: the model isn't really *using* the RGB conditioning for thermal-physics reasoning; it's using it as a weak style/composition reference.</span>
+<span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a><span class="fu">## Experiment 3 — self-critique loop</span></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a>The most realistic deployment scenario: a human in the loop providing feedback, except the human is replaced by Gemini judging Gemini.</span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a>Per iteration:</span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Show Gemini-3.5 the **real** thermal photograph (REFERENCE) and the current generated candidate.</span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Ask Gemini-3.5 to enumerate **specific physical errors** in the candidate.</span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Feed those critiques back as conditioning into Gemini-3.1-Flash-Image to regenerate.</span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Score the new candidate.</span>
+<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a><span class="fu">### Iteration 0: starting point</span></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a>This is the experiment-2 output (6/10). The Gemini critique of it:</span>
+<span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"Based on the thermal physics of long-wave infrared (LWIR) imaging, here are four specific physical errors in the AI-generated CANDIDATE image:*</span></span>
+<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *1. **The Eyes (Visible Pupil/Iris):**  The candidate shows distinct, dark pupils and irises. In real LWIR, the wet surface of the eye is uniformly warm and highly emissive, appearing as a solid bright region without visible-light optical details like pupils.*</span></span>
+<span id="cb4-225"><a href="#cb4-225" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *2. **The Nose Temperature:**  The candidate's nose is rendered warm. Physically, the nose consists of cartilage with poor blood circulation and is cooled by inhalation, meaning it should appear significantly colder (dark purple) as shown in the reference.*</span></span>
+<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *3. **High-Contrast Skin Freckles/Blemishes:**  The candidate shows small, dark, high-contrast spots corresponding to skin pigmentation. LWIR cameras detect temperature and emissivity, not melanin; pigment-based freckles do not have a different thermal signature and should not appear.*</span></span>
+<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *4. **Sharp, Hyper-Detailed Hair Strands:**  The candidate shows sharp, individual hair strands and textures. Hair acts as a bulk insulator; real thermal images show hair as a diffused, cooler, and softer mass rather than high-contrast, thread-like lines."*</span></span>
+<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a>That critique is genuinely good — accurate thermal physics, specific to where the errors are in the image. It identifies the four main failure modes that I noticed by eye too.</span>
+<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-234"><a href="#cb4-234" aria-hidden="true" tabindex="-1"></a><span class="fu">### Iteration 1: regenerate with the critique as input</span></span>
+<span id="cb4-235"><a href="#cb4-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-236"><a href="#cb4-236" aria-hidden="true" tabindex="-1"></a>The critique was fed back to the image generator with a prompt of the form <span class="in">`"I will give you an RGB photograph and a list of thermal-physics corrections. Generate a new LWIR thermal image of the same subject, fixing all the listed issues. {critique}"`</span>.</span>
+<span id="cb4-237"><a href="#cb4-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a><span class="al">![Real thermal (target)](thermal-genai/outputs/source_thermal_real.png)</span>{#fig-real-target}</span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 0 (RGB + caption) — 6/10](thermal-genai/outputs/exp3_rgb_plus_thermcap.png)</span>{#fig-iter0}</span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-243"><a href="#cb4-243" aria-hidden="true" tabindex="-1"></a><span class="al">![**Iter 1 (after critique) — 7/10**](thermal-genai/outputs/exp4_refined_iter1.png)</span>{#fig-iter1}</span>
+<span id="cb4-244"><a href="#cb4-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-245"><a href="#cb4-245" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 2 (after 2nd critique) — 5/10](thermal-genai/outputs/exp4_refined_iter2.png)</span>{#fig-iter2}</span>
+<span id="cb4-246"><a href="#cb4-246" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb4-247"><a href="#cb4-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-248"><a href="#cb4-248" aria-hidden="true" tabindex="-1"></a>**Iter 1 is the best generation across the entire experiment.** Looking at it carefully:</span>
+<span id="cb4-249"><a href="#cb4-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-250"><a href="#cb4-250" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The orbital region is bright yellow and the central eye area is cooler than 1c-1d.</span>
+<span id="cb4-251"><a href="#cb4-251" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The nose has a *more* cool tone than iter 0.</span>
+<span id="cb4-252"><a href="#cb4-252" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The forehead is correctly the warmest part of the face.</span>
+<span id="cb4-253"><a href="#cb4-253" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The hair is markedly cool.</span>
+<span id="cb4-254"><a href="#cb4-254" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The temperature legend bar reappears (probably because the model still associates "thermal physics" with "show a calibration scale") — but the legend is anchored to a plausible range (29-35 °C).</span>
+<span id="cb4-255"><a href="#cb4-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-256"><a href="#cb4-256" aria-hidden="true" tabindex="-1"></a>Gemini-3.5 judge: **7/10** — *"The candidate correctly depicts hot eyes and a cool nose, but inaccurately represents the insulating hair as warmer than the bare skin of the forehead."*</span>
+<span id="cb4-257"><a href="#cb4-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-258"><a href="#cb4-258" aria-hidden="true" tabindex="-1"></a><span class="fu">### Iteration 2: regenerate again</span></span>
+<span id="cb4-259"><a href="#cb4-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-260"><a href="#cb4-260" aria-hidden="true" tabindex="-1"></a>The second-iteration critique was:</span>
+<span id="cb4-261"><a href="#cb4-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-262"><a href="#cb4-262" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *"1. **Unphysiologically glowing eyes:** The candidate's entire eyes glow uniformly white-hot. In reality, wet corneas cool due to evaporation, leaving only the inner corners (canthi) hot...*</span></span>
+<span id="cb4-263"><a href="#cb4-263" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-264"><a href="#cb4-264" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *2. **Under-temperature forehead:** ...*</span></span>
+<span id="cb4-265"><a href="#cb4-265" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-266"><a href="#cb4-266" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *3. **Incorrect hair insulation:** ...*</span></span>
+<span id="cb4-267"><a href="#cb4-267" aria-hidden="true" tabindex="-1"></a><span class="at">&gt;</span></span>
+<span id="cb4-268"><a href="#cb4-268" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; *4. **Lack of vascular detail:** The candidate features flat, airbrushed thermal gradients. It misses the distinct hot pathways of superficial blood vessels (such as the temporal arteries) visible on the reference's forehead and temples."*</span></span>
+<span id="cb4-269"><a href="#cb4-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-270"><a href="#cb4-270" aria-hidden="true" tabindex="-1"></a>The critique pushed for *more* anatomical detail in the form of visible blood vessels. The model interpreted this as: "draw bright vein-network patterns across the forehead and cheeks". The result:</span>
+<span id="cb4-271"><a href="#cb4-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-272"><a href="#cb4-272" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 2 — Gemini's response to "add vascular detail". A lightning-bolt mesh of bright lines covers the forehead and cheeks. Real LWIR thermal *does* sometimes show prominent surface vessels (especially the temporal vein), but as 1-2 sinuous lines, not a uniform high-contrast mesh.](thermal-genai/outputs/exp4_refined_iter2.png)</span>{#fig-iter2-detail}</span>
+<span id="cb4-273"><a href="#cb4-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-274"><a href="#cb4-274" aria-hidden="true" tabindex="-1"></a>Judge score crashes back to **5/10** — *"The candidate exhibits physically unrealistic glowing ear cartilage, cold dark pupils, and highly exaggerated vascular lines on the forehead and neck."*</span>
+<span id="cb4-275"><a href="#cb4-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-276"><a href="#cb4-276" aria-hidden="true" tabindex="-1"></a>This is a recurring pattern with self-critique loops on creative-generation tasks: **one iteration converges toward the target; subsequent iterations over-correct** because the critique step doesn't know when to stop. The model keeps inventing new edits because it's been instructed to find issues, and the generator over-applies them. **For a paper-grade pipeline, use exactly one critique step or add an explicit "stop if no concrete, *physical* errors remain" termination condition to the critique prompt.**</span>
+<span id="cb4-277"><a href="#cb4-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-278"><a href="#cb4-278" aria-hidden="true" tabindex="-1"></a><span class="fu">## Putting all seven generations side by side</span></span>
+<span id="cb4-279"><a href="#cb4-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-280"><a href="#cb4-280" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Attempt <span class="pp">|</span> Strategy <span class="pp">|</span> Judge score <span class="pp">|</span> One-line reason (Gemini) <span class="pp">|</span></span>
+<span id="cb4-281"><a href="#cb4-281" aria-hidden="true" tabindex="-1"></a><span class="pp">|---------|----------|------------:|--------------------------|</span></span>
+<span id="cb4-282"><a href="#cb4-282" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1a <span class="pp">|</span> Generic caption <span class="pp">|</span> 5/10 <span class="pp">|</span> "Renders fine visible-light details like irises and sharp edges" <span class="pp">|</span></span>
+<span id="cb4-283"><a href="#cb4-283" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1b <span class="pp">|</span> RGB-derived caption <span class="pp">|</span> 6/10 <span class="pp">|</span> "Hair physically too warm; background wall implausibly rendered as hottest" <span class="pp">|</span></span>
+<span id="cb4-284"><a href="#cb4-284" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1c <span class="pp">|</span> Thermal-physics caption (explicit) <span class="pp">|</span> 5/10 <span class="pp">|</span> "Glasses' lenses depicted as transparent instead of opaque" <span class="pp">|</span></span>
+<span id="cb4-285"><a href="#cb4-285" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1d <span class="pp">|</span> Gemini's own thermal caption <span class="pp">|</span> 6/10 <span class="pp">|</span> "Excessive high-frequency skin texture contradicts thermal diffusion" <span class="pp">|</span></span>
+<span id="cb4-286"><a href="#cb4-286" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 2 <span class="pp">|</span> RGB image + physics caption <span class="pp">|</span> 6/10 <span class="pp">|</span> "Lacks the characteristic cold nose tip" <span class="pp">|</span></span>
+<span id="cb4-287"><a href="#cb4-287" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 3 iter 1 <span class="pp">|</span> Self-critique × 1 <span class="pp">|</span> **7/10** <span class="pp">|</span> "Insulating hair shown warmer than bare-skin forehead" <span class="pp">|</span></span>
+<span id="cb4-288"><a href="#cb4-288" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 3 iter 2 <span class="pp">|</span> Self-critique × 2 <span class="pp">|</span> 5/10 <span class="pp">|</span> "Glowing ear cartilage; exaggerated vascular lines" <span class="pp">|</span></span>
+<span id="cb4-289"><a href="#cb4-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-290"><a href="#cb4-290" aria-hidden="true" tabindex="-1"></a>The score ceiling across every strategy is **7/10**. No strategy reached 8/10. The standard deviation between the strategies is ~1 point — small. **The choice of prompting strategy makes a tiny difference; the underlying model's grasp of thermal physics is the limit.**</span>
+<span id="cb4-291"><a href="#cb4-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-292"><a href="#cb4-292" aria-hidden="true" tabindex="-1"></a><span class="fu">## The failure-mode catalogue</span></span>
+<span id="cb4-293"><a href="#cb4-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-294"><a href="#cb4-294" aria-hidden="true" tabindex="-1"></a>Cross-referencing the seven generations, here are the recurring errors. These are the things to look for when evaluating *any* thermal image generated by a general-purpose model:</span>
+<span id="cb4-295"><a href="#cb4-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-296"><a href="#cb4-296" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1. Glowing pupils / iris (appears in 7/7 generations)</span></span>
+<span id="cb4-297"><a href="#cb4-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-298"><a href="#cb4-298" aria-hidden="true" tabindex="-1"></a>**What's wrong**: every generated image has bright, distinct pupils or irises in the eye region. In real LWIR, eyes either appear as dark eyelids (closed) or as a homogeneous warm region (open) — never as RGB-style pupils with optical details.</span>
+<span id="cb4-299"><a href="#cb4-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-300"><a href="#cb4-300" aria-hidden="true" tabindex="-1"></a>**Why the model does it**: it has seen millions of RGB face photographs where the eye is the most salient feature with the most colour contrast. Even when palette-shifted to iron, the model preserves the eye as the brightest spot of the face.</span>
+<span id="cb4-301"><a href="#cb4-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-302"><a href="#cb4-302" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2. Hot eyeglass lenses (appears in 3/7 generations)</span></span>
+<span id="cb4-303"><a href="#cb4-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-304"><a href="#cb4-304" aria-hidden="true" tabindex="-1"></a>**What's wrong**: when the model decides to render glasses, the lenses are bright (warm) instead of dark (cold). In real LWIR, glass and most lens polymers are opaque in the 8-14 µm band — lenses appear as the *darkest* feature of the face because they block the eye's thermal signal.</span>
+<span id="cb4-305"><a href="#cb4-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-306"><a href="#cb4-306" aria-hidden="true" tabindex="-1"></a>**Why the model does it**: glass is *transparent* in RGB, and the model has learned "glasses are transparent". It has no signal about how the material behaves at LWIR wavelengths.</span>
+<span id="cb4-307"><a href="#cb4-307" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-308"><a href="#cb4-308" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3. Hallucinated temperature legend bar (appears in 4/7 generations)</span></span>
+<span id="cb4-309"><a href="#cb4-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-310"><a href="#cb4-310" aria-hidden="true" tabindex="-1"></a>**What's wrong**: a vertical colour scale appears on the right edge of the image, often with numerical temperature ranges (e.g., 18 °C - 38 °C).</span>
+<span id="cb4-311"><a href="#cb4-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-312"><a href="#cb4-312" aria-hidden="true" tabindex="-1"></a>**Why the model does it**: the training corpus presumably included many thermography PR images that have the calibration UI overlaid, and the model has internalised "thermal image = picture with a colour scale on the side". Real *radiometric* thermal frames don't have UI baked in.</span>
+<span id="cb4-313"><a href="#cb4-313" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-314"><a href="#cb4-314" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4. Wrong subject identity (appears in 7/7 generations)</span></span>
+<span id="cb4-315"><a href="#cb4-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-316"><a href="#cb4-316" aria-hidden="true" tabindex="-1"></a>**What's wrong**: even with the source RGB photograph included as a reference, the generated thermal shows a different individual — same broad demographic, same pose, but not the same face.</span>
+<span id="cb4-317"><a href="#cb4-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-318"><a href="#cb4-318" aria-hidden="true" tabindex="-1"></a>**Why the model does it**: Nano Banana 2 is style-transferring, not modality-converting. Identity preservation is not part of its objective.</span>
+<span id="cb4-319"><a href="#cb4-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-320"><a href="#cb4-320" aria-hidden="true" tabindex="-1"></a><span class="fu">### 5. Lightning-vein patterns at iter 2 (appears in 1/7 generations)</span></span>
+<span id="cb4-321"><a href="#cb4-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-322"><a href="#cb4-322" aria-hidden="true" tabindex="-1"></a>**What's wrong**: in the over-iterated self-critique loop, the model adds a mesh of bright lines across the forehead and cheeks intended to represent superficial blood vessels.</span>
+<span id="cb4-323"><a href="#cb4-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-324"><a href="#cb4-324" aria-hidden="true" tabindex="-1"></a>**Why the model does it**: the critique prompt asked for "vascular detail" without quantifying it, and the model over-applies. Real LWIR forehead vessels appear as 1-3 sinuous bright lines (mostly the temporal vein), not a uniform high-contrast network.</span>
+<span id="cb4-325"><a href="#cb4-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-326"><a href="#cb4-326" aria-hidden="true" tabindex="-1"></a><span class="fu">### 6. Wrong absolute temperature scale (appears in all generations with legends)</span></span>
+<span id="cb4-327"><a href="#cb4-327" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-328"><a href="#cb4-328" aria-hidden="true" tabindex="-1"></a>**What's wrong**: when legend bars appear, the numerical ranges are arbitrary. One generation shows 18-38 °C; another shows 29-35 °C. The model has no way to know what absolute temperatures are in the scene from a text prompt.</span>
+<span id="cb4-329"><a href="#cb4-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-330"><a href="#cb4-330" aria-hidden="true" tabindex="-1"></a>**Why the model does it**: it has no access to real radiometric values; the legend numbers are pure hallucination.</span>
+<span id="cb4-331"><a href="#cb4-331" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-332"><a href="#cb4-332" aria-hidden="true" tabindex="-1"></a><span class="fu">### 7. Uniform background (appears in 5/7)</span></span>
+<span id="cb4-333"><a href="#cb4-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-334"><a href="#cb4-334" aria-hidden="true" tabindex="-1"></a>**What's wrong**: the background of most generations is a single dark blue tone. Real-room thermal backgrounds are spatially varied: warm electronics, cool radiators-off, mid-temperature walls, etc.</span>
+<span id="cb4-335"><a href="#cb4-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-336"><a href="#cb4-336" aria-hidden="true" tabindex="-1"></a>**Why the model does it**: simplification — easier for the generator to produce a clean dark background than to reason about scene thermodynamics.</span>
+<span id="cb4-337"><a href="#cb4-337" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-338"><a href="#cb4-338" aria-hidden="true" tabindex="-1"></a><span class="fu">## Implications for the upcoming paper</span></span>
+<span id="cb4-339"><a href="#cb4-339" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-340"><a href="#cb4-340" aria-hidden="true" tabindex="-1"></a>Three takeaways from this experiment:</span>
+<span id="cb4-341"><a href="#cb4-341" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-342"><a href="#cb4-342" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Style match ≠ modality match.** Gemini consistently produces images that *look* thermal (correct palette, correct overall warm-on-face / cool-on-hair distribution, correct silhouette). But the thermal *physics* — which regions are hot and cold and why — is consistently wrong, and wrong in stable ways across all four prompting strategies. **Style-based augmentation might still help a model that trains on visual texture** (e.g., a face detector that doesn't care if eyes are hot or cold). **It cannot help a model that needs thermal physics correct** (e.g., a nostril localiser tracking breath-rate temperature swings).</span>
+<span id="cb4-343"><a href="#cb4-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-344"><a href="#cb4-344" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Self-critique helps once, then hurts.** A single-iteration self-critique loop produces the best result across the whole experiment (7/10). Further iterations diverge because there's no convergence signal. For a paper that uses Gemini to *iteratively refine* a generation, **stop after one critique step**, OR add an explicit termination condition ("if no concrete physical errors remain, output 'NO CHANGES NEEDED'").</span>
+<span id="cb4-345"><a href="#cb4-345" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-346"><a href="#cb4-346" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Real thermal data still wins.** The cheapest scaling path for a thermal model isn't synthetic Gemini data; it's projecting labels from paired-RGB (<span class="co">[</span><span class="ot">as TFD68 did</span><span class="co">](https://dl.acm.org/doi/10.1145/3757376.3771410)</span>, see also <span class="co">[</span><span class="ot">part 4 of the nostril series</span><span class="co">](2026-05-20-thermal-nostril-why-hard.qmd)</span>) or capturing more thermal video with an inexpensive TC001+ (~$350) at scale.</span>
+<span id="cb4-347"><a href="#cb4-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-348"><a href="#cb4-348" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd run next if I were writing the paper</span></span>
+<span id="cb4-349"><a href="#cb4-349" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-350"><a href="#cb4-350" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Quantitative thermal-physics metrics.** Replace Gemini's 1-10 judge with measurable features: (1) mean luminance of the iris region vs the periorbital ring (the iris should be *cooler*, so iris/orbital &lt; 1.0); (2) presence of a temperature bar UI as a binary feature; (3) Pearson correlation between generated-thermal pixels and real-thermal pixels, masked to the face region. Each metric is a number, not an LLM opinion.</span>
+<span id="cb4-351"><a href="#cb4-351" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Larger N.** Run all four prompt strategies on 50 SF-TL54 subjects + 50 ThermEval-D subjects. Currently this is N=1, which is fine for failure-mode discovery but not for statistical claims.</span>
+<span id="cb4-352"><a href="#cb4-352" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other generators.** Run the same prompts through Imagen 3, Stable Diffusion 3 with a thermal LoRA, GPT-Image-1, and <span class="in">`gemini-3-pro-image-preview`</span> (Nano Banana Pro). The failure-mode catalogue above is the right scaffolding for the comparison: does the next generator make the *same* errors, or different ones?</span>
+<span id="cb4-353"><a href="#cb4-353" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Thermal-finetuned generator.** Take a small generator (Stable Diffusion XL Lightning, say) + finetune on ThermEval-D's 1k thermal images. Does that close the physics gap, or does the finetune memorise specific scenes?</span>
+<span id="cb4-354"><a href="#cb4-354" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Downstream-task evaluation.** Use the Gemini-generated thermal images as *training data* for a thermal nostril detector (the model from [part 2 of the nostril series](2026-05-20-thermal-nostril-finetune.qmd)). Compare to a model trained on the same number of *real* thermal frames. The downstream-task gap is the actual deployment value of synthesis.</span>
+<span id="cb4-355"><a href="#cb4-355" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-356"><a href="#cb4-356" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this experiment is *not*</span></span>
+<span id="cb4-357"><a href="#cb4-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-358"><a href="#cb4-358" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a benchmark of Gemini 3.1 Flash Image** as a general-purpose generator — it does extremely well on RGB tasks; thermal is just a specific OOD domain.</span>
+<span id="cb4-359"><a href="#cb4-359" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a claim that Gemini understands thermal physics is impossible**. With dedicated finetuning on real thermal data + maybe a physics-aware loss term, the same architecture might do much better. This experiment measures zero-shot performance.</span>
+<span id="cb4-360"><a href="#cb4-360" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a quantitative paper result**. The Gemini-judge scores are illustrative; a published paper would replace them with the quantitative metrics enumerated above.</span>
+<span id="cb4-361"><a href="#cb4-361" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-362"><a href="#cb4-362" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb4-363"><a href="#cb4-363" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-364"><a href="#cb4-364" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Experiment script: <span class="co">[</span><span class="ot">`posts/thermal-genai/scripts/run_experiments.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py)</span></span>
+<span id="cb4-365"><a href="#cb4-365" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Saved outputs (real and generated): <span class="co">[</span><span class="ot">`posts/thermal-genai/outputs/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs)</span></span>
+<span id="cb4-366"><a href="#cb4-366" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Gemini image generation docs: <span class="co">[</span><span class="ot">ai.google.dev/gemini-api/docs/image-generation</span><span class="co">](https://ai.google.dev/gemini-api/docs/image-generation)</span></span>
+<span id="cb4-367"><a href="#cb4-367" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Source thermal datasets: <span class="co">[</span><span class="ot">SF-TL54</span><span class="co">](https://huggingface.co/datasets/issai/SFTL54)</span> · <span class="co">[</span><span class="ot">ThermEval-D</span><span class="co">](https://www.kaggle.com/datasets/shriayush/thermeval)</span></span>
+<span id="cb4-368"><a href="#cb4-368" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Earlier Gemini-3.5-Flash measurement post: <span class="co">[</span><span class="ot">2026-05-20-gemini-3.5-flash-and-omni</span><span class="co">](2026-05-20-gemini-3.5-flash-and-omni.html)</span></span>
+<span id="cb4-369"><a href="#cb4-369" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Companion thermal-nostril series: <span class="co">[</span><span class="ot">part 1</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> · <span class="co">[</span><span class="ot">part 2</span><span class="co">](2026-05-20-thermal-nostril-finetune.qmd)</span> · <span class="co">[</span><span class="ot">part 3</span><span class="co">](2026-05-20-thermal-nostril-hierarchical.qmd)</span> · <span class="co">[</span><span class="ot">part 4</span><span class="co">](2026-05-20-thermal-nostril-why-hard.qmd)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
