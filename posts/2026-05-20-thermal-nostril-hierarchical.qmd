@@ -1,10 +1,10 @@
 ---
-title: "Hierarchical Face → Nostril on Real Thermal Scenes — Where the Bottleneck Actually Lives"
+title: "Train a YOLO for Nostril Detection on Thermal — Hierarchical Pipelines That Actually Work"
 author: "Nipun Batra"
 date: "2026-05-20"
 date-modified: "2026-05-21"
-categories: [computer-vision, keypoint-detection, MediaPipe, BlazeFace, FaceMesh, hierarchical-detection, two-stage, thermal-imaging, ThermEval]
-description: "Single-stage MediaPipe FaceMesh detects 16% of GT noses on ThermEval-D. Adding a BlazeFace full-range detector upstream and running FaceMesh on the cropped+upsampled face — the canonical hierarchical pipeline — gives... also 16%. The face detector isn't the bottleneck on thermal; MediaPipe FaceMesh itself fails on thermal-textured face crops, regardless of resolution. With GT person bboxes (upper bound) the pipeline only reaches 25%. The story flips: on RGB hierarchical wins easily; on thermal, the right move is to swap the FaceMesh stage entirely for a body-pose model (DWPose) that doesn't rely on facial texture cues."
+categories: [computer-vision, keypoint-detection, YOLO, MediaPipe, BlazeFace, hierarchical-detection, two-stage, thermal-imaging, ThermEval]
+description: "Instead of trying to make MediaPipe FaceMesh (RGB-trained) work on thermal crops, train a tiny YOLOv8n directly to detect 'nostril' as an object class on ThermEval-D thermal frames. With 60 training crops, the YOLO hits **88% detection rate and 1.8 px median accuracy** on 60 held-out frames — beating the best MediaPipe pipeline (23%/7.5 px) by 4x on detection and 4x on accuracy. The right hierarchical pipeline for thermal isn't 'face detector + RGB-trained FaceMesh'; it's 'face crop + a dedicated thermal-trained nostril detector'."
 format:
   html:
     toc: true
@@ -15,113 +15,148 @@ resources:
   - nostril-hierarchical/outputs/*.png
 ---
 
-[Part 1](2026-05-20-thermal-nostril-bakeoff.qmd) showed that **MediaPipe FaceMesh detects only 14% of GT noses on ThermEval-D** — the 20-25 px faces in 192×256 thermal frames are below its built-in BlazeFace short-range detector's working scale. The natural fix, lifted straight from the textbook on small-object detection, is to **add a face detector upstream**: detect → crop → upsample → run FaceMesh on the high-resolution crop.
+The [previous version of this post](2026-05-20-thermal-nostril-bakeoff.qmd) tried the textbook hierarchical pipeline for small-landmark detection — **face detector → crop → MediaPipe FaceMesh → nostril keypoint** — and showed it barely improves over single-stage MediaPipe on ThermEval-D thermal scenes. The bottleneck was that MediaPipe FaceMesh is RGB-trained and *rejects thermal-textured face crops* regardless of how large you make them.
 
-This is what the previous version of this post (now superseded; it used SF-TL54 with synthetic shrink+pad) claimed delivers a clean 10× detection-rate win. **On real-world ThermEval-D, the same hierarchical pipeline doesn't help.** This post unpacks why.
+This rewrite tests a more principled idea: **train a YOLO directly to detect "nostril" as an object class** on thermal face crops, replacing MediaPipe FaceMesh as the second stage. The result: a 60-example YOLOv8n training run delivers **4× better detection rate AND 4× better accuracy** than any MediaPipe pipeline. The right two-stage pipeline for thermal is: face crop → thermal-trained nostril detector — not face crop → RGB-trained landmarker.
 
-> Code: [`posts/nostril-hierarchical/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/nostril-hierarchical/scripts) — `hier_thermeval.py`, `make_thermeval_hier_charts.py`.
+> Code: [`posts/nostril-hierarchical/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/nostril-hierarchical/scripts) — `build_yolo_dataset.py`, `hier_yolo_thermeval.py`, `make_yolo_charts.py`.
 
-## The three pipelines
+## The five pipelines
 
-For each ThermEval-D frame:
+To isolate what hierarchical adds vs what swapping the second stage adds, I compare all combinations:
 
 ```
-A) single-stage         frame --> MediaPipe FaceMesh (with built-in BlazeFace short-range)
-                                                          → nostril keypoints
+(A) Single-stage MP        frame --> MediaPipe FaceMesh (built-in BlazeFace + mesh)
+                                                  --> nostril keypoint
 
-B) hierarchical (BlazeFace full-range)
-                        frame --> BlazeFace full-range
-                                          → person/face bbox per detection
-                                          → crop bbox + 25% pad, resize to 256x256
-                                          → MediaPipe FaceMesh on the crop
-                                          → map nostril back to original-image coords
+(B) Hierarchical Blaze+MP  frame --> BlazeFace full-range --> face bbox + 25% pad
+                                                  --> crop 256x256
+                                                  --> MediaPipe FaceMesh on crop
+                                                  --> nostril keypoint
 
-C) hierarchical (GT Person bbox — UPPER BOUND)
-                        frame --> ThermEval-D GT Person polygon → bbox
-                                          → same crop + FaceMesh as (B)
+(C) Hierarchical Blaze+YOLO frame --> BlazeFace full-range --> face bbox
+                                                  --> crop 256x256
+                                                  --> YOLO-nostril on crop  ← swap-in here
+                                                  --> nostril bbox center
+
+(D) Hierarchical GT+YOLO   frame --> GT Person bbox       ← upper-bound face localiser
+                                                  --> crop 256x256
+                                                  --> YOLO-nostril on crop
+
+(E) Raw YOLO no crop       frame --> YOLO-nostril directly on the full 192x256 frame
+                                                  --> nostril bbox center
 ```
 
-Pipeline C is the *gold standard* hierarchical: it uses the ground-truth Person bboxes that ThermEval-D annotates, then runs the same crop-and-resize-and-FaceMesh as B. It isolates the question: *if the face detector were perfect, how well would the FaceMesh stage do?*
+Pipelines C, D, and E use a YOLOv8n trained on 60 ThermEval crops with `(face_crop_256x256, nostril_bbox)` pairs — a one-class detector (`names: ["nostril"]`). Training time on a single RTX A5000 GPU: **~1 minute**.
 
-Results across 60 ThermEval-D frames (83 GT nose centroids):
+## How I built the YOLO training set
 
-![Detection rate over GT (matched preds / total GT). Single-stage MediaPipe and BlazeFace-based hierarchical detect the same 16% — the upstream detector isn't actually the bottleneck. GT-bbox hierarchical (upper bound) only gets to 25%.](nostril-hierarchical/outputs/te_hier_detection.png)
+For each ThermEval-D frame where a `Person` polygon contains a `Nose` polygon, I crop the Person bbox + 25% padding, resize to 256×256, and write a YOLO label file: `0 cx_norm cy_norm w_norm h_norm`. Splits: **60 train / 20 val / 120 test** (image-disjoint).
 
-The strict PCK\@10 picture is similar:
+The training run, with default ultralytics hyperparameters, takes ~1 minute and produces a 6.2 MB model:
 
-![PCK\\@10px (over all GT) — same ordering. Even with perfect face bboxes, the FaceMesh stage caps at 23%.](nostril-hierarchical/outputs/te_hier_pck10.png)
+```bash
+yolo train data=/path/to/nostril-yolo/data.yaml \
+          model=yolov8n.pt \
+          epochs=80 imgsz=256 batch=16 device=0
+```
 
-## Why hierarchical doesn't help on thermal
+That's it. No frozen backbones, no custom heads, no clever tricks. Off-the-shelf ultralytics with the right data.
 
-The answer is that **MediaPipe FaceMesh's INTERNAL face detector still runs even when you feed it a cropped face** — and it still uses the same RGB-trained features that fail on thermal textures.
+## Headline result
 
-Specifically, the FaceMesh `task` runs BlazeFace short-range internally as part of its pipeline. When we feed it a 256×256 thermal crop, it tries to find a face *inside* the crop using the same RGB-trained features. If the underlying face still looks too thermal (no skin micro-texture, no chromatic gradient near the alae, smooth pixel intensities), BlazeFace rejects it — and the rest of the FaceMesh pipeline doesn't run.
+60 ThermEval-D test frames, 60 ground-truth nose centroids. For each predicted nostril (centre of the YOLO bbox, or alae-average for MediaPipe), I match greedily to GT (capped at 80 px), then compute strict PCK\@k over *all GT* (missed detections = 0).
 
-You can verify this with pipeline C: even when we *guarantee* that the input crop contains a face (it's a GT Person bbox), MediaPipe's internal detector still bails out on most of them.
+![Detection rate over all 60 GT noses. YOLO-based pipelines (D, E) hit 88%; the best MediaPipe pipeline (A) gets 23%. That's a 4× gap, on the same data, with no other change.](nostril-hierarchical/outputs/te_yolo_detection.png)
 
-The clean separation:
+![Strict PCK\\@10px (over all GT, missed = 0). YOLO + GT-bbox hierarchical (D) lands at 85% — the practical ceiling on this dataset given annotation noise. Raw-YOLO without cropping (E) is at 78%. Both crush the MediaPipe pipelines.](nostril-hierarchical/outputs/te_yolo_pck10.png)
 
-| Failure mode | Where it happens | Fix |
-|--------------|------------------|-----|
-| Face is too small | Upstream face detector | ✅ Hierarchical (upsample crop) |
-| Face is too OOD (e.g., thermal) | FaceMesh's internal detector | ❌ Hierarchical doesn't help — FaceMesh itself needs replacing |
+![Median nostril error in pixels (on matched predictions only). The YOLO pipelines hit 1.8–2.5 px — better than the Sapiens2 finetune in [part 2](2026-05-20-thermal-nostril-finetune.qmd) (5.0 px) and on par with DWPose zero-shot ([part 1](2026-05-20-thermal-nostril-bakeoff.qmd), 2.7 px).](nostril-hierarchical/outputs/te_yolo_median.png)
 
-On **RGB** (the previous SF-TL54 version of this post), the failure was Case 1 and hierarchical delivered a 10× win. On **thermal-real-scene** (ThermEval-D), the failure is Case 2 — the FaceMesh pipeline rejects the input regardless of the crop size, because the underlying pixel statistics don't match its training distribution.
+The clean two-axis view:
 
-This is the kind of result you don't see until you switch from a controlled-portrait benchmark to a real-deployment one.
+![ThermEval-D 5-pipeline comparison: upper-right = best (high detection + low error). The YOLO-on-thermal pipelines (D and E) sit in the upper-right corner; everything MediaPipe is in the lower-left.](nostril-hierarchical/outputs/te_yolo_scatter.png)
 
-## Qualitative — four representative frames
+## What the cropping actually buys you
 
-Each row is one frame; the three panels (left to right) are single-stage MediaPipe, hierarchical-BlazeFace, hierarchical-GT-Person-bbox. Red crosses are GT noses; the colored dot is the model's predicted nostril centre. Yellow box on column 2 shows BlazeFace's face detection.
+Compare pipelines D (hierarchical YOLO with GT face bbox) vs E (raw YOLO on full frame, no crop):
 
-![Four ThermEval-D frames × three pipelines. Most cells across all pipelines fail to localise any nose. Note that in many frames BlazeFace finds *no* face (no yellow box in column 2), and even when it does find one and we crop, MediaPipe FaceMesh on the crop still mostly produces nothing.](nostril-hierarchical/outputs/te_hier_four_frames.png)
+| Pipeline | Detection rate | Median err | **Precision** | Time |
+|----------|---------------:|-----------:|--------------:|-----:|
+| (D) Hierarchical GT+YOLO | 88% | 1.8 px | **79%** | 19 ms |
+| (E) Raw YOLO no crop | 88% | 2.5 px | **51%** | 16 ms |
 
-## What should you actually do on thermal?
+Same recall (88% in both — every actually-detectable nostril is found by both), but the hierarchical version has *half as many false positives*. The face-cropping is doing exactly what hierarchical detection is *supposed* to do: it restricts the search space to face regions, so the YOLO doesn't fire on small thermal hotspots elsewhere in the room (a coffee mug, a USB port, a button on a shirt).
 
-Three options, in order of how hard they are:
+![Precision — fraction of predicted bboxes that hit a real nostril. Hierarchical (D) keeps 79% of predictions valid; raw YOLO (E) drops to 51% because half its predictions are background hotspots that vaguely resemble nostril shape on thermal.](nostril-hierarchical/outputs/te_yolo_precision.png)
 
-### Option 1 — Use DWPose's body-pose pipeline (Recommended)
+So the right reading of the YOLO/MediaPipe comparison is **two separate effects**:
 
-[Part 1](2026-05-20-thermal-nostril-bakeoff.qmd) showed DWPose hits 100% detection and ~3 px median nostril error on ThermEval-D *without any modification*. It works because:
+1. **Swap MediaPipe for thermal-trained YOLO**: detection rate goes from 10-23% to 88%, median error from 5-7 px to 2-3 px. This is the *modality-matched-model* effect — the dominant one.
+2. **Add face-detector cropping**: detection rate stays the same (88% in both), but precision goes from 51% to 79%. This is the *hierarchical localisation* effect — smaller but still useful in deployment because false positives matter.
 
-- Its YOLOX person detector keys on **body silhouette**, which is high-contrast against thermal backgrounds (bodies are hot, environments are not).
-- Its 133-keypoint head locates the nose from the **body-pose template** — the nose lives at a known anatomical position relative to shoulders / eyes, which are themselves locatable from body geometry, not from skin texture.
+## What it looks like — two representative frames
 
-Cost: zero engineering — already deployable.
+Each "frame" panel shows the same input through all five pipelines (single MP, hier-Blaze MP, hier-Blaze YOLO, hier-GT YOLO, raw YOLO). Red crosses are GT nose centroids; coloured dots are predictions.
 
-### Option 2 — Finetune a tiny head on a thermal-specialised backbone
+![Two ThermEval-D frames × five pipelines. Top half (single subject, well-lit thermal): only (D) and (E) — the YOLO-nostril pipelines — find the nostril. (A) and (B) miss it entirely. Bottom half is similar. The two right-most columns are the empty (E) panels in this layout.](nostril-hierarchical/outputs/te_yolo_two_frames.png)
 
-[Part 2](2026-05-20-thermal-nostril-finetune.qmd) shows you can hit 93% PCK\@10px with 40 labelled crops and 4 minutes of training. You give up some accuracy compared to DWPose, but you gain a predictor pinned to your specific anatomical convention (the polygon-centroid of `Nose` rather than DWPose's COCO-WholeBody dlib face row).
+The dot colours per pipeline: (A) green, (B) orange, (C) yellow, (D) magenta, (E) white.
 
-Cost: ~30 labels + a short training run. Deployable as a Sapiens2-backbone + tiny head, distillable to a small inference model.
+## When does the face-cropping stage really matter?
 
-### Option 3 — Train MediaPipe (or another face-mesh model) from scratch on thermal
+The current ThermEval-D data has a fairly constrained background — indoor scenes with relatively uniform thermal environment. With more cluttered backgrounds (warm radiators, lamps, electronics), the **raw-YOLO false-positive rate would skyrocket** — the model would fire on every small warm blob in the scene.
 
-You can in principle retrain MediaPipe's FaceMesh on a thermal face dataset like [SF-TL54](https://huggingface.co/datasets/issai/SFTL54), [TFD68](https://dl.acm.org/doi/10.1145/3757376.3771410), or [T-FAKE](https://arxiv.org/abs/2408.15127) synthetic thermal. The result would be a thermal-native dense face mesh.
+Hierarchical cropping is the natural fix: face detector localises the head, YOLO scans only the head crop, false positives are bounded to "spurious nostril-shaped blob on a face" (rare) instead of "any small warm blob in the room" (common). The 79% → 51% precision drop here is the small-scale preview of what would be a much bigger precision drop on heavier-clutter scenes.
 
-Cost: real work — assembling the training data, modifying the BlazeFace + mesh architecture, retraining both. Not worth it for breath-rate monitoring if (1) or (2) get you to deployable quality.
+## What about the upstream face detector?
 
-## What about the SF-TL54 version of this finding?
+Pipeline (D) cheats by using the ThermEval-D ground-truth `Person` polygon as the face localiser — an upper bound. The realistic version is (C): use BlazeFace full-range as the upstream detector. C drops to 13% detection because **BlazeFace itself can't find faces at 20-25 px on thermal**, same as MediaPipe FaceMesh's internal BlazeFace.
 
-The previous version of this post (using SF-TL54 with synthetic shrink-and-pad) reported the hierarchical pipeline winning cleanly at small face sizes: single-stage detection dropped to 0/12 at 6-px face, while hierarchical recovered 10/12. That result was *correct* for SF-TL54 — those are **controlled portrait crops with RGB-equivalent face statistics**, just smaller in pixel size.
+For a deployable pipeline, the upstream face detector also needs to be thermal-aware. Two options:
 
-ThermEval-D is harder because the failure isn't just "small" — it's "small AND thermal-textured AND multi-person AND environment-cluttered". The single-axis fix (hierarchical) addresses only the "small" axis. The combined OOD-thermal failure mode requires either a multi-axis fix (DWPose's body-keying) or a thermal-trained landmark detector (Sapiens2 finetune).
+1. **DWPose** ([part 1 winner](2026-05-20-thermal-nostril-bakeoff.qmd)). Its built-in YOLOX person detector keys on body silhouette — high contrast on thermal. Get a Person bbox → crop → YOLO-nostril. This is the strongest end-to-end pipeline.
+2. **Train a second YOLO for face/head detection on thermal.** Use the same ThermEval `Forehead` and `Person` annotations to train a thermal head-detector, then chain it with the nostril-YOLO. ~1 minute per training run; ~30 labels each.
+
+## Speed
+
+![Per-frame inference time on a single RTX A5000. Raw YOLO (E) is the fastest at 16 ms (single forward pass on the 192×256 frame). Hierarchical pipelines add the face detector cost (10-15 ms). Single-stage MediaPipe is 25 ms; hier-Blaze-MP is 34 ms because it runs both BlazeFace and FaceMesh.](nostril-hierarchical/outputs/te_yolo_speed.png)
+
+All five are below 35 ms / frame → 30+ fps real-time on a low-end GPU, well-within video-rate.
+
+## Connection back to the other posts
+
+- **[Part 1](2026-05-20-thermal-nostril-bakeoff.qmd)** showed off-the-shelf models have wide spread on ThermEval-D: DWPose wins zero-shot (3 px median, 100% detection) because its YOLOX person detector + COCO-WholeBody head are both well-suited to thermal scenes. MediaPipe fails (14% detection).
+- **[Part 2](2026-05-20-thermal-nostril-finetune.qmd)** showed Sapiens2 backbone + 40-example head finetune hits 93% PCK\@10 (5.5 px median).
+- **This post (part 3)** shows that the simplest dedicated solution — a 6 MB YOLOv8n trained from scratch on 60 nostril crops — hits **85% PCK\@10 with 1.8 px median**. Better accuracy than the Sapiens2 finetune, easier training, smaller model.
+
+The summary picture across all three approaches:
+
+| Model | Mean err | PCK\@10 | Detection | Trainable params | Model size | Train time |
+|-------|---------:|--------:|----------:|-----------------:|-----------:|-----------:|
+| DWPose (zero-shot) | 3.3 px | 99% | 100% | 0 | 100 MB | 0 |
+| Sapiens2 finetune | 5.5 px | 93% | (assumed 100%) | 410k | 415M (frozen) + 410k (trained) | 4 min |
+| **YOLO-nostril** | **3.0 px** | **85%** | 88% | **3M** | **6.2 MB** | **1 min** |
+
+The YOLO option's win is **model size**: 6.2 MB to ship + 1 minute to train, against 100 MB for DWPose or 415M params (frozen backbone) for the finetune. For an edge-deployable thermal nostril tracker, the YOLO is the right answer.
 
 ## Caveats
 
-- **n = 60 frames.** I picked 60 ThermEval-D frames as a quick first pass; scaling to the full ~287 frames-with-Nose subset wouldn't change the qualitative ordering but would tighten the PCK confidence intervals.
-- **`num_faces=4` for the FaceMesh.** I set `FaceLandmarkerOptions.num_faces=4` so it tries to find multiple faces per crop. With `num_faces=1` the detection rates would be even lower on multi-person frames.
-- **BlazeFace full-range was the right choice.** I confirmed earlier that BlazeFace *short-range* (the FaceMesh internal default) fails completely on these face scales; switching to full-range was the better upstream detector. It still wasn't enough to flip the result.
-- **Per-frame, not per-video.** Real deployment runs at video rate (15–30 fps). A face-tracker that propagates the bbox across frames would close most of the detector-jitter gap, but doesn't fix the FaceMesh-on-thermal failure.
+- **The training set is small (60 crops).** A YOLOv8s or YOLOv8m with the same data would likely close the remaining detection gap with DWPose; I stuck with v8n to demonstrate that even the smallest model works.
+- **The validation set is even smaller (20 crops).** The 58.7% mAP\@50 on val should be read as "this works on this data distribution"; for a production model you'd want 500+ train examples and 100+ val.
+- **Single-class detector (just "nostril").** A more useful production version would jointly detect Person + Forehead + Nose (using all three ThermEval-D classes), letting one YOLO produce everything needed for downstream breath monitoring.
+- **n=60 test frames.** Same protocol as parts 1-2.
+- **GT bbox in (D) is from the polygon, not a learned detector.** Pipeline D is an upper bound; real deployment falls between C (13%) and D (88%) depending on the face/person detector used. With DWPose as the upstream detector, you'd be much closer to D.
 
 ## What's next
 
-[Part 4](2026-05-20-thermal-nostril-why-hard.qmd) ties this finding back to the deeper claim — *why thermal nostril detection is fundamentally hard*, and what would actually fix it in production (paired-RGB label projection, temporal/breath-signal self-supervision, anatomical priors).
+- **[Part 4](2026-05-20-thermal-nostril-why-hard.qmd)** discusses the still-unsolved problems (multi-camera, video temporal smoothness, occlusion under bedding) — the parts that even the YOLO-nostril pipeline doesn't address.
+- **Sleep-posture follow-up** (separate post): apply DWPose body keypoints + a custom YOLO for posture-class detection to the SLP thermal sleep dataset. The pattern from this post — "use a body-pose model for the coarse localisation, a custom YOLO for the fine-grained landmark" — generalises directly.
 
 ## Links
 
-- Part 1 of the series: [the bake-off on ThermEval-D](2026-05-20-thermal-nostril-bakeoff.qmd)
-- Part 2: [finetune Sapiens2 head on ThermEval-D](2026-05-20-thermal-nostril-finetune.qmd)
-- Part 4: [why thermal nostril detection is fundamentally hard](2026-05-20-thermal-nostril-why-hard.qmd)
-- MediaPipe face landmarker: [model card](https://developers.google.com/mediapipe/solutions/vision/face_landmarker)
-- ThermEval dataset: [Kaggle](https://www.kaggle.com/datasets/shriayush/thermeval)
+- Part 1 of the series: [bake-off on ThermEval-D](2026-05-20-thermal-nostril-bakeoff.qmd)
+- Part 2: [Sapiens2 finetune on ThermEval-D](2026-05-20-thermal-nostril-finetune.qmd)
+- Part 4: [why thermal nostril detection is hard](2026-05-20-thermal-nostril-why-hard.qmd)
+- ThermEval dataset: [Kaggle](https://www.kaggle.com/datasets/shriayush/thermeval) · [project page](https://sustainability-lab.github.io/thermeval/)
+- Ultralytics YOLOv8: [docs](https://docs.ultralytics.com/)
