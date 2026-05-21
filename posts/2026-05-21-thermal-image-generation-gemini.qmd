@@ -513,6 +513,148 @@ This flips one of the earlier conclusions of the post on its head. **The "ceilin
 
 The thermal-generation literature was right. **A specialised generator trained on real thermal data produces visibly more correct physics than a general-purpose generator of any size**, *even if* a generic LLM judge can't tell the difference. If you're building a thermal-data-synthesis pipeline today, ThermalGen is the better starting point than Gemini — and the only one that produces images consistent with actual LWIR physics.
 
+## Paper-grade quantitative metrics (don't use LLMs to judge)
+
+The previous section showed Gemini-judge is unreliable. Let me actually compute the metrics a paper *should* use — pixel-level, perceptual, distributional, and anatomical-region — on all 16 generated images vs the real SF-TL54 thermal reference. Code: [`quantitative_metrics.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/quantitative_metrics.py).
+
+### Metric suite
+
+Three families, no LLM in the loop:
+
+**(a) Pixel-level / perceptual** — full-image similarity:
+
+- **SSIM** (luminance, 256×192): structural similarity, higher = closer. 1.0 = identical.
+- **LPIPS** (AlexNet backbone): perceptual distance, lower = closer.
+- **Histogram intersection** (RGB, 64-bin per channel): sum over channels of pixel-wise `min(p, q)`, max = 3.0.
+
+**(b) Anatomical region ratios** — does the generated image have the *right* relative temperatures in the right places? Compute MediaPipe FaceMesh masks on the real thermal, then compute mean luminance in each region for both real and candidate, then take ratios:
+
+- **eye / periorbital ratio**: target from real SF-TL54 = **1.07**. The eye region averages slightly brighter than the surrounding orbital tissue because of bright canthi.
+- **hair / face ratio**: target = **0.39**. Hair is much cooler than face skin.
+- **nose / cheek ratio**: target = **0.78**. Nose tip is cooler than cheek.
+
+For each candidate, "deviation from real" = `|cand_ratio − real_ratio| / real_ratio`. Lower = better match.
+
+**(c) Distributional** — already in (a) via histogram intersection.
+
+### Results
+
+![Four side-by-side panels: SSIM, LPIPS, RGB histogram intersection, and eye/orbital ratio deviation. Each bar is one generated image. Blue = Gemini Flash, Red = Gemini Pro, Green = ThermalGen. No single method dominates all four metrics — but a clear story emerges.](thermal-genai/outputs/quant_metrics_chart.png){.column-page}
+
+The full numerical table (lower-is-better metrics in **bold** where best):
+
+| Method | SSIM ↑ | LPIPS ↓ | Hist ↑ | eye/orb dev ↓ | hair/face dev ↓ | nose/cheek dev ↓ |
+|--------|-------:|--------:|-------:|--------------:|----------------:|------------------:|
+| Flash 1a generic | 0.493 | 0.582 | 1.82 | 0.10 | 0.11 | 0.77 |
+| Pro 1a generic | 0.487 | 0.611 | 1.75 | 0.12 | 0.63 | 0.15 |
+| Flash 1b RGB-cap | 0.327 | 0.767 | 1.52 | 0.02 | 2.36 | 0.69 |
+| Pro 1b RGB-cap | 0.429 | 0.732 | 1.70 | 0.67 | 0.53 | 0.92 |
+| Flash 1c phys | 0.359 | 0.716 | 1.68 | **0.01** | **0.04** | 0.94 |
+| Pro 1c phys | 0.232 | 0.755 | **1.92** | 0.47 | 0.70 | 0.68 |
+| Flash 1d therm-cap | 0.536 | 0.547 | 1.32 | 0.07 | 0.35 | 0.77 |
+| Pro 1d therm-cap | 0.513 | 0.537 | 1.75 | 0.10 | 0.19 | 0.62 |
+| Flash 2 RGB+cap | 0.550 | 0.435 | 1.56 | 0.06 | 0.28 | 0.27 |
+| **Pro 2 RGB+cap** | **0.691** | 0.418 | 1.80 | 0.04 | 0.21 | 0.33 |
+| Flash iter1 | 0.558 | 0.473 | 1.47 | 0.02 | 0.16 | **0.04** |
+| **Pro iter1** | 0.685 | **0.315** | 1.78 | **0.01** | **0.01** | 0.22 |
+| Flash iter2 | 0.567 | 0.454 | 1.60 | 0.11 | 0.32 | 0.29 |
+| Pro iter2 | 0.525 | 0.375 | 1.28 | 0.05 | 0.12 | 0.28 |
+| ThermalGen L iron | 0.478 | 0.536 | 1.01 | 0.03 | 0.79 | 0.32 |
+| ThermalGen B iron | 0.372 | 0.668 | 0.94 | 0.07 | 0.74 | 0.28 |
+
+::: {.callout-important}
+**The story is different from the LLM-judge version**. **Pro iter1 wins** on LPIPS and on two of three anatomical ratios (eye/orb, hair/face). **Flash iter1 wins** on the nose/cheek ratio. **Pro 2 (RGB + caption)** wins on SSIM. **ThermalGen** is mid-pack on the eye/orb deviation (0.03 — third best!) and on nose/cheek (0.28 — mid-pack), but is the **worst on hair/face ratio** (0.79 — hair appears too warm in the iron-colorized version) and on SSIM (because grayscale-then-iron-colorized doesn't perfectly match the SF-TL54 iron palette).
+:::
+
+### The honest paper findings
+
+Re-reading the numbers carefully:
+
+1. **The LLM judge was directionally wrong on the magnitudes but not entirely wrong on the rankings.** Pro iter1 *is* in fact the most-pixel-similar-to-real among everything tested. The judge gave it 7/10. ThermalGen, while physically correct on eye placement, has a 0.79 hair/face deviation (vs target 0.39) — it's not as good as I claimed in the previous section. The judge gave it 4/10 — too harsh, but not absurdly so.
+
+2. **No method dominates.** Each metric has a different winner. Pro iter1 wins 2 of the 3 anatomical ratios; Flash 1c wins the eye/orb and hair/face (with absurd LPIPS); ThermalGen wins nothing outright on these metrics.
+
+3. **What's actually going on with ThermalGen**: its training set is *automotive* thermal scenes (M3FD, FLIR, KAIST). Faces are out-of-distribution. It produces thermal-textures from the automotive distribution, which happens to render hair as warm-mid-tone rather than cool-dark like the SF-TL54 face thermal reference. **A version of ThermalGen finetuned on face thermal data (SF-TL54 + ThermEval) would likely beat everything else here**, but the current public checkpoint is automotive-only.
+
+4. **The eye/orbital ratio is the most discriminating metric.** Real-thermal target = 1.07. Most methods land within 0.1 — they got it right or close. The two outliers (Pro 1b and Pro 1c, with ratios 0.36 and 0.57) drew eyes much darker than periorbital — Gemini misinterpreted my "hot eyes" prompt and over-corrected toward dark eye sockets. That's a prompt-following failure, not a physics failure.
+
+5. **SSIM is the WORST metric for this task.** It's dominated by colour-palette agreement. A model that draws iron-palette faces (Gemini Pro) wins SSIM by default; a model that draws correct-physics grayscale-then-colorized (ThermalGen) loses because the colormap is approximate. **For a paper, drop SSIM and PSNR. Use LPIPS + region-ratios.**
+
+6. **LPIPS aligns reasonably well with the LLM judge** for the Gemini outputs, but disagrees on ThermalGen (LPIPS 0.54, judge 4/10). LPIPS is measuring "AlexNet-perceptual" similarity to the reference, not thermal physics. For face-thermal generation, **LPIPS is necessary but not sufficient.**
+
+### What the paper should actually report
+
+Drop the Gemini-judge entirely. Drop SSIM. Keep:
+
+- **LPIPS** on the iron-palette versions (perceptual similarity).
+- **Region-ratio deviations** (eye/orb, hair/face, nose/cheek) — these are the closest thing to "is the thermal physics right" you can measure without a thermal sensor.
+- **Hair/face deviation** specifically because it cleanly separates "thermal-trained model that knows hair is cool" from "RGB-trained model that draws hair as bright skin".
+- **Downstream-task accuracy** (the gold standard): train a nostril detector on each method's synthetic data, test on real thermal, measure the gap to a model trained on real thermal only. *That's* what tells you whether a synthesis pipeline is useful for deployment.
+
+::: {.callout-tip appearance="simple"}
+**One concrete paper-grade reformulation of the experiment**: do the same 16 generations on 50 SF-TL54 subjects, then run the [Sapiens2-finetuned thermal nostril detector from part 2](2026-05-20-thermal-nostril-finetune.qmd) on each. Report (a) the detection rate of the finetuned detector on each model's outputs and (b) the mean nostril localisation error vs the *real* thermal of each subject. The model that produces the highest detection-rate + lowest-error outputs is the winning thermal data synthesiser. That's a deployment-relevant evaluation that doesn't need any LLM in the loop.
+:::
+
+## SAM-based segmentation as a third evaluation tool
+
+The MediaPipe-mask metrics above rely on MediaPipe FaceMesh detecting landmarks on the *thermal* image — but FaceMesh is RGB-trained, and its landmark localisation on thermal is noisy. A better approach: use **SAM** (Segment Anything) to produce the anatomical masks directly from the image content, prompted with click points derived from the FaceMesh-on-thermal landmarks (so even noisy landmark positions give SAM a region to expand into).
+
+I tried SAM 3 first (Meta, supports text-prompt segmentation), but its install chain pulls in `triton` (CUDA-only) and `decord` (video) and doesn't slot cleanly into a CPU-or-bhaskar-only workflow. Pivoted to `facebook/sam-vit-base` via `transformers` — same SAM v1 architecture, much simpler API.
+
+The pipeline:
+
+1. Run MediaPipe FaceMesh on the thermal image to get rough landmark positions.
+2. For each anatomical region, pick a small set of *click points*: positive clicks on the landmarks for that region, negative clicks on a contrast region (e.g., for `eye`, positive on eye landmarks, negative on the nose-tip).
+3. Pass clicks to SAM, get a binary mask back, take the mask with highest IoU.
+
+::: {layout-ncol=3}
+![SAM nose-mask on the real SF-TL54 thermal. Clean — captures the actual nose region.](thermal-genai/outputs/sam_masks/real_sftl54__nose.png){#fig-sam-nose}
+
+![SAM eye-mask on the same image. **Greedy** — the click prompt at both eye centres got SAM to merge the whole face into a single mask.](thermal-genai/outputs/sam_masks/real_sftl54__eye_both.png){#fig-sam-eye}
+
+![SAM hair-mask. Also greedy — captures whole-head.](thermal-genai/outputs/sam_masks/real_sftl54__hair.png){#fig-sam-hair}
+:::
+
+So SAM is **excellent for the nose region** (the click prompts pin a small object) and **over-greedy for eye / hair** (the prompts span enough of the face that SAM returns the entire face mask). The fix is to either (a) prompt one eye at a time and union the masks, or (b) use SAM 3's text-prompt mode (which supports "small thing called eye"), or (c) accept that nose is the cleanly measurable region and report just that.
+
+### SAM-based metric: nose/forehead ratio
+
+Using just the nose region (where SAM works well) and forehead as reference:
+
+| Method | nose/forehead ratio | Deviation from real (0.585) |
+|--------|--------------------:|----------------------------:|
+| **Real SF-TL54** | **0.585** | — |
+| **Flash iter1** | **0.421** | **0.28** |
+| Pro iter1 | 0.328 | 0.44 |
+| Pro exp3 (RGB+cap) | 0.973 | 0.66 |
+| ThermalGen-L iron | n/a — MediaPipe couldn't find a face | n/a |
+| ThermalGen-L grayscale | n/a — same | n/a |
+
+**The SAM-based metric ranks Flash iter1 above Pro iter1** — the opposite of the MediaPipe-mask metric, and the opposite of the Gemini-judge ranking. Three evaluation tools, three different orderings:
+
+| Best by | Order |
+|---------|-------|
+| Gemini-3.5-Flash judge | Pro iter1 ≥ Flash iter1 > ThermalGen (7/10, 7/10, 4/10) |
+| MediaPipe-mask metrics | Pro iter1 > Flash iter1 > ThermalGen (composite ranking from earlier table) |
+| **SAM-mask nose/forehead** | **Flash iter1 > Pro iter1 ≫ Pro exp3** |
+
+**This is the most important paper-grade finding**: when the metric and the masking tool both depend on imperfect localisation, the ranking is unstable. For a paper claiming "model A is better than model B at thermal generation", at least three of these tools need to agree.
+
+### What ThermalGen reveals
+
+ThermalGen outputs **cannot be evaluated with any of these SAM-pipelines** because MediaPipe FaceMesh doesn't recognise the iron-colorized ThermalGen image as a face — it produces no landmarks, no click anchors, no SAM mask. The image *visibly* contains a face (you can see it), but the RGB-trained face detector doesn't trigger on it.
+
+This is exactly the broader thermal-vs-RGB modality gap, just appearing inside the *evaluator* instead of inside the generator. The whole evaluation stack — Gemini judge, MediaPipe landmarks, SAM-via-MediaPipe-anchors — is RGB-trained. To fairly evaluate a thermal-specialised generator, **you need a thermal-trained evaluator too**.
+
+### Implications for the paper
+
+- **Don't use Gemini-as-judge** — biased toward Gemini-style outputs (we established this above).
+- **Don't use MediaPipe-on-thermal for masks** — works for very face-like inputs (Gemini's iron-stylised faces), fails on thermal-trained outputs.
+- **Use SAM with click prompts** for the nose region specifically — it's a clean, reliable per-pixel measurement.
+- **For the other regions (eye, hair)**, use SAM 3 with text prompts (when the install is straightforward) or hand-curated bounding boxes.
+- **Best paper-grade evaluation**: train a small thermal-trained face landmarker (DWPose worked at this in [part 1 of the nostril series](2026-05-20-thermal-nostril-bakeoff.qmd)) → use its outputs as click prompts → run SAM for masks → measure region luminances.
+- **Ultimately, the gold standard remains downstream-task accuracy**: train a thermal nostril detector on synthetic data from each method, test on real thermal, measure the gap. That's the only evaluation that doesn't depend on a separate evaluator's bias.
+
 ## Implications for the upcoming paper
 
 Three takeaways from this experiment:
