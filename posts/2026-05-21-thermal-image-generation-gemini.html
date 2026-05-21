@@ -419,6 +419,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#what-thermalgen-still-doesnt-fix" id="toc-what-thermalgen-still-doesnt-fix" class="nav-link" data-scroll-target="#what-thermalgen-still-doesnt-fix">What ThermalGen still doesn’t fix</a></li>
   <li><a href="#bottom-line-on-this-section" id="toc-bottom-line-on-this-section" class="nav-link" data-scroll-target="#bottom-line-on-this-section">Bottom line on this section</a></li>
   </ul></li>
+  <li><a href="#paper-grade-quantitative-metrics-dont-use-llms-to-judge" id="toc-paper-grade-quantitative-metrics-dont-use-llms-to-judge" class="nav-link" data-scroll-target="#paper-grade-quantitative-metrics-dont-use-llms-to-judge">Paper-grade quantitative metrics (don’t use LLMs to judge)</a>
+  <ul class="collapse">
+  <li><a href="#metric-suite" id="toc-metric-suite" class="nav-link" data-scroll-target="#metric-suite">Metric suite</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a></li>
+  <li><a href="#the-honest-paper-findings" id="toc-the-honest-paper-findings" class="nav-link" data-scroll-target="#the-honest-paper-findings">The honest paper findings</a></li>
+  <li><a href="#what-the-paper-should-actually-report" id="toc-what-the-paper-should-actually-report" class="nav-link" data-scroll-target="#what-the-paper-should-actually-report">What the paper should actually report</a></li>
+  </ul></li>
+  <li><a href="#sam-based-segmentation-as-a-third-evaluation-tool" id="toc-sam-based-segmentation-as-a-third-evaluation-tool" class="nav-link" data-scroll-target="#sam-based-segmentation-as-a-third-evaluation-tool">SAM-based segmentation as a third evaluation tool</a>
+  <ul class="collapse">
+  <li><a href="#sam-based-metric-noseforehead-ratio" id="toc-sam-based-metric-noseforehead-ratio" class="nav-link" data-scroll-target="#sam-based-metric-noseforehead-ratio">SAM-based metric: nose/forehead ratio</a></li>
+  <li><a href="#what-thermalgen-reveals" id="toc-what-thermalgen-reveals" class="nav-link" data-scroll-target="#what-thermalgen-reveals">What ThermalGen reveals</a></li>
+  <li><a href="#implications-for-the-paper" id="toc-implications-for-the-paper" class="nav-link" data-scroll-target="#implications-for-the-paper">Implications for the paper</a></li>
+  </ul></li>
   <li><a href="#implications-for-the-upcoming-paper" id="toc-implications-for-the-upcoming-paper" class="nav-link" data-scroll-target="#implications-for-the-upcoming-paper">Implications for the upcoming paper</a></li>
   <li><a href="#what-id-run-next-if-i-were-writing-the-paper" id="toc-what-id-run-next-if-i-were-writing-the-paper" class="nav-link" data-scroll-target="#what-id-run-next-if-i-were-writing-the-paper">What I’d run next if I were writing the paper</a></li>
   <li><a href="#what-this-experiment-is-not" id="toc-what-this-experiment-is-not" class="nav-link" data-scroll-target="#what-this-experiment-is-not">What this experiment is <em>not</em></a></li>
@@ -1327,6 +1340,392 @@ Figure&nbsp;20: <strong>Pro iter 2 (7/10): cleaner face, no vein hallucination. 
 <section id="bottom-line-on-this-section" class="level3">
 <h3 class="anchored" data-anchor-id="bottom-line-on-this-section">Bottom line on this section</h3>
 <p>The thermal-generation literature was right. <strong>A specialised generator trained on real thermal data produces visibly more correct physics than a general-purpose generator of any size</strong>, <em>even if</em> a generic LLM judge can’t tell the difference. If you’re building a thermal-data-synthesis pipeline today, ThermalGen is the better starting point than Gemini — and the only one that produces images consistent with actual LWIR physics.</p>
+</section>
+</section>
+<section id="paper-grade-quantitative-metrics-dont-use-llms-to-judge" class="level2 page-columns page-full">
+<h2 class="anchored" data-anchor-id="paper-grade-quantitative-metrics-dont-use-llms-to-judge">Paper-grade quantitative metrics (don’t use LLMs to judge)</h2>
+<p>The previous section showed Gemini-judge is unreliable. Let me actually compute the metrics a paper <em>should</em> use — pixel-level, perceptual, distributional, and anatomical-region — on all 16 generated images vs the real SF-TL54 thermal reference. Code: <a href="https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/quantitative_metrics.py"><code>quantitative_metrics.py</code></a>.</p>
+<section id="metric-suite" class="level3">
+<h3 class="anchored" data-anchor-id="metric-suite">Metric suite</h3>
+<p>Three families, no LLM in the loop:</p>
+<p><strong>(a) Pixel-level / perceptual</strong> — full-image similarity:</p>
+<ul>
+<li><strong>SSIM</strong> (luminance, 256×192): structural similarity, higher = closer. 1.0 = identical.</li>
+<li><strong>LPIPS</strong> (AlexNet backbone): perceptual distance, lower = closer.</li>
+<li><strong>Histogram intersection</strong> (RGB, 64-bin per channel): sum over channels of pixel-wise <code>min(p, q)</code>, max = 3.0.</li>
+</ul>
+<p><strong>(b) Anatomical region ratios</strong> — does the generated image have the <em>right</em> relative temperatures in the right places? Compute MediaPipe FaceMesh masks on the real thermal, then compute mean luminance in each region for both real and candidate, then take ratios:</p>
+<ul>
+<li><strong>eye / periorbital ratio</strong>: target from real SF-TL54 = <strong>1.07</strong>. The eye region averages slightly brighter than the surrounding orbital tissue because of bright canthi.</li>
+<li><strong>hair / face ratio</strong>: target = <strong>0.39</strong>. Hair is much cooler than face skin.</li>
+<li><strong>nose / cheek ratio</strong>: target = <strong>0.78</strong>. Nose tip is cooler than cheek.</li>
+</ul>
+<p>For each candidate, “deviation from real” = <code>|cand_ratio − real_ratio| / real_ratio</code>. Lower = better match.</p>
+<p><strong>(c) Distributional</strong> — already in (a) via histogram intersection.</p>
+</section>
+<section id="results" class="level3 page-columns page-full">
+<h3 class="anchored" data-anchor-id="results">Results</h3>
+<div class="quarto-figure quarto-figure-center page-columns page-full">
+<figure class="figure page-columns page-full">
+<p class="page-columns page-full"><img src="thermal-genai/outputs/quant_metrics_chart.png" class="img-fluid figure-img column-page"></p>
+<figcaption>Four side-by-side panels: SSIM, LPIPS, RGB histogram intersection, and eye/orbital ratio deviation. Each bar is one generated image. Blue = Gemini Flash, Red = Gemini Pro, Green = ThermalGen. No single method dominates all four metrics — but a clear story emerges.</figcaption>
+</figure>
+</div>
+<p>The full numerical table (lower-is-better metrics in <strong>bold</strong> where best):</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 10%">
+<col style="width: 9%">
+<col style="width: 17%">
+<col style="width: 20%">
+<col style="width: 22%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Method</th>
+<th style="text-align: right;">SSIM ↑</th>
+<th style="text-align: right;">LPIPS ↓</th>
+<th style="text-align: right;">Hist ↑</th>
+<th style="text-align: right;">eye/orb dev ↓</th>
+<th style="text-align: right;">hair/face dev ↓</th>
+<th style="text-align: right;">nose/cheek dev ↓</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Flash 1a generic</td>
+<td style="text-align: right;">0.493</td>
+<td style="text-align: right;">0.582</td>
+<td style="text-align: right;">1.82</td>
+<td style="text-align: right;">0.10</td>
+<td style="text-align: right;">0.11</td>
+<td style="text-align: right;">0.77</td>
+</tr>
+<tr class="even">
+<td>Pro 1a generic</td>
+<td style="text-align: right;">0.487</td>
+<td style="text-align: right;">0.611</td>
+<td style="text-align: right;">1.75</td>
+<td style="text-align: right;">0.12</td>
+<td style="text-align: right;">0.63</td>
+<td style="text-align: right;">0.15</td>
+</tr>
+<tr class="odd">
+<td>Flash 1b RGB-cap</td>
+<td style="text-align: right;">0.327</td>
+<td style="text-align: right;">0.767</td>
+<td style="text-align: right;">1.52</td>
+<td style="text-align: right;">0.02</td>
+<td style="text-align: right;">2.36</td>
+<td style="text-align: right;">0.69</td>
+</tr>
+<tr class="even">
+<td>Pro 1b RGB-cap</td>
+<td style="text-align: right;">0.429</td>
+<td style="text-align: right;">0.732</td>
+<td style="text-align: right;">1.70</td>
+<td style="text-align: right;">0.67</td>
+<td style="text-align: right;">0.53</td>
+<td style="text-align: right;">0.92</td>
+</tr>
+<tr class="odd">
+<td>Flash 1c phys</td>
+<td style="text-align: right;">0.359</td>
+<td style="text-align: right;">0.716</td>
+<td style="text-align: right;">1.68</td>
+<td style="text-align: right;"><strong>0.01</strong></td>
+<td style="text-align: right;"><strong>0.04</strong></td>
+<td style="text-align: right;">0.94</td>
+</tr>
+<tr class="even">
+<td>Pro 1c phys</td>
+<td style="text-align: right;">0.232</td>
+<td style="text-align: right;">0.755</td>
+<td style="text-align: right;"><strong>1.92</strong></td>
+<td style="text-align: right;">0.47</td>
+<td style="text-align: right;">0.70</td>
+<td style="text-align: right;">0.68</td>
+</tr>
+<tr class="odd">
+<td>Flash 1d therm-cap</td>
+<td style="text-align: right;">0.536</td>
+<td style="text-align: right;">0.547</td>
+<td style="text-align: right;">1.32</td>
+<td style="text-align: right;">0.07</td>
+<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">0.77</td>
+</tr>
+<tr class="even">
+<td>Pro 1d therm-cap</td>
+<td style="text-align: right;">0.513</td>
+<td style="text-align: right;">0.537</td>
+<td style="text-align: right;">1.75</td>
+<td style="text-align: right;">0.10</td>
+<td style="text-align: right;">0.19</td>
+<td style="text-align: right;">0.62</td>
+</tr>
+<tr class="odd">
+<td>Flash 2 RGB+cap</td>
+<td style="text-align: right;">0.550</td>
+<td style="text-align: right;">0.435</td>
+<td style="text-align: right;">1.56</td>
+<td style="text-align: right;">0.06</td>
+<td style="text-align: right;">0.28</td>
+<td style="text-align: right;">0.27</td>
+</tr>
+<tr class="even">
+<td><strong>Pro 2 RGB+cap</strong></td>
+<td style="text-align: right;"><strong>0.691</strong></td>
+<td style="text-align: right;">0.418</td>
+<td style="text-align: right;">1.80</td>
+<td style="text-align: right;">0.04</td>
+<td style="text-align: right;">0.21</td>
+<td style="text-align: right;">0.33</td>
+</tr>
+<tr class="odd">
+<td>Flash iter1</td>
+<td style="text-align: right;">0.558</td>
+<td style="text-align: right;">0.473</td>
+<td style="text-align: right;">1.47</td>
+<td style="text-align: right;">0.02</td>
+<td style="text-align: right;">0.16</td>
+<td style="text-align: right;"><strong>0.04</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Pro iter1</strong></td>
+<td style="text-align: right;">0.685</td>
+<td style="text-align: right;"><strong>0.315</strong></td>
+<td style="text-align: right;">1.78</td>
+<td style="text-align: right;"><strong>0.01</strong></td>
+<td style="text-align: right;"><strong>0.01</strong></td>
+<td style="text-align: right;">0.22</td>
+</tr>
+<tr class="odd">
+<td>Flash iter2</td>
+<td style="text-align: right;">0.567</td>
+<td style="text-align: right;">0.454</td>
+<td style="text-align: right;">1.60</td>
+<td style="text-align: right;">0.11</td>
+<td style="text-align: right;">0.32</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr class="even">
+<td>Pro iter2</td>
+<td style="text-align: right;">0.525</td>
+<td style="text-align: right;">0.375</td>
+<td style="text-align: right;">1.28</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.12</td>
+<td style="text-align: right;">0.28</td>
+</tr>
+<tr class="odd">
+<td>ThermalGen L iron</td>
+<td style="text-align: right;">0.478</td>
+<td style="text-align: right;">0.536</td>
+<td style="text-align: right;">1.01</td>
+<td style="text-align: right;">0.03</td>
+<td style="text-align: right;">0.79</td>
+<td style="text-align: right;">0.32</td>
+</tr>
+<tr class="even">
+<td>ThermalGen B iron</td>
+<td style="text-align: right;">0.372</td>
+<td style="text-align: right;">0.668</td>
+<td style="text-align: right;">0.94</td>
+<td style="text-align: right;">0.07</td>
+<td style="text-align: right;">0.74</td>
+<td style="text-align: right;">0.28</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Important
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>The story is different from the LLM-judge version</strong>. <strong>Pro iter1 wins</strong> on LPIPS and on two of three anatomical ratios (eye/orb, hair/face). <strong>Flash iter1 wins</strong> on the nose/cheek ratio. <strong>Pro 2 (RGB + caption)</strong> wins on SSIM. <strong>ThermalGen</strong> is mid-pack on the eye/orb deviation (0.03 — third best!) and on nose/cheek (0.28 — mid-pack), but is the <strong>worst on hair/face ratio</strong> (0.79 — hair appears too warm in the iron-colorized version) and on SSIM (because grayscale-then-iron-colorized doesn’t perfectly match the SF-TL54 iron palette).</p>
+</div>
+</div>
+</section>
+<section id="the-honest-paper-findings" class="level3">
+<h3 class="anchored" data-anchor-id="the-honest-paper-findings">The honest paper findings</h3>
+<p>Re-reading the numbers carefully:</p>
+<ol type="1">
+<li><p><strong>The LLM judge was directionally wrong on the magnitudes but not entirely wrong on the rankings.</strong> Pro iter1 <em>is</em> in fact the most-pixel-similar-to-real among everything tested. The judge gave it 7/10. ThermalGen, while physically correct on eye placement, has a 0.79 hair/face deviation (vs target 0.39) — it’s not as good as I claimed in the previous section. The judge gave it 4/10 — too harsh, but not absurdly so.</p></li>
+<li><p><strong>No method dominates.</strong> Each metric has a different winner. Pro iter1 wins 2 of the 3 anatomical ratios; Flash 1c wins the eye/orb and hair/face (with absurd LPIPS); ThermalGen wins nothing outright on these metrics.</p></li>
+<li><p><strong>What’s actually going on with ThermalGen</strong>: its training set is <em>automotive</em> thermal scenes (M3FD, FLIR, KAIST). Faces are out-of-distribution. It produces thermal-textures from the automotive distribution, which happens to render hair as warm-mid-tone rather than cool-dark like the SF-TL54 face thermal reference. <strong>A version of ThermalGen finetuned on face thermal data (SF-TL54 + ThermEval) would likely beat everything else here</strong>, but the current public checkpoint is automotive-only.</p></li>
+<li><p><strong>The eye/orbital ratio is the most discriminating metric.</strong> Real-thermal target = 1.07. Most methods land within 0.1 — they got it right or close. The two outliers (Pro 1b and Pro 1c, with ratios 0.36 and 0.57) drew eyes much darker than periorbital — Gemini misinterpreted my “hot eyes” prompt and over-corrected toward dark eye sockets. That’s a prompt-following failure, not a physics failure.</p></li>
+<li><p><strong>SSIM is the WORST metric for this task.</strong> It’s dominated by colour-palette agreement. A model that draws iron-palette faces (Gemini Pro) wins SSIM by default; a model that draws correct-physics grayscale-then-colorized (ThermalGen) loses because the colormap is approximate. <strong>For a paper, drop SSIM and PSNR. Use LPIPS + region-ratios.</strong></p></li>
+<li><p><strong>LPIPS aligns reasonably well with the LLM judge</strong> for the Gemini outputs, but disagrees on ThermalGen (LPIPS 0.54, judge 4/10). LPIPS is measuring “AlexNet-perceptual” similarity to the reference, not thermal physics. For face-thermal generation, <strong>LPIPS is necessary but not sufficient.</strong></p></li>
+</ol>
+</section>
+<section id="what-the-paper-should-actually-report" class="level3">
+<h3 class="anchored" data-anchor-id="what-the-paper-should-actually-report">What the paper should actually report</h3>
+<p>Drop the Gemini-judge entirely. Drop SSIM. Keep:</p>
+<ul>
+<li><strong>LPIPS</strong> on the iron-palette versions (perceptual similarity).</li>
+<li><strong>Region-ratio deviations</strong> (eye/orb, hair/face, nose/cheek) — these are the closest thing to “is the thermal physics right” you can measure without a thermal sensor.</li>
+<li><strong>Hair/face deviation</strong> specifically because it cleanly separates “thermal-trained model that knows hair is cool” from “RGB-trained model that draws hair as bright skin”.</li>
+<li><strong>Downstream-task accuracy</strong> (the gold standard): train a nostril detector on each method’s synthetic data, test on real thermal, measure the gap to a model trained on real thermal only. <em>That’s</em> what tells you whether a synthesis pipeline is useful for deployment.</li>
+</ul>
+<div class="callout callout-style-simple callout-tip">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><strong>One concrete paper-grade reformulation of the experiment</strong>: do the same 16 generations on 50 SF-TL54 subjects, then run the <a href="../posts/2026-05-20-thermal-nostril-finetune.html">Sapiens2-finetuned thermal nostril detector from part 2</a> on each. Report (a) the detection rate of the finetuned detector on each model’s outputs and (b) the mean nostril localisation error vs the <em>real</em> thermal of each subject. The model that produces the highest detection-rate + lowest-error outputs is the winning thermal data synthesiser. That’s a deployment-relevant evaluation that doesn’t need any LLM in the loop.</p>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="sam-based-segmentation-as-a-third-evaluation-tool" class="level2">
+<h2 class="anchored" data-anchor-id="sam-based-segmentation-as-a-third-evaluation-tool">SAM-based segmentation as a third evaluation tool</h2>
+<p>The MediaPipe-mask metrics above rely on MediaPipe FaceMesh detecting landmarks on the <em>thermal</em> image — but FaceMesh is RGB-trained, and its landmark localisation on thermal is noisy. A better approach: use <strong>SAM</strong> (Segment Anything) to produce the anatomical masks directly from the image content, prompted with click points derived from the FaceMesh-on-thermal landmarks (so even noisy landmark positions give SAM a region to expand into).</p>
+<p>I tried SAM 3 first (Meta, supports text-prompt segmentation), but its install chain pulls in <code>triton</code> (CUDA-only) and <code>decord</code> (video) and doesn’t slot cleanly into a CPU-or-bhaskar-only workflow. Pivoted to <code>facebook/sam-vit-base</code> via <code>transformers</code> — same SAM v1 architecture, much simpler API.</p>
+<p>The pipeline:</p>
+<ol type="1">
+<li>Run MediaPipe FaceMesh on the thermal image to get rough landmark positions.</li>
+<li>For each anatomical region, pick a small set of <em>click points</em>: positive clicks on the landmarks for that region, negative clicks on a contrast region (e.g., for <code>eye</code>, positive on eye landmarks, negative on the nose-tip).</li>
+<li>Pass clicks to SAM, get a binary mask back, take the mask with highest IoU.</li>
+</ol>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div id="fig-sam-nose" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sam-nose-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/sam_masks/real_sftl54__nose.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sam-nose-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;21: SAM nose-mask on the real SF-TL54 thermal. Clean — captures the actual nose region.
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div id="fig-sam-eye" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sam-eye-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/sam_masks/real_sftl54__eye_both.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sam-eye-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;22: SAM eye-mask on the same image. <strong>Greedy</strong> — the click prompt at both eye centres got SAM to merge the whole face into a single mask.
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div id="fig-sam-hair" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sam-hair-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="thermal-genai/outputs/sam_masks/real_sftl54__hair.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sam-hair-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;23: SAM hair-mask. Also greedy — captures whole-head.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<p>So SAM is <strong>excellent for the nose region</strong> (the click prompts pin a small object) and <strong>over-greedy for eye / hair</strong> (the prompts span enough of the face that SAM returns the entire face mask). The fix is to either (a) prompt one eye at a time and union the masks, or (b) use SAM 3’s text-prompt mode (which supports “small thing called eye”), or (c) accept that nose is the cleanly measurable region and report just that.</p>
+<section id="sam-based-metric-noseforehead-ratio" class="level3">
+<h3 class="anchored" data-anchor-id="sam-based-metric-noseforehead-ratio">SAM-based metric: nose/forehead ratio</h3>
+<p>Using just the nose region (where SAM works well) and forehead as reference:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Method</th>
+<th style="text-align: right;">nose/forehead ratio</th>
+<th style="text-align: right;">Deviation from real (0.585)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Real SF-TL54</strong></td>
+<td style="text-align: right;"><strong>0.585</strong></td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr class="even">
+<td><strong>Flash iter1</strong></td>
+<td style="text-align: right;"><strong>0.421</strong></td>
+<td style="text-align: right;"><strong>0.28</strong></td>
+</tr>
+<tr class="odd">
+<td>Pro iter1</td>
+<td style="text-align: right;">0.328</td>
+<td style="text-align: right;">0.44</td>
+</tr>
+<tr class="even">
+<td>Pro exp3 (RGB+cap)</td>
+<td style="text-align: right;">0.973</td>
+<td style="text-align: right;">0.66</td>
+</tr>
+<tr class="odd">
+<td>ThermalGen-L iron</td>
+<td style="text-align: right;">n/a — MediaPipe couldn’t find a face</td>
+<td style="text-align: right;">n/a</td>
+</tr>
+<tr class="even">
+<td>ThermalGen-L grayscale</td>
+<td style="text-align: right;">n/a — same</td>
+<td style="text-align: right;">n/a</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The SAM-based metric ranks Flash iter1 above Pro iter1</strong> — the opposite of the MediaPipe-mask metric, and the opposite of the Gemini-judge ranking. Three evaluation tools, three different orderings:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 56%">
+<col style="width: 43%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Best by</th>
+<th>Order</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Gemini-3.5-Flash judge</td>
+<td>Pro iter1 ≥ Flash iter1 &gt; ThermalGen (7/10, 7/10, 4/10)</td>
+</tr>
+<tr class="even">
+<td>MediaPipe-mask metrics</td>
+<td>Pro iter1 &gt; Flash iter1 &gt; ThermalGen (composite ranking from earlier table)</td>
+</tr>
+<tr class="odd">
+<td><strong>SAM-mask nose/forehead</strong></td>
+<td><strong>Flash iter1 &gt; Pro iter1 ≫ Pro exp3</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>This is the most important paper-grade finding</strong>: when the metric and the masking tool both depend on imperfect localisation, the ranking is unstable. For a paper claiming “model A is better than model B at thermal generation”, at least three of these tools need to agree.</p>
+</section>
+<section id="what-thermalgen-reveals" class="level3">
+<h3 class="anchored" data-anchor-id="what-thermalgen-reveals">What ThermalGen reveals</h3>
+<p>ThermalGen outputs <strong>cannot be evaluated with any of these SAM-pipelines</strong> because MediaPipe FaceMesh doesn’t recognise the iron-colorized ThermalGen image as a face — it produces no landmarks, no click anchors, no SAM mask. The image <em>visibly</em> contains a face (you can see it), but the RGB-trained face detector doesn’t trigger on it.</p>
+<p>This is exactly the broader thermal-vs-RGB modality gap, just appearing inside the <em>evaluator</em> instead of inside the generator. The whole evaluation stack — Gemini judge, MediaPipe landmarks, SAM-via-MediaPipe-anchors — is RGB-trained. To fairly evaluate a thermal-specialised generator, <strong>you need a thermal-trained evaluator too</strong>.</p>
+</section>
+<section id="implications-for-the-paper" class="level3">
+<h3 class="anchored" data-anchor-id="implications-for-the-paper">Implications for the paper</h3>
+<ul>
+<li><strong>Don’t use Gemini-as-judge</strong> — biased toward Gemini-style outputs (we established this above).</li>
+<li><strong>Don’t use MediaPipe-on-thermal for masks</strong> — works for very face-like inputs (Gemini’s iron-stylised faces), fails on thermal-trained outputs.</li>
+<li><strong>Use SAM with click prompts</strong> for the nose region specifically — it’s a clean, reliable per-pixel measurement.</li>
+<li><strong>For the other regions (eye, hair)</strong>, use SAM 3 with text prompts (when the install is straightforward) or hand-curated bounding boxes.</li>
+<li><strong>Best paper-grade evaluation</strong>: train a small thermal-trained face landmarker (DWPose worked at this in <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">part 1 of the nostril series</a>) → use its outputs as click prompts → run SAM for masks → measure region luminances.</li>
+<li><strong>Ultimately, the gold standard remains downstream-task accuracy</strong>: train a thermal nostril detector on synthetic data from each method, test on real thermal, measure the gap. That’s the only evaluation that doesn’t depend on a separate evaluator’s bias.</li>
+</ul>
 </section>
 </section>
 <section id="implications-for-the-upcoming-paper" class="level2">
@@ -2400,40 +2799,182 @@ Figure&nbsp;20: <strong>Pro iter 2 (7/10): cleaner face, no vein hallucination. 
 <span id="cb6-513"><a href="#cb6-513" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-514"><a href="#cb6-514" aria-hidden="true" tabindex="-1"></a>The thermal-generation literature was right. **A specialised generator trained on real thermal data produces visibly more correct physics than a general-purpose generator of any size**, *even if* a generic LLM judge can't tell the difference. If you're building a thermal-data-synthesis pipeline today, ThermalGen is the better starting point than Gemini — and the only one that produces images consistent with actual LWIR physics.</span>
 <span id="cb6-515"><a href="#cb6-515" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-516"><a href="#cb6-516" aria-hidden="true" tabindex="-1"></a><span class="fu">## Implications for the upcoming paper</span></span>
+<span id="cb6-516"><a href="#cb6-516" aria-hidden="true" tabindex="-1"></a><span class="fu">## Paper-grade quantitative metrics (don't use LLMs to judge)</span></span>
 <span id="cb6-517"><a href="#cb6-517" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-518"><a href="#cb6-518" aria-hidden="true" tabindex="-1"></a>Three takeaways from this experiment:</span>
+<span id="cb6-518"><a href="#cb6-518" aria-hidden="true" tabindex="-1"></a>The previous section showed Gemini-judge is unreliable. Let me actually compute the metrics a paper *should* use — pixel-level, perceptual, distributional, and anatomical-region — on all 16 generated images vs the real SF-TL54 thermal reference. Code: <span class="co">[</span><span class="ot">`quantitative_metrics.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/quantitative_metrics.py)</span>.</span>
 <span id="cb6-519"><a href="#cb6-519" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-520"><a href="#cb6-520" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Style match ≠ modality match.** Gemini consistently produces images that *look* thermal (correct palette, correct overall warm-on-face / cool-on-hair distribution, correct silhouette). But the thermal *physics* — which regions are hot and cold and why — is consistently wrong, and wrong in stable ways across all four prompting strategies. **Style-based augmentation might still help a model that trains on visual texture** (e.g., a face detector that doesn't care if eyes are hot or cold). **It cannot help a model that needs thermal physics correct** (e.g., a nostril localiser tracking breath-rate temperature swings).</span>
+<span id="cb6-520"><a href="#cb6-520" aria-hidden="true" tabindex="-1"></a><span class="fu">### Metric suite</span></span>
 <span id="cb6-521"><a href="#cb6-521" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-522"><a href="#cb6-522" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Self-critique helps once, then hurts.** A single-iteration self-critique loop produces the best result across the whole experiment (7/10). Further iterations diverge because there's no convergence signal. For a paper that uses Gemini to *iteratively refine* a generation, **stop after one critique step**, OR add an explicit termination condition ("if no concrete physical errors remain, output 'NO CHANGES NEEDED'").</span>
+<span id="cb6-522"><a href="#cb6-522" aria-hidden="true" tabindex="-1"></a>Three families, no LLM in the loop:</span>
 <span id="cb6-523"><a href="#cb6-523" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-524"><a href="#cb6-524" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Real thermal data still wins.** The cheapest scaling path for a thermal model isn't synthetic Gemini data; it's projecting labels from paired-RGB (<span class="co">[</span><span class="ot">as TFD68 did</span><span class="co">](https://dl.acm.org/doi/10.1145/3757376.3771410)</span>, see also <span class="co">[</span><span class="ot">part 4 of the nostril series</span><span class="co">](2026-05-20-thermal-nostril-why-hard.qmd)</span>) or capturing more thermal video with an inexpensive TC001+ (~$350) at scale.</span>
+<span id="cb6-524"><a href="#cb6-524" aria-hidden="true" tabindex="-1"></a>**(a) Pixel-level / perceptual** — full-image similarity:</span>
 <span id="cb6-525"><a href="#cb6-525" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-526"><a href="#cb6-526" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd run next if I were writing the paper</span></span>
-<span id="cb6-527"><a href="#cb6-527" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-528"><a href="#cb6-528" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Quantitative thermal-physics metrics.** Replace Gemini's 1-10 judge with measurable features: (1) mean luminance of the iris region vs the periorbital ring (the iris should be *cooler*, so iris/orbital &lt; 1.0); (2) presence of a temperature bar UI as a binary feature; (3) Pearson correlation between generated-thermal pixels and real-thermal pixels, masked to the face region. Each metric is a number, not an LLM opinion.</span>
-<span id="cb6-529"><a href="#cb6-529" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Larger N.** Run all four prompt strategies on 50 SF-TL54 subjects + 50 ThermEval-D subjects. Currently this is N=1, which is fine for failure-mode discovery but not for statistical claims.</span>
-<span id="cb6-530"><a href="#cb6-530" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other generators.** ✅ done for Gemini Pro (above) — repeat for Imagen 3, Stable Diffusion 3 with a thermal LoRA, GPT-Image-1, and FLUX. The failure-mode catalogue above is the right scaffolding for the comparison: does each generator make the *same* errors, or different ones? My prediction from the literature priors and the Gemini Pro result: all general-purpose generators max out around 7/10. The thermal-LoRA'd SD3 will break this ceiling.</span>
-<span id="cb6-531"><a href="#cb6-531" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Thermal-finetuned generator.** Take a small generator (Stable Diffusion XL Lightning, say) + finetune on ThermEval-D's 1k thermal images and the T-FAKE 200k synthetic set. Does that close the physics gap, or does the finetune memorise specific scenes? This is the most important follow-up — the literature (<span class="co">[</span><span class="ot">ThermalGen</span><span class="co">](https://arxiv.org/abs/2509.24878)</span>, <span class="co">[</span><span class="ot">T-FAKE</span><span class="co">](https://arxiv.org/abs/2408.15127)</span>) suggests yes.</span>
-<span id="cb6-532"><a href="#cb6-532" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Physics-aware loss term.** Reproduce T-FAKE's <span class="co">[</span><span class="ot">RGB2Thermal loss</span><span class="co">](https://arxiv.org/abs/2408.15127)</span> — Wasserstein distance between RGB and thermal patches + clinical-temperature priors — and apply it during inference (via prompt+critique loop) or finetuning. Likely the cheapest way to push the ceiling past 7/10 without finetuning from scratch.</span>
-<span id="cb6-533"><a href="#cb6-533" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Downstream-task evaluation.** Use the Gemini-generated thermal images as *training data* for a thermal nostril detector (the model from [part 2 of the nostril series](2026-05-20-thermal-nostril-finetune.qmd)). Compare to a model trained on the same number of *real* thermal frames. The downstream-task gap is the actual deployment value of synthesis.</span>
-<span id="cb6-534"><a href="#cb6-534" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-535"><a href="#cb6-535" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this experiment is *not*</span></span>
-<span id="cb6-536"><a href="#cb6-536" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-537"><a href="#cb6-537" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a benchmark of Gemini 3.1 Flash Image** as a general-purpose generator — it does extremely well on RGB tasks; thermal is just a specific OOD domain.</span>
-<span id="cb6-538"><a href="#cb6-538" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a claim that Gemini understands thermal physics is impossible**. With dedicated finetuning on real thermal data + maybe a physics-aware loss term, the same architecture might do much better. This experiment measures zero-shot performance.</span>
-<span id="cb6-539"><a href="#cb6-539" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a quantitative paper result**. The Gemini-judge scores are illustrative; a published paper would replace them with the quantitative metrics enumerated above.</span>
-<span id="cb6-540"><a href="#cb6-540" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-541"><a href="#cb6-541" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
-<span id="cb6-542"><a href="#cb6-542" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-543"><a href="#cb6-543" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Experiment scripts: <span class="co">[</span><span class="ot">`run_experiments.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py)</span> (Flash baseline) · <span class="co">[</span><span class="ot">`run_experiments_pro.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments_pro.py)</span> (Pro head-to-head) · <span class="co">[</span><span class="ot">`make_pro_comparison.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/make_pro_comparison.py)</span> (side-by-side panels)</span>
-<span id="cb6-544"><a href="#cb6-544" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Saved outputs (real and generated): <span class="co">[</span><span class="ot">`posts/thermal-genai/outputs/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs)</span> (Flash) · <span class="co">[</span><span class="ot">`outputs_pro/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs_pro)</span> (Pro)</span>
-<span id="cb6-545"><a href="#cb6-545" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Gemini image generation docs: <span class="co">[</span><span class="ot">ai.google.dev/gemini-api/docs/image-generation</span><span class="co">](https://ai.google.dev/gemini-api/docs/image-generation)</span></span>
-<span id="cb6-546"><a href="#cb6-546" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Related thermal-generation literature: <span class="co">[</span><span class="ot">T-FAKE (CVPR 2025)</span><span class="co">](https://arxiv.org/abs/2408.15127)</span> · <span class="co">[</span><span class="ot">ThermalGen (NeurIPS 2025)</span><span class="co">](https://arxiv.org/abs/2509.24878)</span> · <span class="co">[</span><span class="ot">ThermVision-DB (2026)</span><span class="co">](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12907868/)</span> · <span class="co">[</span><span class="ot">Multi-Attribute Thermal Translation (2025)</span><span class="co">](https://arxiv.org/abs/2512.21032)</span></span>
-<span id="cb6-547"><a href="#cb6-547" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Source thermal datasets: <span class="co">[</span><span class="ot">SF-TL54</span><span class="co">](https://huggingface.co/datasets/issai/SFTL54)</span> · <span class="co">[</span><span class="ot">ThermEval-D</span><span class="co">](https://www.kaggle.com/datasets/shriayush/thermeval)</span></span>
-<span id="cb6-548"><a href="#cb6-548" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Earlier Gemini-3.5-Flash measurement post: <span class="co">[</span><span class="ot">2026-05-20-gemini-3.5-flash-and-omni</span><span class="co">](2026-05-20-gemini-3.5-flash-and-omni.html)</span></span>
-<span id="cb6-549"><a href="#cb6-549" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Companion thermal-nostril series: <span class="co">[</span><span class="ot">part 1</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> · <span class="co">[</span><span class="ot">part 2</span><span class="co">](2026-05-20-thermal-nostril-finetune.qmd)</span> · <span class="co">[</span><span class="ot">part 3</span><span class="co">](2026-05-20-thermal-nostril-hierarchical.qmd)</span> · <span class="co">[</span><span class="ot">part 4</span><span class="co">](2026-05-20-thermal-nostril-why-hard.qmd)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<span id="cb6-526"><a href="#cb6-526" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**SSIM** (luminance, 256×192): structural similarity, higher = closer. 1.0 = identical.</span>
+<span id="cb6-527"><a href="#cb6-527" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**LPIPS** (AlexNet backbone): perceptual distance, lower = closer.</span>
+<span id="cb6-528"><a href="#cb6-528" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Histogram intersection** (RGB, 64-bin per channel): sum over channels of pixel-wise <span class="in">`min(p, q)`</span>, max = 3.0.</span>
+<span id="cb6-529"><a href="#cb6-529" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-530"><a href="#cb6-530" aria-hidden="true" tabindex="-1"></a>**(b) Anatomical region ratios** — does the generated image have the *right* relative temperatures in the right places? Compute MediaPipe FaceMesh masks on the real thermal, then compute mean luminance in each region for both real and candidate, then take ratios:</span>
+<span id="cb6-531"><a href="#cb6-531" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-532"><a href="#cb6-532" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**eye / periorbital ratio**: target from real SF-TL54 = **1.07**. The eye region averages slightly brighter than the surrounding orbital tissue because of bright canthi.</span>
+<span id="cb6-533"><a href="#cb6-533" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**hair / face ratio**: target = **0.39**. Hair is much cooler than face skin.</span>
+<span id="cb6-534"><a href="#cb6-534" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**nose / cheek ratio**: target = **0.78**. Nose tip is cooler than cheek.</span>
+<span id="cb6-535"><a href="#cb6-535" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-536"><a href="#cb6-536" aria-hidden="true" tabindex="-1"></a>For each candidate, "deviation from real" = <span class="in">`|cand_ratio − real_ratio| / real_ratio`</span>. Lower = better match.</span>
+<span id="cb6-537"><a href="#cb6-537" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-538"><a href="#cb6-538" aria-hidden="true" tabindex="-1"></a>**(c) Distributional** — already in (a) via histogram intersection.</span>
+<span id="cb6-539"><a href="#cb6-539" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-540"><a href="#cb6-540" aria-hidden="true" tabindex="-1"></a><span class="fu">### Results</span></span>
+<span id="cb6-541"><a href="#cb6-541" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-542"><a href="#cb6-542" aria-hidden="true" tabindex="-1"></a><span class="al">![Four side-by-side panels: SSIM, LPIPS, RGB histogram intersection, and eye/orbital ratio deviation. Each bar is one generated image. Blue = Gemini Flash, Red = Gemini Pro, Green = ThermalGen. No single method dominates all four metrics — but a clear story emerges.](thermal-genai/outputs/quant_metrics_chart.png)</span>{.column-page}</span>
+<span id="cb6-543"><a href="#cb6-543" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-544"><a href="#cb6-544" aria-hidden="true" tabindex="-1"></a>The full numerical table (lower-is-better metrics in **bold** where best):</span>
+<span id="cb6-545"><a href="#cb6-545" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-546"><a href="#cb6-546" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> SSIM ↑ <span class="pp">|</span> LPIPS ↓ <span class="pp">|</span> Hist ↑ <span class="pp">|</span> eye/orb dev ↓ <span class="pp">|</span> hair/face dev ↓ <span class="pp">|</span> nose/cheek dev ↓ <span class="pp">|</span></span>
+<span id="cb6-547"><a href="#cb6-547" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|-------:|--------:|-------:|--------------:|----------------:|------------------:|</span></span>
+<span id="cb6-548"><a href="#cb6-548" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flash 1a generic <span class="pp">|</span> 0.493 <span class="pp">|</span> 0.582 <span class="pp">|</span> 1.82 <span class="pp">|</span> 0.10 <span class="pp">|</span> 0.11 <span class="pp">|</span> 0.77 <span class="pp">|</span></span>
+<span id="cb6-549"><a href="#cb6-549" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pro 1a generic <span class="pp">|</span> 0.487 <span class="pp">|</span> 0.611 <span class="pp">|</span> 1.75 <span class="pp">|</span> 0.12 <span class="pp">|</span> 0.63 <span class="pp">|</span> 0.15 <span class="pp">|</span></span>
+<span id="cb6-550"><a href="#cb6-550" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flash 1b RGB-cap <span class="pp">|</span> 0.327 <span class="pp">|</span> 0.767 <span class="pp">|</span> 1.52 <span class="pp">|</span> 0.02 <span class="pp">|</span> 2.36 <span class="pp">|</span> 0.69 <span class="pp">|</span></span>
+<span id="cb6-551"><a href="#cb6-551" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pro 1b RGB-cap <span class="pp">|</span> 0.429 <span class="pp">|</span> 0.732 <span class="pp">|</span> 1.70 <span class="pp">|</span> 0.67 <span class="pp">|</span> 0.53 <span class="pp">|</span> 0.92 <span class="pp">|</span></span>
+<span id="cb6-552"><a href="#cb6-552" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flash 1c phys <span class="pp">|</span> 0.359 <span class="pp">|</span> 0.716 <span class="pp">|</span> 1.68 <span class="pp">|</span> **0.01** | **0.04** <span class="pp">|</span> 0.94 <span class="pp">|</span></span>
+<span id="cb6-553"><a href="#cb6-553" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pro 1c phys <span class="pp">|</span> 0.232 <span class="pp">|</span> 0.755 <span class="pp">|</span> **1.92** <span class="pp">|</span> 0.47 <span class="pp">|</span> 0.70 <span class="pp">|</span> 0.68 <span class="pp">|</span></span>
+<span id="cb6-554"><a href="#cb6-554" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flash 1d therm-cap <span class="pp">|</span> 0.536 <span class="pp">|</span> 0.547 <span class="pp">|</span> 1.32 <span class="pp">|</span> 0.07 <span class="pp">|</span> 0.35 <span class="pp">|</span> 0.77 <span class="pp">|</span></span>
+<span id="cb6-555"><a href="#cb6-555" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pro 1d therm-cap <span class="pp">|</span> 0.513 <span class="pp">|</span> 0.537 <span class="pp">|</span> 1.75 <span class="pp">|</span> 0.10 <span class="pp">|</span> 0.19 <span class="pp">|</span> 0.62 <span class="pp">|</span></span>
+<span id="cb6-556"><a href="#cb6-556" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flash 2 RGB+cap <span class="pp">|</span> 0.550 <span class="pp">|</span> 0.435 <span class="pp">|</span> 1.56 <span class="pp">|</span> 0.06 <span class="pp">|</span> 0.28 <span class="pp">|</span> 0.27 <span class="pp">|</span></span>
+<span id="cb6-557"><a href="#cb6-557" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Pro 2 RGB+cap** | **0.691** <span class="pp">|</span> 0.418 <span class="pp">|</span> 1.80 <span class="pp">|</span> 0.04 <span class="pp">|</span> 0.21 <span class="pp">|</span> 0.33 <span class="pp">|</span></span>
+<span id="cb6-558"><a href="#cb6-558" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flash iter1 <span class="pp">|</span> 0.558 <span class="pp">|</span> 0.473 <span class="pp">|</span> 1.47 <span class="pp">|</span> 0.02 <span class="pp">|</span> 0.16 <span class="pp">|</span> **0.04** <span class="pp">|</span></span>
+<span id="cb6-559"><a href="#cb6-559" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Pro iter1** | 0.685 | **0.315** | 1.78 | **0.01** | **0.01** <span class="pp">|</span> 0.22 <span class="pp">|</span></span>
+<span id="cb6-560"><a href="#cb6-560" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flash iter2 <span class="pp">|</span> 0.567 <span class="pp">|</span> 0.454 <span class="pp">|</span> 1.60 <span class="pp">|</span> 0.11 <span class="pp">|</span> 0.32 <span class="pp">|</span> 0.29 <span class="pp">|</span></span>
+<span id="cb6-561"><a href="#cb6-561" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pro iter2 <span class="pp">|</span> 0.525 <span class="pp">|</span> 0.375 <span class="pp">|</span> 1.28 <span class="pp">|</span> 0.05 <span class="pp">|</span> 0.12 <span class="pp">|</span> 0.28 <span class="pp">|</span></span>
+<span id="cb6-562"><a href="#cb6-562" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ThermalGen L iron <span class="pp">|</span> 0.478 <span class="pp">|</span> 0.536 <span class="pp">|</span> 1.01 <span class="pp">|</span> 0.03 <span class="pp">|</span> 0.79 <span class="pp">|</span> 0.32 <span class="pp">|</span></span>
+<span id="cb6-563"><a href="#cb6-563" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ThermalGen B iron <span class="pp">|</span> 0.372 <span class="pp">|</span> 0.668 <span class="pp">|</span> 0.94 <span class="pp">|</span> 0.07 <span class="pp">|</span> 0.74 <span class="pp">|</span> 0.28 <span class="pp">|</span></span>
+<span id="cb6-564"><a href="#cb6-564" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-565"><a href="#cb6-565" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb6-566"><a href="#cb6-566" aria-hidden="true" tabindex="-1"></a>**The story is different from the LLM-judge version**. **Pro iter1 wins** on LPIPS and on two of three anatomical ratios (eye/orb, hair/face). **Flash iter1 wins** on the nose/cheek ratio. **Pro 2 (RGB + caption)** wins on SSIM. **ThermalGen** is mid-pack on the eye/orb deviation (0.03 — third best!) and on nose/cheek (0.28 — mid-pack), but is the **worst on hair/face ratio** (0.79 — hair appears too warm in the iron-colorized version) and on SSIM (because grayscale-then-iron-colorized doesn't perfectly match the SF-TL54 iron palette).</span>
+<span id="cb6-567"><a href="#cb6-567" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-568"><a href="#cb6-568" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-569"><a href="#cb6-569" aria-hidden="true" tabindex="-1"></a><span class="fu">### The honest paper findings</span></span>
+<span id="cb6-570"><a href="#cb6-570" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-571"><a href="#cb6-571" aria-hidden="true" tabindex="-1"></a>Re-reading the numbers carefully:</span>
+<span id="cb6-572"><a href="#cb6-572" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-573"><a href="#cb6-573" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**The LLM judge was directionally wrong on the magnitudes but not entirely wrong on the rankings.** Pro iter1 *is* in fact the most-pixel-similar-to-real among everything tested. The judge gave it 7/10. ThermalGen, while physically correct on eye placement, has a 0.79 hair/face deviation (vs target 0.39) — it's not as good as I claimed in the previous section. The judge gave it 4/10 — too harsh, but not absurdly so.</span>
+<span id="cb6-574"><a href="#cb6-574" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-575"><a href="#cb6-575" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**No method dominates.** Each metric has a different winner. Pro iter1 wins 2 of the 3 anatomical ratios; Flash 1c wins the eye/orb and hair/face (with absurd LPIPS); ThermalGen wins nothing outright on these metrics.</span>
+<span id="cb6-576"><a href="#cb6-576" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-577"><a href="#cb6-577" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**What's actually going on with ThermalGen**: its training set is *automotive* thermal scenes (M3FD, FLIR, KAIST). Faces are out-of-distribution. It produces thermal-textures from the automotive distribution, which happens to render hair as warm-mid-tone rather than cool-dark like the SF-TL54 face thermal reference. **A version of ThermalGen finetuned on face thermal data (SF-TL54 + ThermEval) would likely beat everything else here**, but the current public checkpoint is automotive-only.</span>
+<span id="cb6-578"><a href="#cb6-578" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-579"><a href="#cb6-579" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**The eye/orbital ratio is the most discriminating metric.** Real-thermal target = 1.07. Most methods land within 0.1 — they got it right or close. The two outliers (Pro 1b and Pro 1c, with ratios 0.36 and 0.57) drew eyes much darker than periorbital — Gemini misinterpreted my "hot eyes" prompt and over-corrected toward dark eye sockets. That's a prompt-following failure, not a physics failure.</span>
+<span id="cb6-580"><a href="#cb6-580" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-581"><a href="#cb6-581" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**SSIM is the WORST metric for this task.** It's dominated by colour-palette agreement. A model that draws iron-palette faces (Gemini Pro) wins SSIM by default; a model that draws correct-physics grayscale-then-colorized (ThermalGen) loses because the colormap is approximate. **For a paper, drop SSIM and PSNR. Use LPIPS + region-ratios.**</span>
+<span id="cb6-582"><a href="#cb6-582" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-583"><a href="#cb6-583" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**LPIPS aligns reasonably well with the LLM judge** for the Gemini outputs, but disagrees on ThermalGen (LPIPS 0.54, judge 4/10). LPIPS is measuring "AlexNet-perceptual" similarity to the reference, not thermal physics. For face-thermal generation, **LPIPS is necessary but not sufficient.**</span>
+<span id="cb6-584"><a href="#cb6-584" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-585"><a href="#cb6-585" aria-hidden="true" tabindex="-1"></a><span class="fu">### What the paper should actually report</span></span>
+<span id="cb6-586"><a href="#cb6-586" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-587"><a href="#cb6-587" aria-hidden="true" tabindex="-1"></a>Drop the Gemini-judge entirely. Drop SSIM. Keep:</span>
+<span id="cb6-588"><a href="#cb6-588" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-589"><a href="#cb6-589" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**LPIPS** on the iron-palette versions (perceptual similarity).</span>
+<span id="cb6-590"><a href="#cb6-590" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Region-ratio deviations** (eye/orb, hair/face, nose/cheek) — these are the closest thing to "is the thermal physics right" you can measure without a thermal sensor.</span>
+<span id="cb6-591"><a href="#cb6-591" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Hair/face deviation** specifically because it cleanly separates "thermal-trained model that knows hair is cool" from "RGB-trained model that draws hair as bright skin".</span>
+<span id="cb6-592"><a href="#cb6-592" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Downstream-task accuracy** (the gold standard): train a nostril detector on each method's synthetic data, test on real thermal, measure the gap to a model trained on real thermal only. *That's* what tells you whether a synthesis pipeline is useful for deployment.</span>
+<span id="cb6-593"><a href="#cb6-593" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-594"><a href="#cb6-594" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip appearance="simple"}</span>
+<span id="cb6-595"><a href="#cb6-595" aria-hidden="true" tabindex="-1"></a>**One concrete paper-grade reformulation of the experiment**: do the same 16 generations on 50 SF-TL54 subjects, then run the <span class="co">[</span><span class="ot">Sapiens2-finetuned thermal nostril detector from part 2</span><span class="co">](2026-05-20-thermal-nostril-finetune.qmd)</span> on each. Report (a) the detection rate of the finetuned detector on each model's outputs and (b) the mean nostril localisation error vs the *real* thermal of each subject. The model that produces the highest detection-rate + lowest-error outputs is the winning thermal data synthesiser. That's a deployment-relevant evaluation that doesn't need any LLM in the loop.</span>
+<span id="cb6-596"><a href="#cb6-596" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-597"><a href="#cb6-597" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-598"><a href="#cb6-598" aria-hidden="true" tabindex="-1"></a><span class="fu">## SAM-based segmentation as a third evaluation tool</span></span>
+<span id="cb6-599"><a href="#cb6-599" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-600"><a href="#cb6-600" aria-hidden="true" tabindex="-1"></a>The MediaPipe-mask metrics above rely on MediaPipe FaceMesh detecting landmarks on the *thermal* image — but FaceMesh is RGB-trained, and its landmark localisation on thermal is noisy. A better approach: use **SAM** (Segment Anything) to produce the anatomical masks directly from the image content, prompted with click points derived from the FaceMesh-on-thermal landmarks (so even noisy landmark positions give SAM a region to expand into).</span>
+<span id="cb6-601"><a href="#cb6-601" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-602"><a href="#cb6-602" aria-hidden="true" tabindex="-1"></a>I tried SAM 3 first (Meta, supports text-prompt segmentation), but its install chain pulls in <span class="in">`triton`</span> (CUDA-only) and <span class="in">`decord`</span> (video) and doesn't slot cleanly into a CPU-or-bhaskar-only workflow. Pivoted to <span class="in">`facebook/sam-vit-base`</span> via <span class="in">`transformers`</span> — same SAM v1 architecture, much simpler API.</span>
+<span id="cb6-603"><a href="#cb6-603" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-604"><a href="#cb6-604" aria-hidden="true" tabindex="-1"></a>The pipeline:</span>
+<span id="cb6-605"><a href="#cb6-605" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-606"><a href="#cb6-606" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Run MediaPipe FaceMesh on the thermal image to get rough landmark positions.</span>
+<span id="cb6-607"><a href="#cb6-607" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>For each anatomical region, pick a small set of *click points*: positive clicks on the landmarks for that region, negative clicks on a contrast region (e.g., for <span class="in">`eye`</span>, positive on eye landmarks, negative on the nose-tip).</span>
+<span id="cb6-608"><a href="#cb6-608" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Pass clicks to SAM, get a binary mask back, take the mask with highest IoU.</span>
+<span id="cb6-609"><a href="#cb6-609" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-610"><a href="#cb6-610" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb6-611"><a href="#cb6-611" aria-hidden="true" tabindex="-1"></a><span class="al">![SAM nose-mask on the real SF-TL54 thermal. Clean — captures the actual nose region.](thermal-genai/outputs/sam_masks/real_sftl54__nose.png)</span>{#fig-sam-nose}</span>
+<span id="cb6-612"><a href="#cb6-612" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-613"><a href="#cb6-613" aria-hidden="true" tabindex="-1"></a><span class="al">![SAM eye-mask on the same image. **Greedy** — the click prompt at both eye centres got SAM to merge the whole face into a single mask.](thermal-genai/outputs/sam_masks/real_sftl54__eye_both.png)</span>{#fig-sam-eye}</span>
+<span id="cb6-614"><a href="#cb6-614" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-615"><a href="#cb6-615" aria-hidden="true" tabindex="-1"></a><span class="al">![SAM hair-mask. Also greedy — captures whole-head.](thermal-genai/outputs/sam_masks/real_sftl54__hair.png)</span>{#fig-sam-hair}</span>
+<span id="cb6-616"><a href="#cb6-616" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-617"><a href="#cb6-617" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-618"><a href="#cb6-618" aria-hidden="true" tabindex="-1"></a>So SAM is **excellent for the nose region** (the click prompts pin a small object) and **over-greedy for eye / hair** (the prompts span enough of the face that SAM returns the entire face mask). The fix is to either (a) prompt one eye at a time and union the masks, or (b) use SAM 3's text-prompt mode (which supports "small thing called eye"), or (c) accept that nose is the cleanly measurable region and report just that.</span>
+<span id="cb6-619"><a href="#cb6-619" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-620"><a href="#cb6-620" aria-hidden="true" tabindex="-1"></a><span class="fu">### SAM-based metric: nose/forehead ratio</span></span>
+<span id="cb6-621"><a href="#cb6-621" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-622"><a href="#cb6-622" aria-hidden="true" tabindex="-1"></a>Using just the nose region (where SAM works well) and forehead as reference:</span>
+<span id="cb6-623"><a href="#cb6-623" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-624"><a href="#cb6-624" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> nose/forehead ratio <span class="pp">|</span> Deviation from real (0.585) <span class="pp">|</span></span>
+<span id="cb6-625"><a href="#cb6-625" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|--------------------:|----------------------------:|</span></span>
+<span id="cb6-626"><a href="#cb6-626" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Real SF-TL54** | **0.585** <span class="pp">|</span> — <span class="pp">|</span></span>
+<span id="cb6-627"><a href="#cb6-627" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Flash iter1** | **0.421** | **0.28** <span class="pp">|</span></span>
+<span id="cb6-628"><a href="#cb6-628" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pro iter1 <span class="pp">|</span> 0.328 <span class="pp">|</span> 0.44 <span class="pp">|</span></span>
+<span id="cb6-629"><a href="#cb6-629" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Pro exp3 (RGB+cap) <span class="pp">|</span> 0.973 <span class="pp">|</span> 0.66 <span class="pp">|</span></span>
+<span id="cb6-630"><a href="#cb6-630" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ThermalGen-L iron <span class="pp">|</span> n/a — MediaPipe couldn't find a face <span class="pp">|</span> n/a <span class="pp">|</span></span>
+<span id="cb6-631"><a href="#cb6-631" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ThermalGen-L grayscale <span class="pp">|</span> n/a — same <span class="pp">|</span> n/a <span class="pp">|</span></span>
+<span id="cb6-632"><a href="#cb6-632" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-633"><a href="#cb6-633" aria-hidden="true" tabindex="-1"></a>**The SAM-based metric ranks Flash iter1 above Pro iter1** — the opposite of the MediaPipe-mask metric, and the opposite of the Gemini-judge ranking. Three evaluation tools, three different orderings:</span>
+<span id="cb6-634"><a href="#cb6-634" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-635"><a href="#cb6-635" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Best by <span class="pp">|</span> Order <span class="pp">|</span></span>
+<span id="cb6-636"><a href="#cb6-636" aria-hidden="true" tabindex="-1"></a><span class="pp">|---------|-------|</span></span>
+<span id="cb6-637"><a href="#cb6-637" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gemini-3.5-Flash judge <span class="pp">|</span> Pro iter1 ≥ Flash iter1 &gt; ThermalGen (7/10, 7/10, 4/10) <span class="pp">|</span></span>
+<span id="cb6-638"><a href="#cb6-638" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> MediaPipe-mask metrics <span class="pp">|</span> Pro iter1 &gt; Flash iter1 &gt; ThermalGen (composite ranking from earlier table) <span class="pp">|</span></span>
+<span id="cb6-639"><a href="#cb6-639" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **SAM-mask nose/forehead** | **Flash iter1 &gt; Pro iter1 ≫ Pro exp3** <span class="pp">|</span></span>
+<span id="cb6-640"><a href="#cb6-640" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-641"><a href="#cb6-641" aria-hidden="true" tabindex="-1"></a>**This is the most important paper-grade finding**: when the metric and the masking tool both depend on imperfect localisation, the ranking is unstable. For a paper claiming "model A is better than model B at thermal generation", at least three of these tools need to agree.</span>
+<span id="cb6-642"><a href="#cb6-642" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-643"><a href="#cb6-643" aria-hidden="true" tabindex="-1"></a><span class="fu">### What ThermalGen reveals</span></span>
+<span id="cb6-644"><a href="#cb6-644" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-645"><a href="#cb6-645" aria-hidden="true" tabindex="-1"></a>ThermalGen outputs **cannot be evaluated with any of these SAM-pipelines** because MediaPipe FaceMesh doesn't recognise the iron-colorized ThermalGen image as a face — it produces no landmarks, no click anchors, no SAM mask. The image *visibly* contains a face (you can see it), but the RGB-trained face detector doesn't trigger on it.</span>
+<span id="cb6-646"><a href="#cb6-646" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-647"><a href="#cb6-647" aria-hidden="true" tabindex="-1"></a>This is exactly the broader thermal-vs-RGB modality gap, just appearing inside the *evaluator* instead of inside the generator. The whole evaluation stack — Gemini judge, MediaPipe landmarks, SAM-via-MediaPipe-anchors — is RGB-trained. To fairly evaluate a thermal-specialised generator, **you need a thermal-trained evaluator too**.</span>
+<span id="cb6-648"><a href="#cb6-648" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-649"><a href="#cb6-649" aria-hidden="true" tabindex="-1"></a><span class="fu">### Implications for the paper</span></span>
+<span id="cb6-650"><a href="#cb6-650" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-651"><a href="#cb6-651" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Don't use Gemini-as-judge** — biased toward Gemini-style outputs (we established this above).</span>
+<span id="cb6-652"><a href="#cb6-652" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Don't use MediaPipe-on-thermal for masks** — works for very face-like inputs (Gemini's iron-stylised faces), fails on thermal-trained outputs.</span>
+<span id="cb6-653"><a href="#cb6-653" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Use SAM with click prompts** for the nose region specifically — it's a clean, reliable per-pixel measurement.</span>
+<span id="cb6-654"><a href="#cb6-654" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**For the other regions (eye, hair)**, use SAM 3 with text prompts (when the install is straightforward) or hand-curated bounding boxes.</span>
+<span id="cb6-655"><a href="#cb6-655" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Best paper-grade evaluation**: train a small thermal-trained face landmarker (DWPose worked at this in <span class="co">[</span><span class="ot">part 1 of the nostril series</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span>) → use its outputs as click prompts → run SAM for masks → measure region luminances.</span>
+<span id="cb6-656"><a href="#cb6-656" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Ultimately, the gold standard remains downstream-task accuracy**: train a thermal nostril detector on synthetic data from each method, test on real thermal, measure the gap. That's the only evaluation that doesn't depend on a separate evaluator's bias.</span>
+<span id="cb6-657"><a href="#cb6-657" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-658"><a href="#cb6-658" aria-hidden="true" tabindex="-1"></a><span class="fu">## Implications for the upcoming paper</span></span>
+<span id="cb6-659"><a href="#cb6-659" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-660"><a href="#cb6-660" aria-hidden="true" tabindex="-1"></a>Three takeaways from this experiment:</span>
+<span id="cb6-661"><a href="#cb6-661" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-662"><a href="#cb6-662" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Style match ≠ modality match.** Gemini consistently produces images that *look* thermal (correct palette, correct overall warm-on-face / cool-on-hair distribution, correct silhouette). But the thermal *physics* — which regions are hot and cold and why — is consistently wrong, and wrong in stable ways across all four prompting strategies. **Style-based augmentation might still help a model that trains on visual texture** (e.g., a face detector that doesn't care if eyes are hot or cold). **It cannot help a model that needs thermal physics correct** (e.g., a nostril localiser tracking breath-rate temperature swings).</span>
+<span id="cb6-663"><a href="#cb6-663" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-664"><a href="#cb6-664" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Self-critique helps once, then hurts.** A single-iteration self-critique loop produces the best result across the whole experiment (7/10). Further iterations diverge because there's no convergence signal. For a paper that uses Gemini to *iteratively refine* a generation, **stop after one critique step**, OR add an explicit termination condition ("if no concrete physical errors remain, output 'NO CHANGES NEEDED'").</span>
+<span id="cb6-665"><a href="#cb6-665" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-666"><a href="#cb6-666" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Real thermal data still wins.** The cheapest scaling path for a thermal model isn't synthetic Gemini data; it's projecting labels from paired-RGB (<span class="co">[</span><span class="ot">as TFD68 did</span><span class="co">](https://dl.acm.org/doi/10.1145/3757376.3771410)</span>, see also <span class="co">[</span><span class="ot">part 4 of the nostril series</span><span class="co">](2026-05-20-thermal-nostril-why-hard.qmd)</span>) or capturing more thermal video with an inexpensive TC001+ (~$350) at scale.</span>
+<span id="cb6-667"><a href="#cb6-667" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-668"><a href="#cb6-668" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd run next if I were writing the paper</span></span>
+<span id="cb6-669"><a href="#cb6-669" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-670"><a href="#cb6-670" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Quantitative thermal-physics metrics.** Replace Gemini's 1-10 judge with measurable features: (1) mean luminance of the iris region vs the periorbital ring (the iris should be *cooler*, so iris/orbital &lt; 1.0); (2) presence of a temperature bar UI as a binary feature; (3) Pearson correlation between generated-thermal pixels and real-thermal pixels, masked to the face region. Each metric is a number, not an LLM opinion.</span>
+<span id="cb6-671"><a href="#cb6-671" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Larger N.** Run all four prompt strategies on 50 SF-TL54 subjects + 50 ThermEval-D subjects. Currently this is N=1, which is fine for failure-mode discovery but not for statistical claims.</span>
+<span id="cb6-672"><a href="#cb6-672" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Other generators.** ✅ done for Gemini Pro (above) — repeat for Imagen 3, Stable Diffusion 3 with a thermal LoRA, GPT-Image-1, and FLUX. The failure-mode catalogue above is the right scaffolding for the comparison: does each generator make the *same* errors, or different ones? My prediction from the literature priors and the Gemini Pro result: all general-purpose generators max out around 7/10. The thermal-LoRA'd SD3 will break this ceiling.</span>
+<span id="cb6-673"><a href="#cb6-673" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Thermal-finetuned generator.** Take a small generator (Stable Diffusion XL Lightning, say) + finetune on ThermEval-D's 1k thermal images and the T-FAKE 200k synthetic set. Does that close the physics gap, or does the finetune memorise specific scenes? This is the most important follow-up — the literature (<span class="co">[</span><span class="ot">ThermalGen</span><span class="co">](https://arxiv.org/abs/2509.24878)</span>, <span class="co">[</span><span class="ot">T-FAKE</span><span class="co">](https://arxiv.org/abs/2408.15127)</span>) suggests yes.</span>
+<span id="cb6-674"><a href="#cb6-674" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Physics-aware loss term.** Reproduce T-FAKE's <span class="co">[</span><span class="ot">RGB2Thermal loss</span><span class="co">](https://arxiv.org/abs/2408.15127)</span> — Wasserstein distance between RGB and thermal patches + clinical-temperature priors — and apply it during inference (via prompt+critique loop) or finetuning. Likely the cheapest way to push the ceiling past 7/10 without finetuning from scratch.</span>
+<span id="cb6-675"><a href="#cb6-675" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Downstream-task evaluation.** Use the Gemini-generated thermal images as *training data* for a thermal nostril detector (the model from [part 2 of the nostril series](2026-05-20-thermal-nostril-finetune.qmd)). Compare to a model trained on the same number of *real* thermal frames. The downstream-task gap is the actual deployment value of synthesis.</span>
+<span id="cb6-676"><a href="#cb6-676" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-677"><a href="#cb6-677" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this experiment is *not*</span></span>
+<span id="cb6-678"><a href="#cb6-678" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-679"><a href="#cb6-679" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a benchmark of Gemini 3.1 Flash Image** as a general-purpose generator — it does extremely well on RGB tasks; thermal is just a specific OOD domain.</span>
+<span id="cb6-680"><a href="#cb6-680" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a claim that Gemini understands thermal physics is impossible**. With dedicated finetuning on real thermal data + maybe a physics-aware loss term, the same architecture might do much better. This experiment measures zero-shot performance.</span>
+<span id="cb6-681"><a href="#cb6-681" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a quantitative paper result**. The Gemini-judge scores are illustrative; a published paper would replace them with the quantitative metrics enumerated above.</span>
+<span id="cb6-682"><a href="#cb6-682" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-683"><a href="#cb6-683" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb6-684"><a href="#cb6-684" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-685"><a href="#cb6-685" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Experiment scripts: <span class="co">[</span><span class="ot">`run_experiments.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py)</span> (Flash baseline) · <span class="co">[</span><span class="ot">`run_experiments_pro.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments_pro.py)</span> (Pro head-to-head) · <span class="co">[</span><span class="ot">`make_pro_comparison.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/make_pro_comparison.py)</span> (side-by-side panels)</span>
+<span id="cb6-686"><a href="#cb6-686" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Saved outputs (real and generated): <span class="co">[</span><span class="ot">`posts/thermal-genai/outputs/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs)</span> (Flash) · <span class="co">[</span><span class="ot">`outputs_pro/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs_pro)</span> (Pro)</span>
+<span id="cb6-687"><a href="#cb6-687" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Gemini image generation docs: <span class="co">[</span><span class="ot">ai.google.dev/gemini-api/docs/image-generation</span><span class="co">](https://ai.google.dev/gemini-api/docs/image-generation)</span></span>
+<span id="cb6-688"><a href="#cb6-688" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Related thermal-generation literature: <span class="co">[</span><span class="ot">T-FAKE (CVPR 2025)</span><span class="co">](https://arxiv.org/abs/2408.15127)</span> · <span class="co">[</span><span class="ot">ThermalGen (NeurIPS 2025)</span><span class="co">](https://arxiv.org/abs/2509.24878)</span> · <span class="co">[</span><span class="ot">ThermVision-DB (2026)</span><span class="co">](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12907868/)</span> · <span class="co">[</span><span class="ot">Multi-Attribute Thermal Translation (2025)</span><span class="co">](https://arxiv.org/abs/2512.21032)</span></span>
+<span id="cb6-689"><a href="#cb6-689" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Source thermal datasets: <span class="co">[</span><span class="ot">SF-TL54</span><span class="co">](https://huggingface.co/datasets/issai/SFTL54)</span> · <span class="co">[</span><span class="ot">ThermEval-D</span><span class="co">](https://www.kaggle.com/datasets/shriayush/thermeval)</span></span>
+<span id="cb6-690"><a href="#cb6-690" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Earlier Gemini-3.5-Flash measurement post: <span class="co">[</span><span class="ot">2026-05-20-gemini-3.5-flash-and-omni</span><span class="co">](2026-05-20-gemini-3.5-flash-and-omni.html)</span></span>
+<span id="cb6-691"><a href="#cb6-691" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Companion thermal-nostril series: <span class="co">[</span><span class="ot">part 1</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> · <span class="co">[</span><span class="ot">part 2</span><span class="co">](2026-05-20-thermal-nostril-finetune.qmd)</span> · <span class="co">[</span><span class="ot">part 3</span><span class="co">](2026-05-20-thermal-nostril-hierarchical.qmd)</span> · <span class="co">[</span><span class="ot">part 4</span><span class="co">](2026-05-20-thermal-nostril-why-hard.qmd)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">
