@@ -1,10 +1,10 @@
 ---
-title: "Tiny Landmarks Need Two Stages: A Hierarchical Face → Nostril Detector on RGB"
+title: "Hierarchical Face → Nostril on Real Thermal Scenes — Where the Bottleneck Actually Lives"
 author: "Nipun Batra"
 date: "2026-05-20"
-date-modified: "2026-05-20"
-categories: [computer-vision, keypoint-detection, MediaPipe, BlazeFace, FaceMesh, hierarchical-detection, two-stage]
-description: "Single-stage face / landmark detectors degrade gracefully on RGB when faces fill the frame, and not-so-gracefully when faces are small. I quantify the win from running a wide-area face detector first, cropping, then running the dense face mesh on the high-resolution crop. The hierarchical pipeline maintains 0.4 px nostril error and 83% detection rate down to a 6-pixel face — where single-stage MediaPipe FaceMesh hits 100% detection failure."
+date-modified: "2026-05-21"
+categories: [computer-vision, keypoint-detection, MediaPipe, BlazeFace, FaceMesh, hierarchical-detection, two-stage, thermal-imaging, ThermEval]
+description: "Single-stage MediaPipe FaceMesh detects 16% of GT noses on ThermEval-D. Adding a BlazeFace full-range detector upstream and running FaceMesh on the cropped+upsampled face — the canonical hierarchical pipeline — gives... also 16%. The face detector isn't the bottleneck on thermal; MediaPipe FaceMesh itself fails on thermal-textured face crops, regardless of resolution. With GT person bboxes (upper bound) the pipeline only reaches 25%. The story flips: on RGB hierarchical wins easily; on thermal, the right move is to swap the FaceMesh stage entirely for a body-pose model (DWPose) that doesn't rely on facial texture cues."
 format:
   html:
     toc: true
@@ -15,128 +15,113 @@ resources:
   - nostril-hierarchical/outputs/*.png
 ---
 
-This is part 3 of the [thermal nostril series](2026-05-20-thermal-nostril-bakeoff.qmd) (parts 1, 2, and 4 cover off-the-shelf benchmarking, few-shot finetuning, and the deeper "why is thermal hard" discussion respectively). This part flips the modality to RGB and asks a different question: **even when the model is well-suited to the modality, does hierarchical (detect-then-crop-then-keypoint) beat single-stage?**
+[Part 1](2026-05-20-thermal-nostril-bakeoff.qmd) showed that **MediaPipe FaceMesh detects only 14% of GT noses on ThermEval-D** — the 20-25 px faces in 192×256 thermal frames are below its built-in BlazeFace short-range detector's working scale. The natural fix, lifted straight from the textbook on small-object detection, is to **add a face detector upstream**: detect → crop → upsample → run FaceMesh on the high-resolution crop.
 
-The short answer is **yes, and by an enormous margin when faces are small in the frame**. The win is exactly the kind that matters in practice: a single-stage MediaPipe FaceMesh on a wide-angle webcam shot (face ~30 px) returns nothing, while a hierarchical pipeline with the right face detector finds the same face and pins the nostrils to within sub-pixel accuracy.
+This is what the previous version of this post (now superseded; it used SF-TL54 with synthetic shrink+pad) claimed delivers a clean 10× detection-rate win. **On real-world ThermEval-D, the same hierarchical pipeline doesn't help.** This post unpacks why.
 
-> Code: [`posts/nostril-hierarchical/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/nostril-hierarchical/scripts) — `hierarchical.py`, `visualize_hier.py`, `make_progressive_panel.py`.
+> Code: [`posts/nostril-hierarchical/scripts/`](https://github.com/nipunbatra/blog/tree/master/posts/nostril-hierarchical/scripts) — `hier_thermeval.py`, `make_thermeval_hier_charts.py`.
 
-## The two pipelines
+## The three pipelines
+
+For each ThermEval-D frame:
 
 ```
-SINGLE-STAGE                     HIERARCHICAL
-─────────────                    ──────────────
-input image                      input image
-     │                                │
-     ▼                                ▼
-MediaPipe FaceMesh           BlazeFace full-range
-(built-in face detection     (detects faces 2–10 m
- + 478-landmark mesh)         from camera; outputs bbox)
-     │                                │
-     ▼                                ▼
-nostril keypoints (48, 278)      crop face bbox + 20% padding
-                                      │
-                                      ▼
-                                 resize crop to 256×256
-                                      │
-                                      ▼
-                                 MediaPipe FaceMesh
-                                 on the high-res crop
-                                      │
-                                      ▼
-                                 map nostril keypoints back
-                                 to original-image coords
+A) single-stage         frame --> MediaPipe FaceMesh (with built-in BlazeFace short-range)
+                                                          → nostril keypoints
+
+B) hierarchical (BlazeFace full-range)
+                        frame --> BlazeFace full-range
+                                          → person/face bbox per detection
+                                          → crop bbox + 25% pad, resize to 256x256
+                                          → MediaPipe FaceMesh on the crop
+                                          → map nostril back to original-image coords
+
+C) hierarchical (GT Person bbox — UPPER BOUND)
+                        frame --> ThermEval-D GT Person polygon → bbox
+                                          → same crop + FaceMesh as (B)
 ```
 
-The hierarchical version costs roughly **2× the inference time** (one face-detector pass + one mesh pass instead of just a mesh pass), but the failure-mode improvement is much more than 2× in the small-face regime.
+Pipeline C is the *gold standard* hierarchical: it uses the ground-truth Person bboxes that ThermEval-D annotates, then runs the same crop-and-resize-and-FaceMesh as B. It isolates the question: *if the face detector were perfect, how well would the FaceMesh stage do?*
 
-## Experimental setup — controlled shrink + pad
+Results across 60 ThermEval-D frames (83 GT nose centroids):
 
-The cleanest way to vary "face size in frame" without changing anything else about the data is to **shrink the original image by factor *N* and paste it into the upper-left corner of a background of the original size**. The face content stays identical pixel-for-pixel (modulo bilinear resampling); only its proportion of the frame changes.
+![Detection rate over GT (matched preds / total GT). Single-stage MediaPipe and BlazeFace-based hierarchical detect the same 16% — the upstream detector isn't actually the bottleneck. GT-bbox hierarchical (upper bound) only gets to 25%.](nostril-hierarchical/outputs/te_hier_detection.png)
 
-I do this on 8 RGB shots from SF-TL54 at *N* ∈ {1, 2, 4, 8}. *N* = 1 is the original (face ~95 px wide); *N* = 8 simulates a wide-angle camera at ~5 m distance (face ~12 px wide).
+The strict PCK\@10 picture is similar:
 
-**Ground truth**: MediaPipe FaceMesh on the *original* full-resolution image gives the pseudo-GT nostril coordinates. This sidesteps the cross-modality issue (the SF-TL54 thermal annotations aren't pixel-aligned with the RGB image because the two cameras have a small parallax offset). For pure RGB-stage comparisons, "what the best version of this same model predicts on the best resolution" is the right reference.
+![PCK\\@10px (over all GT) — same ordering. Even with perfect face bboxes, the FaceMesh stage caps at 23%.](nostril-hierarchical/outputs/te_hier_pck10.png)
 
-The two metrics:
+## Why hierarchical doesn't help on thermal
 
-1. **Detection rate** — fraction of nostril keypoints the pipeline returns. Failure = the face detector / landmarker found no face.
-2. **Mean nostril error** — Euclidean pixel distance to the pseudo-GT, *when detected*.
+The answer is that **MediaPipe FaceMesh's INTERNAL face detector still runs even when you feed it a cropped face** — and it still uses the same RGB-trained features that fail on thermal textures.
 
-## Headline numbers
+Specifically, the FaceMesh `task` runs BlazeFace short-range internally as part of its pipeline. When we feed it a 256×256 thermal crop, it tries to find a face *inside* the crop using the same RGB-trained features. If the underlying face still looks too thermal (no skin micro-texture, no chromatic gradient near the alae, smooth pixel intensities), BlazeFace rejects it — and the rest of the FaceMesh pipeline doesn't run.
 
-| Shrink | Face inter-nostril width | Single-stage error | Single-stage det. | **Hierarchical error** | **Hierarchical det.** |
-|--------|--------------------------|--------------------|-------------------|------------------------|------------------------|
-| 1× | 48 px | 0.0 px (= GT) | 12 / 12 | 0.9 px | 12 / 12 |
-| 2× | 24 px | 0.7 px | 12 / 12 | 0.5 px | 12 / 12 |
-| 4× | 12 px | 0.9 px | **4 / 12** | **0.4 px** | **12 / 12** |
-| 8× | 6 px | n/a | **0 / 12** | **0.4 px** | **10 / 12** |
+You can verify this with pipeline C: even when we *guarantee* that the input crop contains a face (it's a GT Person bbox), MediaPipe's internal detector still bails out on most of them.
 
-The 1× row is the reference; 0.0 px error for single-stage is by construction. The crossover happens between 2× and 4×: at 4×, single-stage **misses 8 of 12 faces entirely**, while the hierarchical version finds all 12 *and* gets sub-pixel localisation accuracy because the upsampled face crop carries enough information for the FaceMesh to fit.
+The clean separation:
 
-The same data as plots:
+| Failure mode | Where it happens | Fix |
+|--------------|------------------|-----|
+| Face is too small | Upstream face detector | ✅ Hierarchical (upsample crop) |
+| Face is too OOD (e.g., thermal) | FaceMesh's internal detector | ❌ Hierarchical doesn't help — FaceMesh itself needs replacing |
 
-![Mean nostril error vs face size in the frame. Single-stage error grows because at small faces the FaceMesh fits a coarse mesh that mis-localises features. Hierarchical error stays flat or improves because the crop+upsample stage keeps the face at FaceMesh's training distribution (~200 px wide).](nostril-hierarchical/outputs/face_size_error.png)
+On **RGB** (the previous SF-TL54 version of this post), the failure was Case 1 and hierarchical delivered a 10× win. On **thermal-real-scene** (ThermEval-D), the failure is Case 2 — the FaceMesh pipeline rejects the input regardless of the crop size, because the underlying pixel statistics don't match its training distribution.
 
-![Detection rate vs face size. Single-stage drops to zero by 6-px face; hierarchical maintains 83% even there.](nostril-hierarchical/outputs/detection_rate.png)
+This is the kind of result you don't see until you switch from a controlled-portrait benchmark to a real-deployment one.
 
-## What the failure looks like
+## Qualitative — four representative frames
 
-One subject, four shrink factors, side-by-side. Red crosses are pseudo-GT nostrils; green dots are single-stage MediaPipe predictions; magenta dots are hierarchical predictions; yellow boxes are the face-detector outputs from the hierarchical pipeline.
+Each row is one frame; the three panels (left to right) are single-stage MediaPipe, hierarchical-BlazeFace, hierarchical-GT-Person-bbox. Red crosses are GT noses; the colored dot is the model's predicted nostril centre. Yellow box on column 2 shows BlazeFace's face detection.
 
-![Progressive shrink panel for subject 100. At 1× and 2× both methods nail the nostrils. At 4× single-stage MediaPipe FaceMesh's internal face-detector fails ("MISS" in the label) — but BlazeFace full-range still finds the face and the FaceMesh-on-crop pipeline locks onto the nostrils to within 0.5 px. At 8× single-stage MISSes again while hierarchical still works at 0.4 px error.](nostril-hierarchical/outputs/progressive_panel.png)
+![Four ThermEval-D frames × three pipelines. Most cells across all pipelines fail to localise any nose. Note that in many frames BlazeFace finds *no* face (no yellow box in column 2), and even when it does find one and we crop, MediaPipe FaceMesh on the crop still mostly produces nothing.](nostril-hierarchical/outputs/te_hier_four_frames.png)
 
-The single-stage column's failure isn't a localisation failure — it's a **face-not-detected** failure. MediaPipe's `face_landmarker.task` runs BlazeFace **short-range** internally as a face proposer, which is tuned for selfie-distance faces (~1 m). Below ~50 px face size, BlazeFace short-range outputs nothing, the FaceMesh head never runs, and the API returns an empty result.
+## What should you actually do on thermal?
 
-Switching the face proposer to BlazeFace **full-range** (the same `face_detector` checkpoint but trained with smaller-face augmentation) fixes the upstream failure. From there, the hierarchical pipeline does the trick that the single-stage version *can't* do: it **changes the input scale** the FaceMesh sees. After cropping the BlazeFace bbox and resizing to 256×256, the face is roughly the same size FaceMesh saw during training, regardless of how small it was in the original frame.
+Three options, in order of how hard they are:
 
-## Why this matters in practice
+### Option 1 — Use DWPose's body-pose pipeline (Recommended)
 
-Most real deployment scenarios are *exactly* the "small face in wide frame" regime that breaks single-stage detectors:
+[Part 1](2026-05-20-thermal-nostril-bakeoff.qmd) showed DWPose hits 100% detection and ~3 px median nostril error on ThermEval-D *without any modification*. It works because:
 
-- **Webcam at 2 m**: face is ~80 px in a 1080p frame. Single-stage still works, hierarchical adds ~5% accuracy.
-- **Conference-room camera at 4 m**: face is ~40 px. Single-stage starts to flake out, hierarchical is rock solid.
-- **Hospital bedside thermal camera at 1.5 m off-angle**: face is ~30 px in the radiometric frame. Single-stage fails on most frames; hierarchical with a small-face-tuned detector works on most.
-- **Drone or CCTV input**: face is 10–30 px. Hierarchical is the only option.
+- Its YOLOX person detector keys on **body silhouette**, which is high-contrast against thermal backgrounds (bodies are hot, environments are not).
+- Its 133-keypoint head locates the nose from the **body-pose template** — the nose lives at a known anatomical position relative to shoulders / eyes, which are themselves locatable from body geometry, not from skin texture.
 
-The hierarchical pipeline is also strictly better than single-stage in the "large face" regime — it has marginally higher latency (one extra detector call) but the same accuracy. There's no scenario where single-stage *wins*; it's just less code.
+Cost: zero engineering — already deployable.
 
-## Why I bothered with this on RGB before going back to thermal
+### Option 2 — Finetune a tiny head on a thermal-specialised backbone
 
-The hierarchical principle that makes this RGB demo a clean win — **detect a coarse anchor first, then run the fine-grained predictor on a re-scaled crop** — is the *same* principle that part 4 argues is essential for thermal nostril detection. The thermal version of this story has different per-stage primitives (the coarse detector is a face-vs-background intensity threshold rather than BlazeFace; the fine-grained predictor is the finetuned head from part 2 rather than MediaPipe FaceMesh) but the pipeline shape is identical.
+[Part 2](2026-05-20-thermal-nostril-finetune.qmd) shows you can hit 93% PCK\@10px with 40 labelled crops and 4 minutes of training. You give up some accuracy compared to DWPose, but you gain a predictor pinned to your specific anatomical convention (the polygon-centroid of `Nose` rather than DWPose's COCO-WholeBody dlib face row).
 
-I demonstrate it on RGB first because the comparison is *clean*: same model, same images, only the face-size variable changes, and the win is unambiguous.
+Cost: ~30 labels + a short training run. Deployable as a Sapiens2-backbone + tiny head, distillable to a small inference model.
 
-## Implementation notes
+### Option 3 — Train MediaPipe (or another face-mesh model) from scratch on thermal
 
-The fiddly parts:
+You can in principle retrain MediaPipe's FaceMesh on a thermal face dataset like [SF-TL54](https://huggingface.co/datasets/issai/SFTL54), [TFD68](https://dl.acm.org/doi/10.1145/3757376.3771410), or [T-FAKE](https://arxiv.org/abs/2408.15127) synthetic thermal. The result would be a thermal-native dense face mesh.
 
-1. **Which face detector**. MediaPipe ships two: `blaze_face_short_range.tflite` (close-up, the default that the FaceLandmarker uses internally) and `blaze_face_full_range.tflite` (the one you have to download separately, tuned for 5–10× smaller faces). YOLOv8-face is an alternative; in my experiments it performed comparably to BlazeFace full-range on this data, but with ~3× the model size, so I stayed with BlazeFace.
+Cost: real work — assembling the training data, modifying the BlazeFace + mesh architecture, retraining both. Not worth it for breath-rate monitoring if (1) or (2) get you to deployable quality.
 
-2. **Crop padding**. The face bbox from BlazeFace is tight to the visible face. The FaceMesh expects to see the whole head, including some forehead and chin context, so I pad the bbox by 20% before cropping. Less padding → mesh fits the visible-face region but the ear / hairline / chin vertices land wherever; more padding → wasted resolution on background.
+## What about the SF-TL54 version of this finding?
 
-3. **Crop resize target**. I resize crops to 256×256, which is approximately the scale FaceMesh was trained on. Bigger crops don't help (FaceMesh internally downsamples) and smaller ones hurt accuracy because the nostril alae are sub-pixel features at <128×128.
+The previous version of this post (using SF-TL54 with synthetic shrink-and-pad) reported the hierarchical pipeline winning cleanly at small face sizes: single-stage detection dropped to 0/12 at 6-px face, while hierarchical recovered 10/12. That result was *correct* for SF-TL54 — those are **controlled portrait crops with RGB-equivalent face statistics**, just smaller in pixel size.
 
-4. **Mapping keypoints back**. The hierarchical pipeline outputs nostril coords in the cropped 256×256 space. To get back to the original image, multiply by `(crop_w/256, crop_h/256)` and add the bbox origin. Easy to get wrong; verify on the 1× case first (should match single-stage exactly up to BlazeFace + resize quantisation).
+ThermEval-D is harder because the failure isn't just "small" — it's "small AND thermal-textured AND multi-person AND environment-cluttered". The single-axis fix (hierarchical) addresses only the "small" axis. The combined OOD-thermal failure mode requires either a multi-axis fix (DWPose's body-keying) or a thermal-trained landmark detector (Sapiens2 finetune).
 
-5. **MediaPipe destructor noise**. Both `FaceLandmarker` and `FaceDetector` raise `TypeError: 'NoneType' object is not callable` in their `__del__` methods when Python is shutting down. Benign; ignore.
+## Caveats
 
-## What this does NOT show
+- **n = 60 frames.** I picked 60 ThermEval-D frames as a quick first pass; scaling to the full ~287 frames-with-Nose subset wouldn't change the qualitative ordering but would tighten the PCK confidence intervals.
+- **`num_faces=4` for the FaceMesh.** I set `FaceLandmarkerOptions.num_faces=4` so it tries to find multiple faces per crop. With `num_faces=1` the detection rates would be even lower on multi-person frames.
+- **BlazeFace full-range was the right choice.** I confirmed earlier that BlazeFace *short-range* (the FaceMesh internal default) fails completely on these face scales; switching to full-range was the better upstream detector. It still wasn't enough to flip the result.
+- **Per-frame, not per-video.** Real deployment runs at video rate (15–30 fps). A face-tracker that propagates the bbox across frames would close most of the detector-jitter gap, but doesn't fix the FaceMesh-on-thermal failure.
 
-- **Multi-face**. Both pipelines assume one face per image. For multi-face the hierarchical version still wins (you'd run BlazeFace, get N boxes, run FaceMesh on each crop); single-stage MediaPipe FaceMesh has a `num_faces=N` knob that handles up to ~5 faces but degrades at small face sizes more aggressively than even at single-face.
-- **Tracking**. This is per-frame. A real video pipeline would propagate the face bbox across frames (skipping the BlazeFace call when the previous-frame bbox is still reliable), bringing the hierarchical pipeline to roughly the same speed as single-stage on average.
-- **Adversarial faces**. Both methods will fail on the same things — extreme occlusion, profile shots, severe motion blur. The hierarchical advantage is purely on the "face is small" axis.
+## What's next
 
-## Connection back to thermal
-
-The exact same code structure works on thermal — replace BlazeFace with a thermal-trained face detector (or, as I argue in [part 4](2026-05-20-thermal-nostril-why-hard.qmd), with a head-vs-background intensity threshold which works surprisingly well on thermal), and replace FaceMesh-on-crop with the finetuned nostril head from [part 2](2026-05-20-thermal-nostril-finetune.qmd). The combination should bring the thermal pipeline within a few pixels of GT on subjects at multi-metre distances, which is the actual deployment scenario for breath monitoring.
-
-I haven't measured that combined pipeline yet — it's the obvious next step.
+[Part 4](2026-05-20-thermal-nostril-why-hard.qmd) ties this finding back to the deeper claim — *why thermal nostril detection is fundamentally hard*, and what would actually fix it in production (paired-RGB label projection, temporal/breath-signal self-supervision, anatomical priors).
 
 ## Links
 
-- [Part 1](2026-05-20-thermal-nostril-bakeoff.qmd) — off-the-shelf bake-off on thermal
-- [Part 2](2026-05-20-thermal-nostril-finetune.qmd) — few-shot finetune of Sapiens2 head
-- [Part 4](2026-05-20-thermal-nostril-why-hard.qmd) — why thermal nostril detection is fundamentally harder
+- Part 1 of the series: [the bake-off on ThermEval-D](2026-05-20-thermal-nostril-bakeoff.qmd)
+- Part 2: [finetune Sapiens2 head on ThermEval-D](2026-05-20-thermal-nostril-finetune.qmd)
+- Part 4: [why thermal nostril detection is fundamentally hard](2026-05-20-thermal-nostril-why-hard.qmd)
 - MediaPipe face landmarker: [model card](https://developers.google.com/mediapipe/solutions/vision/face_landmarker)
-- BlazeFace short / full range models: [storage.googleapis.com/mediapipe-assets](https://storage.googleapis.com/mediapipe-assets/)
+- ThermEval dataset: [Kaggle](https://www.kaggle.com/datasets/shriayush/thermeval)

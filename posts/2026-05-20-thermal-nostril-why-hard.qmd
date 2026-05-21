@@ -2,9 +2,9 @@
 title: "Why Nostril Detection on Thermal is Fundamentally Harder than on RGB — and Four Ways Around It"
 author: "Nipun Batra"
 date: "2026-05-20"
-date-modified: "2026-05-20"
-categories: [thermal-imaging, keypoint-detection, computer-vision, anatomical-priors, synthetic-data, multimodal, breath-monitoring]
-description: "RGB has skin texture; thermal does not. A small dark blob inside a face on thermal looks like every other small dark blob — anywhere on the face, anywhere on the room. This post unpacks why off-the-shelf models fail on thermal nostrils (per the bake-off in part 1) and proposes four research-grade fixes: anatomical priors as a regulariser, paired-RGB label projection, T-FAKE synthetic pretraining, and using the breath-rate signal itself as self-supervision."
+date-modified: "2026-05-21"
+categories: [thermal-imaging, keypoint-detection, computer-vision, anatomical-priors, synthetic-data, multimodal, breath-monitoring, ThermEval]
+description: "RGB has skin texture; thermal does not. A small dark blob inside a face on thermal looks like every other small dark blob — anywhere on the face, anywhere in the room. This post unpacks why MediaPipe and hierarchical pipelines fail on the ThermEval-D bake-off (per parts 1 and 3) and proposes four research-grade fixes: anatomical priors as a regulariser, paired-RGB label projection, T-FAKE synthetic pretraining, and using the breath-rate signal itself as self-supervision."
 format:
   html:
     toc: true
@@ -15,9 +15,9 @@ resources:
   - nostril-bench/inputs/*.png
 ---
 
-The [bake-off in part 1](2026-05-20-thermal-nostril-bakeoff.qmd) showed that off-the-shelf RGB-trained models fall apart on thermal nostril detection — Sapiens2-0.4b produced ~72 px mean error on thermal vs ~5 px on RGB; even MediaPipe FaceMesh was off by 18 px. This post argues that the failure is **not** just a matter of "more training data on thermal" — it is partly an **information problem in the thermal modality itself**, and proposes four concrete routes around it.
+[Part 1](2026-05-20-thermal-nostril-bakeoff.qmd) showed that off-the-shelf RGB-trained models give a wide spread on the [ThermEval-D](https://www.kaggle.com/datasets/shriayush/thermeval) benchmark: DWPose hits 99% PCK\@10px while MediaPipe FaceMesh only finds 14% of GT noses. [Part 3](2026-05-20-thermal-nostril-hierarchical.qmd) showed that the canonical fix (hierarchical face → nostril) **doesn't help on real thermal scenes**, because the failure isn't "face too small" — it's "face too thermal-textured for an RGB-trained landmarker".
 
-This is part 4 of the [thermal nostril series](2026-05-20-thermal-nostril-bakeoff.qmd) (parts 2 and 3 cover few-shot finetuning and hierarchical RGB detection respectively).
+This post argues that the residual gap is partly an **information problem in the thermal modality itself**, and proposes four concrete routes around it. It is part 4 of the [thermal nostril series](2026-05-20-thermal-nostril-bakeoff.qmd) (parts 1, 2, and 3 cover off-the-shelf benchmarking, few-shot finetuning, and hierarchical detection respectively).
 
 ## The information problem
 
@@ -36,7 +36,7 @@ That description has two problems.
 
 ### Problem 1 — Thermal nostrils look like every other small cool spot
 
-A nostril on thermal looks like a small low-intensity blob ~5-15 px across. So does:
+A nostril on thermal looks like a small low-intensity blob ~5-10 px across. On a 192×256 ThermEval-D frame, so does:
 
 - The mouth opening (especially when relaxed-open).
 - The eyebrow shadow line in some subjects.
@@ -45,7 +45,7 @@ A nostril on thermal looks like a small low-intensity blob ~5-15 px across. So d
 - A patch where the subject leant against a cool surface 30 seconds earlier (heat dissipation lag).
 - Any small distractor in the background that happens to be cool — a USB-C port, a coffee mug, a dark interior of a half-open door.
 
-The model has *no* photometric way to distinguish these cases. Sapiens2 and MediaPipe both demonstrate this exact failure on the bake-off samples — Sapiens2 puts its nostril predictions on the ears (cool because they're poorly perfused), MediaPipe puts them in the middle of the upper lip area (cool because the philtrum has less subcutaneous fat).
+The model has *no* photometric way to distinguish these cases. This is consistent with what [part 1](2026-05-20-thermal-nostril-bakeoff.qmd) observed: MediaPipe FaceMesh, when it does find a face on ThermEval, puts its alae-centre prediction roughly in the right *region* — but its sub-pixel localisation has nothing to anchor on.
 
 ::: {.callout-note appearance="simple"}
 **The fundamental ambiguity**: in a *single* thermal frame, "small cool blob within face region" does not uniquely identify nostrils.
@@ -59,38 +59,37 @@ This means single-frame thermal models are fundamentally working against the mod
 
 ### Problem 3 — Resolution and scale
 
-Most thermographic cameras have native resolutions of 320×240 to 640×480 pixels. At a normal seated distance, a face is ~150×200 px, and **a single nostril alae is ~3-5 px wide**. That is right at or below the spatial-feature scale that most ViT-style backbones can resolve (ViT patches are usually 14-16 px). Sapiens2 at 0.4B works at a 1024×768 input — but its receptive field for the first attention layer is still 16 px, larger than the entire feature we're trying to localise.
+ThermEval-D is captured at 192×256 — typical for a TOPDON TC001+ thermographic camera at a 1–2 m distance. At this resolution, **a single nostril is 1-3 pixels wide.** That's right at or below the spatial-feature scale that most ViT-style backbones can resolve (Sapiens2 ViT patches are 14-16 px; MediaPipe FaceMesh is trained on ~256-px faces where each alae is ~10 px). The 1-pixel nostril on a 192×256 thermal frame is below all of these.
 
 ## Why the bake-off looked the way it did
 
-Bringing all this back to the [actual experimental results](2026-05-20-thermal-nostril-bakeoff.qmd):
+Bringing this back to the [actual experimental results](2026-05-20-thermal-nostril-bakeoff.qmd):
 
-![From part 1: mean nostril localisation error on 10 SF-TL54 subjects, gray vs iron thermal palette. Off-the-shelf models trained on RGB are at 8–72 px error on thermal.](nostril-bench/outputs/bar_error.png)
+![From part 1: detection rate on 50 ThermEval-D frames (73 GT noses). DWPose's 100% comes from body-geometry-driven localisation; Sapiens2's 69% comes from accurate-but-single-person inference; MediaPipe's 14% comes from BlazeFace short-range failing on 20-px faces.](nostril-bench/outputs/te_detection.png)
 
-- **Sapiens2 (72 px)** has the most parameters and the most keypoints, but its pretraining bias is *fine-grained skin texture*. With that signal absent on thermal, it relies on the next-most-discriminative cue — face *outline* — and snaps its 308-keypoint template to whichever bright/dark edges the thermal frame happens to expose. On most subjects those edges are at the ears or hairline, hence the systematic ear-direction bias.
-- **DWPose (8 px)** is closer to a coincidence than competence. Its top-down RTMPose-style design first does a coarse face localisation that *does* work on thermal (because the face-vs-background distinction is high-contrast on thermal — the body is hot, the background is cool). Once the face crop is right, the nose-tip block is fed a 256×256 patch where the nostrils are the only sub-face-size dark spots, and the model lands on them ~80% of the time.
-- **MediaPipe (18 px)** is also doing a coarse-then-fine cascade (face detection → mesh fitting). The mesh has 478 vertices, several near the nostrils, but the *fitted* mesh has no anatomical knowledge of where on the nose tip the alae actually are on a thermal face. It settles ~18-20 px above the alae centre, in the middle of the broader low-temperature nose region.
+- **DWPose's 100% detection isn't because it understands thermal faces.** It's because its YOLOX person detector localises *bodies*, which are high-contrast against the room background on thermal. From the body bbox, the wholebody-keypoint head infers nose position based on *body geometry* (the nose is at a known position relative to the shoulders, neck, and eyes — none of which need fine-grained texture cues to find).
+- **Sapiens2's 69% is single-person inference, not a failure mode.** Its default driver picks one face per frame. The faces it picks, it nails (2 px median). Add a multi-person detector upstream and the gap closes.
+- **MediaPipe's 14% is fundamental.** Its built-in BlazeFace short-range is tuned for selfie-distance RGB faces, and below ~50 px face / sub-pixel skin texture, there is no signal it can use.
 
-In short: **the only models that worked were the ones that already had a coarse face detector providing geometric prior**. That is the key insight, and it points directly at the first fix below.
+In short: **the winners are the models that DON'T rely on facial texture**. They rely on *body geometry* (DWPose) or *anatomical landmark templates* (Sapiens2). The model that does rely on facial texture (MediaPipe) fails twice — once on detection, once on landmark localisation. This is the same finding [part 3](2026-05-20-thermal-nostril-hierarchical.qmd) reaches from a different angle: even with a perfect upstream face crop, MediaPipe FaceMesh still rejects most thermal-textured inputs.
 
 ## Four ways forward
 
-### Fix 1 — Lean harder on anatomical priors (hierarchical detection)
+### Fix 1 — Lean harder on anatomical priors (hierarchical detection, refined)
 
-Treat nostril detection as the *last* stage of a hierarchical pipeline that has already done all the easy localisations:
+The hierarchical principle from [part 3](2026-05-20-thermal-nostril-hierarchical.qmd) is still the right framework — *coarse landmarks first, fine landmarks next* — but on thermal, the per-stage primitives must change:
 
-1. Detect the head outline (this works on thermal — body vs background is a strong intensity contrast).
-2. Detect the eye region (the periorbital area is hotter than surrounding skin; the boundary is a strong feature).
-3. Snap a coarse face template that places the nose midway between the eyes, at roughly 1/3 of the face's vertical extent.
-4. *Only inside that 30×30 px region*, find the two coolest local minima — those are the nostrils.
+1. Detect the **body** (this works on thermal — body silhouette has high contrast against the room).
+2. Detect the **head** as the top of the body — geometric constraint, no texture needed.
+3. Detect the **eyes** within the head — periorbital region is the hottest part of the face on thermal, ~3 K above surrounding skin (well above sensor noise).
+4. *Constrain* the nose to lie midway between the eyes, at roughly 1/3 of the face's vertical extent below the eye line.
+5. *Only inside that 10×15 px region*, find the two coolest local minima — those are the nostrils.
 
-This converts an ill-posed dense prediction problem into a well-posed constrained one. **DWPose's accidental win** in the bake-off is essentially because it already does steps 1–3 implicitly via its RTMDet face detector.
-
-Part 3 of this series shows the version of this for **RGB** images (where the same hierarchical principle holds, just with different per-stage signals). The same architecture applies on thermal — the per-stage primitives change, but the principle of "small landmarks only after large landmarks are pinned down" is universal.
+DWPose already does steps 1-3 implicitly (its YOLOX-then-RTMPose cascade), which is exactly why it wins on ThermEval-D. Steps 4-5 would refine its sub-pixel accuracy further.
 
 ### Fix 2 — Project labels from paired RGB → thermal
 
-SF-TL54 itself shows you a free supervision signal: every thermal frame has a **paired RGB frame**, captured by a co-mounted RGB sensor with known extrinsic calibration. The RGB frame is where MediaPipe / Sapiens2 etc. work reliably.
+Datasets like [SF-TL54](https://huggingface.co/datasets/issai/SFTL54) and [TFD68](https://dl.acm.org/doi/10.1145/3757376.3771410) include **paired RGB frames** captured by a co-mounted RGB sensor with known extrinsic calibration. The RGB frame is where MediaPipe / Sapiens2 etc. work reliably.
 
 ```
 paired_rgb -> MediaPipe FaceMesh -> 478 RGB landmarks
@@ -102,13 +101,13 @@ paired_rgb -> MediaPipe FaceMesh -> 478 RGB landmarks
               -> 478 *thermal-coordinate* landmarks (free GT)
 ```
 
-If the two cameras are aligned to within a few pixels — a calibration that takes 20 minutes with a checkerboard target — you get **labelled thermal frames for free, at the rate your RGB camera produces them**. You can then bootstrap a thermal-specific model from any RGB-paired sequence — no human labelling, no manual landmark clicks.
+If the two cameras are aligned to within a few pixels — a calibration that takes 20 minutes with a checkerboard target — you get **labelled thermal frames for free, at the rate your RGB camera produces them**. This is exactly what [TFD68](https://dl.acm.org/doi/10.1145/3757376.3771410) (SIGGRAPH Asia 2025) did to scale to 28k annotated thermal images.
 
-This is exactly the approach that made [TFD68](https://dl.acm.org/doi/10.1145/3757376.3771410) (SIGGRAPH Asia 2025) feasible — 28k thermal images annotated by projection from a high-quality RGB landmarker.
+ThermEval-D doesn't ship paired RGB, but the [ThermEval source](https://sustainability-lab.github.io/thermeval/) capture setup includes both an RGB camera and the TC001+ thermal — adding paired-RGB projection to ThermEval is a natural extension.
 
 ### Fix 3 — Pretrain on synthetic thermal (T-FAKE)
 
-The [T-FAKE dataset](https://arxiv.org/abs/2408.15127) generates 100k synthetic thermal faces from a parametric head model, with *known* nostril positions in the thermal frame. The synthetic-to-real gap on thermal is much smaller than it is on RGB (no chromatic information to mismatch, no specular highlights to model wrong). A model pretrained on T-FAKE and finetuned on ~50 real thermal frames substantially outperforms one trained from scratch on either alone.
+The [T-FAKE dataset](https://arxiv.org/abs/2408.15127) generates 100k synthetic thermal faces from a parametric head model, with *known* nostril positions in the thermal frame. The synthetic-to-real gap on thermal is much smaller than on RGB (no chromatic information to mismatch, no specular highlights to model wrong). A model pretrained on T-FAKE and finetuned on ~50 real thermal frames substantially outperforms one trained from scratch on either alone.
 
 This is the most data-efficient route in practical terms — the synthetic data is free, the small real set is what makes the predictions calibrated.
 
@@ -116,34 +115,36 @@ This is the most data-efficient route in practical terms — the synthetic data 
 
 The most interesting route in my view. The whole reason to localise nostrils on thermal is to measure the *temperature oscillation* — that periodic signal is the entire pipeline output. So:
 
-1. Run a coarse face detector to localise the head region.
+1. Run a coarse face detector to localise the head region (DWPose's body-driven approach works fine).
 2. For every pixel inside the face region, compute the temporal FFT magnitude in the 0.1–0.4 Hz band (the breathing-rate band).
 3. The pixels with the **strongest periodicity in that band** are the nostrils, *by definition*.
 
 This is "annotate the data the way you would have measured it anyway". No GT clicks, no synthetic data, no paired RGB needed — just a 10-second clip of the subject breathing. Add this as a self-supervised loss on top of whatever spatial model you train, and you get a model that is biased toward landmarks that are *physically meaningful for the downstream task* rather than landmarks that are visually salient on a static frame.
 
-The downside: requires video, not single frames. The upside: video is what you'd be processing anyway for breath-rate monitoring, so the cost is zero relative to the deployment scenario.
+The downside: requires video, not single frames. The upside: video is what you'd be processing anyway for breath-rate monitoring, so the cost is zero relative to the deployment scenario. **ThermEval-D is single-frame, so this fix can't be tested on that dataset — but a thermal video dataset like SLP (in-bed sleep monitoring) would be the right testbed.**
 
 ## What I'd reach for first in practice
 
-If I had to ship a thermal-nostril detector tomorrow:
+If I had to ship a thermal-nostril detector tomorrow, on top of the [part 1](2026-05-20-thermal-nostril-bakeoff.qmd) findings:
 
 | Constraint | Pick | Why |
 |------------|------|-----|
-| No labels, no time, single thermal frames | **DWPose** | Works zero-shot well enough. Median ~8 px. |
-| 30 labelled frames available, want best single-frame model | **Finetune a tiny head on Sapiens2 backbone** (part 2 of this series) | Backbone features transfer; only the head needs to be re-aimed. |
+| Real-world multi-person, no labels | **DWPose** | Already at 100% detection / 3 px median on ThermEval-D. |
+| 30 labelled crops, need a specific anatomical convention | **Finetune a tiny head on Sapiens2 backbone** (part 2) | Pins the prediction to your annotation convention; distillable. |
 | Paired thermal + RGB streams available | **Project from RGB MediaPipe** + use thermal-only model for failure cases | Free labels, lowest engineering cost. |
-| Need true breath-rate signal | **Temporal FFT band-pass on every face pixel** | Avoids the localisation problem entirely. |
+| Need actual breath-rate signal (the real downstream task) | **Temporal FFT band-pass on face-region pixels** | Avoids the localisation problem entirely. |
 
 The four fixes are not mutually exclusive. The strongest single-frame pipeline almost certainly combines (1) anatomical-prior hierarchical detection with (3) T-FAKE synthetic pretraining + a small fraction of (2) paired-RGB labels for real-domain calibration. Add (4) on top during deployment when you have video.
 
 ## What this post is *not* doing
 
-I haven't measured any of the four fixes here. This post is a *framework for thinking about the problem* informed by the experimental finding in part 1 that off-the-shelf models fail. Parts 2 and 3 show working implementations of fixes 1 and parts of 3. Fix 4 (breath-rate self-supervision) is the most novel of the four and I don't have a working implementation yet — let me know if you want to collaborate on it.
+I haven't measured any of the four fixes here — this is a framework for thinking about the problem, informed by the experimental findings in parts 1 and 3 that off-the-shelf RGB-trained landmarkers fail on real-world thermal. The thermal sleep-posture follow-up (separate post) will be where I actually test some of these (especially fix 4 — temporal/breath-signal self-supervision needs video).
 
 ## Links
 
-- Part 1 of this series: [the bake-off](2026-05-20-thermal-nostril-bakeoff.qmd)
-- T-FAKE synthetic thermal dataset: [arXiv:2408.15127](https://arxiv.org/abs/2408.15127)
+- Part 1 of this series: [the bake-off on ThermEval-D](2026-05-20-thermal-nostril-bakeoff.qmd)
+- Part 2: [Sapiens2 finetune on ThermEval-D](2026-05-20-thermal-nostril-finetune.qmd)
+- Part 3: [hierarchical face → nostril on ThermEval-D](2026-05-20-thermal-nostril-hierarchical.qmd)
+- T-FAKE synthetic thermal: [arXiv:2408.15127](https://arxiv.org/abs/2408.15127)
 - TFD68 paired-projection annotations: [SIGGRAPH Asia 2025](https://dl.acm.org/doi/10.1145/3757376.3771410)
-- SF-TL54 dataset: [HF dataset card](https://huggingface.co/datasets/issai/SFTL54)
+- ThermEval-D dataset: [Kaggle](https://www.kaggle.com/datasets/shriayush/thermeval) · [project page](https://sustainability-lab.github.io/thermeval/)
