@@ -1,9 +1,10 @@
 ---
-title: "Can Gemini 3.1 Flash Image Generate Believable Thermal Faces? Four Prompting Strategies vs. a Real Thermal Photograph"
+title: "Can Gemini Generate Believable Thermal Faces? Four Prompting Strategies, Two Model Sizes, vs. a Real Thermal Photograph"
 author: "Nipun Batra"
 date: "2026-05-21"
+date-modified: "2026-05-21"
 categories: [Gemini, image-generation, thermal-imaging, evaluation, paper-prototype, Nano-Banana]
-description: "I ran Gemini 3.1 Flash Image Preview (a.k.a. Nano Banana 2) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each one against a real thermal photograph of the same subject. All four strategies produce visually-thermal-looking outputs but make the same characteristic physical errors: eyes glow brightest (wrong — should be cool), eyeglass lenses render hot (wrong — glass blocks LWIR), and the model hallucinates a temperature legend bar. A 2-step self-critique loop briefly hits 7/10 then diverges into hallucinated vein patterns. For a paper-grade thermal-data-synthesis pipeline, Gemini gives you style match but not physics match."
+description: "I ran Gemini 3.1 Flash Image Preview (Nano Banana 2) AND Gemini 3 Pro Image Preview (Nano Banana Pro) through four prompting strategies for generating LWIR thermal face images, then asked Gemini-3.5 to judge each against a real thermal photograph of the same subject. All 14 outputs (7 per model) look 'thermal' (iron palette, glowing face) and all 14 make the same characteristic physical errors. The bigger Pro model averages +1 to +2 judge points over Flash and doesn't collapse on the second self-critique iteration the way Flash does — but both hit the same ceiling at 7/10. The literature confirms the prior: every recent thermal-generation paper (ThermalGen NeurIPS 2025, T-FAKE CVPR 2025, ThermVision-DB 2026) uses a generator finetuned on real thermal data, with a physics-aware loss. Zero-shot general-purpose generation is not on the leaderboard."
 format:
   html:
     toc: true
@@ -21,7 +22,9 @@ resources:
 
 **The setup**: real RGB photograph and matching real thermal photograph of the same subject (from [SF-TL54](https://huggingface.co/datasets/issai/SFTL54)). Four prompting strategies, each generating a thermal image; a fifth strategy adds a 2-iteration self-critique loop. Every generation is then scored by Gemini-3.5-flash against the real thermal as a ground-truth reference.
 
-**The result**: all seven generations look "thermal" (iron palette, glowing face, dark background). All seven also make the same three physical errors — bright pupils, hot eyeglass lenses, and a hallucinated colour-scale UI on the side. The best Gemini-judge score across any strategy was **7/10**, achieved on a single self-critique step. A second self-critique step pushed the model into hallucinating a network of bright veins on the forehead and dropped the score back to 5/10.
+**The result**: all seven Flash generations look "thermal" (iron palette, glowing face, dark background). All seven also make the same three physical errors — bright pupils, hot eyeglass lenses, and a hallucinated colour-scale UI on the side. The best Gemini-judge score across any Flash strategy was **7/10**, achieved on a single self-critique step. A second self-critique step pushed Flash into hallucinating a network of bright veins on the forehead and dropped the score back to 5/10.
+
+**The 7B-parameter question** (literally, [does scaling fix this?](#does-a-stronger-model-help-nano-banana-pro-vs-flash)): the bigger Nano Banana Pro model is +1 to +2 points on 5 of the 7 attempts, AND it stays at 7/10 on the second self-critique iteration where Flash collapsed to 5/10. But the ceiling is still **7/10**. Every Pro generation still has glowing pupils, still hallucinates a temperature legend, and still draws the wrong subject. **Scaling the model improves how often you get the best output; it doesn't raise the best output.**
 
 **The implication for the paper**: Gemini is doing thermal *style transfer*, not thermal *modality conversion*. The look matches; the physics doesn't. Synthetic thermal from a general-purpose generator is probably not a substitute for real thermal data when training a downstream physics-sensitive task (e.g., breath-rate from nostril temperature).
 
@@ -335,6 +338,98 @@ Cross-referencing the seven generations, here are the recurring errors. These ar
 
 **Why the model does it**: simplification — easier for the generator to produce a clean dark background than to reason about scene thermodynamics.
 
+## Does a stronger model help? Nano Banana Pro vs Flash
+
+The natural next question: I tested **Gemini 3.1 Flash Image Preview** (the speed-optimised model). Does the bigger **Gemini 3 Pro Image Preview** ("Nano Banana Pro") do better? My prior, before running anything:
+
+1. **Bigger model = better instruction following** — better at applying explicit thermal-physics rules ("hot here, cold there") and less likely to hallucinate extra accessories like glasses.
+2. **Bigger model = sharper output, fewer "average-of-training-set" artefacts** — less generic, more committed to a single coherent scene.
+3. **Bigger model does *not* fix the modality gap fundamentally** — the underlying training distribution is still ~99% RGB. The model can't learn "glass is opaque in LWIR" from RGB images, no matter how big it is.
+
+### What the thermal-generation literature says
+
+Before running the test, I spent 10 minutes checking what the actual state of the art is for thermal image generation, to make sure my prior wasn't out of date. The recent papers:
+
+| Paper | Venue | Approach | Key idea |
+|-------|-------|----------|----------|
+| **[T-FAKE](https://arxiv.org/abs/2408.15127)** | CVPR 2025 | Parametric head + RGB2Thermal loss | Wasserstein distance between RGB and thermal patches; embed clinical face-temperature distributions into the loss |
+| **[ThermalGen](https://arxiv.org/abs/2509.24878)** | NeurIPS 2025 | Style-disentangled flow-based generator | RGB conditioning + explicit style disentanglement; finetuned on real RGB-thermal pairs |
+| **[ThermalDiffusion](https://arxiv.org/abs/2506.20969)** | 2025 | RGB → thermal diffusion (autonomous driving) | Standard pix2pix style; trained from scratch on thermal video data |
+| **[Multi-Attribute Thermal Translation](https://arxiv.org/abs/2512.21032)** | 2025 | Latent diffusion + VQ-VAE + CLIP-thermal encoder | Custom thermal-attribute encoder trained on ARL-VTF (500k thermal images) |
+| **[ThermVision-DB](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12907868/)** | Jan 2026 | Synthetic LWIR via finetuned diffusion | Diffusion model finetuned for privacy-preserving thermal generation |
+
+**Every single paper** uses either (a) a generator finetuned on real thermal data, or (b) a physics-aware loss function (T-FAKE's clinical-temperature Wasserstein term), or (c) both. **None of them rely on a general-purpose image generator at zero-shot.** That's the empirical version of the prior — the field has already concluded that zero-shot doesn't work.
+
+So why even bother testing Nano Banana Pro? Two reasons: (1) there is no published comparison of Gemini's image models on LWIR, so the result is novel even if expected; (2) the *shape* of the improvement (which errors go away as you scale, which persist) is informative for designing a thermal-specific generator.
+
+### Head-to-head results
+
+Same 7 prompting strategies, same source images, same Gemini-3.5-Flash judge. Score chart:
+
+![Nano Banana Pro vs Nano Banana 2 Flash on the same 7 prompts. Pro wins or ties every attempt, and crucially doesn't collapse on the second self-critique iteration. But the ceiling is identical at 7/10.](thermal-genai/outputs/pro_vs_flash_scores.png)
+
+| Attempt | Flash (Nano Banana 2) | **Pro (Nano Banana)** | Δ |
+|---------|---:|---:|---:|
+| 1a generic | 5/10 | 6/10 | +1 |
+| 1b RGB-caption | 6/10 | 7/10 | +1 |
+| 1c thermal-physics | 5/10 | 5/10 | 0 |
+| 1d Gemini-therm-caption | 6/10 | 7/10 | +1 |
+| 2 RGB + caption | 6/10 | 7/10 | +1 |
+| 3 iter 1 (self-critique) | 7/10 | 7/10 | 0 |
+| 3 iter 2 (self-critique × 2) | 5/10 | **7/10** | **+2** |
+| **Best across model** | 7/10 | 7/10 | tie |
+| **Mean across 7** | 5.7 | 6.6 | +0.9 |
+
+Three observations:
+
+1. **Pro raises the average by ~1 point** but doesn't raise the ceiling. Both models max out at 7/10. The literature predicted this — the physics gap survives scaling.
+2. **Pro doesn't collapse on iter 2.** This is the most interesting finding: the second self-critique step that broke Flash (5/10, lightning-vein patterns) doesn't break Pro (7/10). The bigger model is **more robust to over-iteration** — it can absorb the additional critique without overshooting.
+3. **The hardest prompt (1c, explicit thermal-physics) ties at 5/10.** Both models add hallucinated eyeglasses when the prompt lists them as "if any". This is a prompt-following failure shared by both models, not a thermal-physics failure.
+
+### Visual head-to-head
+
+Real thermal target on the left, then Flash's generation, then Pro's generation, for each of the 7 attempts:
+
+![Side-by-side comparison. Each row is one prompt strategy. Left column: real thermal (target). Middle column: Flash generation. Right column: Pro generation. Pro's outputs are visibly sharper and have more coherent identity. The 2nd self-critique row at the bottom is where the difference is most striking — Flash's lightning-vein artefact vs Pro's clean (but still wrong-eyed) face.](thermal-genai/outputs/pro_vs_flash_grid.png)
+
+Pull out two specific comparisons:
+
+::: {layout-ncol=3}
+![Real thermal (target).](thermal-genai/outputs/source_thermal_real.png){#fig-cmp1-real}
+
+![Flash, RGB+caption (6/10): face is a different subject; eyes glow; no cool nose.](thermal-genai/outputs/exp3_rgb_plus_thermcap.png){#fig-cmp1-flash}
+
+![**Pro, RGB+caption (7/10): identity closer to the real subject; eyebrows preserved as cool features; slightly better nose-tip cooling. Pupils still glow.**](thermal-genai/outputs/exp1d_gemini_thermcap.png){#fig-cmp1-pro}
+:::
+
+And the iter-2 collapse comparison:
+
+::: {layout-ncol=2}
+![Flash iter 2 (5/10): the over-critique produces a lightning-bolt vein mesh on forehead and cheeks. Not anatomically real.](thermal-genai/outputs/exp4_refined_iter2.png){#fig-cmp2-flash}
+
+![**Pro iter 2 (7/10): cleaner face, no vein hallucination. Robust to over-prompting in a way that Flash isn't.**](thermal-genai/outputs_pro/exp4_refined_iter2.png){#fig-cmp2-pro}
+:::
+
+### What gets better with Pro
+
+- **Identity preservation when given an RGB**: Pro's face looks closer to the actual SF-TL54 subject (slightly Central Asian features rather than a generic Asian male).
+- **Robustness to over-iteration**: the lightning-vein artefact that broke Flash on iter 2 doesn't appear in Pro.
+- **Subtler features**: Pro renders darker eyebrows, more visible moustache, more anatomically correct ear position — small things, but they add up to a more believable subject.
+
+### What stays broken with Pro
+
+- **Bright pupils / glowing irises**: still in all 7 Pro generations.
+- **Hallucinated temperature legend bar**: still in 4 of 7 Pro generations (about the same rate as Flash).
+- **Hot eyeglass lenses**: still wrong on the 1c thermal-physics prompt that explicitly told it lenses should be cold.
+- **Wrong subject identity**: still drawn as a generic similar-demographic face, not the actual subject.
+- **Uniform background**: Pro still draws a single dark blue background instead of a spatially varied real-room scene.
+
+These are the *modality-gap* errors. They survive scaling because they require thermal-physics knowledge that isn't in the training distribution at any scale.
+
+### The bigger lesson
+
+Scaling improves **consistency and resilience** (fewer bad runs, less collapse on iteration) but doesn't raise the **physics ceiling**. For a downstream task that depends on thermal physics being correct (a nostril temperature tracker, an early-warning fever screener, a clinical thermography classifier), Pro is no better than Flash. For a downstream task that depends only on thermal *style* (e.g., a face detector that just needs to see iron-palette faces during training to handle test-time thermal inputs), Pro is meaningfully better because it produces fewer artefacts.
+
 ## Implications for the upcoming paper
 
 Three takeaways from this experiment:
@@ -349,8 +444,9 @@ Three takeaways from this experiment:
 
 - **Quantitative thermal-physics metrics.** Replace Gemini's 1-10 judge with measurable features: (1) mean luminance of the iris region vs the periorbital ring (the iris should be *cooler*, so iris/orbital < 1.0); (2) presence of a temperature bar UI as a binary feature; (3) Pearson correlation between generated-thermal pixels and real-thermal pixels, masked to the face region. Each metric is a number, not an LLM opinion.
 - **Larger N.** Run all four prompt strategies on 50 SF-TL54 subjects + 50 ThermEval-D subjects. Currently this is N=1, which is fine for failure-mode discovery but not for statistical claims.
-- **Other generators.** Run the same prompts through Imagen 3, Stable Diffusion 3 with a thermal LoRA, GPT-Image-1, and `gemini-3-pro-image-preview` (Nano Banana Pro). The failure-mode catalogue above is the right scaffolding for the comparison: does the next generator make the *same* errors, or different ones?
-- **Thermal-finetuned generator.** Take a small generator (Stable Diffusion XL Lightning, say) + finetune on ThermEval-D's 1k thermal images. Does that close the physics gap, or does the finetune memorise specific scenes?
+- **Other generators.** ✅ done for Gemini Pro (above) — repeat for Imagen 3, Stable Diffusion 3 with a thermal LoRA, GPT-Image-1, and FLUX. The failure-mode catalogue above is the right scaffolding for the comparison: does each generator make the *same* errors, or different ones? My prediction from the literature priors and the Gemini Pro result: all general-purpose generators max out around 7/10. The thermal-LoRA'd SD3 will break this ceiling.
+- **Thermal-finetuned generator.** Take a small generator (Stable Diffusion XL Lightning, say) + finetune on ThermEval-D's 1k thermal images and the T-FAKE 200k synthetic set. Does that close the physics gap, or does the finetune memorise specific scenes? This is the most important follow-up — the literature ([ThermalGen](https://arxiv.org/abs/2509.24878), [T-FAKE](https://arxiv.org/abs/2408.15127)) suggests yes.
+- **Physics-aware loss term.** Reproduce T-FAKE's [RGB2Thermal loss](https://arxiv.org/abs/2408.15127) — Wasserstein distance between RGB and thermal patches + clinical-temperature priors — and apply it during inference (via prompt+critique loop) or finetuning. Likely the cheapest way to push the ceiling past 7/10 without finetuning from scratch.
 - **Downstream-task evaluation.** Use the Gemini-generated thermal images as *training data* for a thermal nostril detector (the model from [part 2 of the nostril series](2026-05-20-thermal-nostril-finetune.qmd)). Compare to a model trained on the same number of *real* thermal frames. The downstream-task gap is the actual deployment value of synthesis.
 
 ## What this experiment is *not*
@@ -361,9 +457,10 @@ Three takeaways from this experiment:
 
 ## Links
 
-- Experiment script: [`posts/thermal-genai/scripts/run_experiments.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py)
-- Saved outputs (real and generated): [`posts/thermal-genai/outputs/`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs)
+- Experiment scripts: [`run_experiments.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments.py) (Flash baseline) · [`run_experiments_pro.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/run_experiments_pro.py) (Pro head-to-head) · [`make_pro_comparison.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/scripts/make_pro_comparison.py) (side-by-side panels)
+- Saved outputs (real and generated): [`posts/thermal-genai/outputs/`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs) (Flash) · [`outputs_pro/`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-genai/outputs_pro) (Pro)
 - Gemini image generation docs: [ai.google.dev/gemini-api/docs/image-generation](https://ai.google.dev/gemini-api/docs/image-generation)
+- Related thermal-generation literature: [T-FAKE (CVPR 2025)](https://arxiv.org/abs/2408.15127) · [ThermalGen (NeurIPS 2025)](https://arxiv.org/abs/2509.24878) · [ThermVision-DB (2026)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12907868/) · [Multi-Attribute Thermal Translation (2025)](https://arxiv.org/abs/2512.21032)
 - Source thermal datasets: [SF-TL54](https://huggingface.co/datasets/issai/SFTL54) · [ThermEval-D](https://www.kaggle.com/datasets/shriayush/thermeval)
 - Earlier Gemini-3.5-Flash measurement post: [2026-05-20-gemini-3.5-flash-and-omni](2026-05-20-gemini-3.5-flash-and-omni.html)
 - Companion thermal-nostril series: [part 1](2026-05-20-thermal-nostril-bakeoff.qmd) · [part 2](2026-05-20-thermal-nostril-finetune.qmd) · [part 3](2026-05-20-thermal-nostril-hierarchical.qmd) · [part 4](2026-05-20-thermal-nostril-why-hard.qmd)
