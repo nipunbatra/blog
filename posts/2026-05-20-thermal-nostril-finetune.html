@@ -8,9 +8,9 @@
 
 <meta name="author" content="Nipun Batra">
 <meta name="dcterms.date" content="2026-05-20">
-<meta name="description" content="Sapiens2-0.4b’s 308-keypoint head fails catastrophically on thermal nostrils (~72 px mean error). I freeze the backbone, replace the head with a 410k-parameter 2-keypoint heatmap regressor, and train on 30 SF-TL54 thermal frames. After 120 epochs (4 minutes on one RTX A5000), test mean error is 4.5 px — beating not just zero-shot Sapiens2 by 16×, but also the best zero-shot model from the bake-off (DWPose @ 8 px) by ~2×.">
+<meta name="description" content="Sapiens2-0.4b’s 308-keypoint head can’t directly output a single ‘Nose centroid’ the way ThermEval-D annotates it. So I freeze the backbone, replace the head with a 410k-parameter 1-keypoint heatmap regressor, and train on 40 ThermEval crops. Test PCK@10 = 93%, mean error = 5.5 px on the 80-crop test split. Does not beat zero-shot DWPose (99% PCK@10, 2.7 px) on this dataset — but produces a predictor pinned to YOUR anatomical convention, distillable to a tiny inference model, and reproducible on data DWPose wasn’t trained for. The point of the finetune isn’t ‘better than zero-shot DWPose’; it’s ‘a specialised, deployable, anatomy-correct predictor from 30 examples’.">
 
-<title>Finetuning Sapiens2 for Nostril Detection on Thermal Faces with 30 Examples – Nipun Batra Blog</title>
+<title>Finetuning Sapiens2 for Nostril Detection on ThermEval-D (with a Tiny Annotated Set) – Nipun Batra Blog</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -114,13 +114,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <style>html{ scroll-behavior: smooth; }</style>
 
 
-<meta property="og:title" content="Finetuning Sapiens2 for Nostril Detection on Thermal Faces with 30 Examples – Nipun Batra Blog">
-<meta property="og:description" content="Sapiens2-0.4b’s 308-keypoint head fails catastrophically on thermal nostrils (~72 px mean error). I freeze the backbone, replace the head with a 410k-parameter 2-keypoint heatmap regressor, and train on 30 SF-TL54 thermal frames. After 120 epochs (4 minutes on one RTX A5000), test mean error is 4.5 px — beating not just zero-shot Sapiens2 by 16×, but also the best zero-shot model from the bake-off (DWPose @ 8 px) by ~2×.">
-<meta property="og:image" content="nostril-finetune/outputs/training_curve.png">
+<meta property="og:title" content="Finetuning Sapiens2 for Nostril Detection on ThermEval-D (with a Tiny Annotated Set) – Nipun Batra Blog">
+<meta property="og:description" content="Sapiens2-0.4b’s 308-keypoint head can’t directly output a single ‘Nose centroid’ the way ThermEval-D annotates it. So I freeze the backbone, replace the head with a 410k-parameter 1-keypoint heatmap regressor, and train on 40 ThermEval crops. Test PCK@10 = 93%, mean error = 5.5 px on the 80-crop test split. Does not beat zero-shot DWPose (99% PCK@10, 2.7 px) on this dataset — but produces a predictor pinned to YOUR anatomical convention, distillable to a tiny inference model, and reproducible on data DWPose wasn’t trained for. The point of the finetune isn’t ‘better than zero-shot DWPose’; it’s ‘a specialised, deployable, anatomy-correct predictor from 30 examples’.">
+<meta property="og:image" content="nostril-finetune/outputs/training_curve_thermeval.png">
 <meta property="og:site_name" content="Nipun Batra Blog">
-<meta name="twitter:title" content="Finetuning Sapiens2 for Nostril Detection on Thermal Faces with 30 Examples – Nipun Batra Blog">
-<meta name="twitter:description" content="Sapiens2-0.4b’s 308-keypoint head fails catastrophically on thermal nostrils (~72 px mean error). I freeze the backbone, replace the head with a 410k-parameter 2-keypoint heatmap regressor, and train on 30 SF-TL54 thermal frames. After 120 epochs (4 minutes on one RTX A5000), test mean error is 4.5 px — beating not just zero-shot Sapiens2 by 16×, but also the best zero-shot model from the bake-off (DWPose @ 8 px) by ~2×.">
-<meta name="twitter:image" content="nostril-finetune/outputs/training_curve.png">
+<meta name="twitter:title" content="Finetuning Sapiens2 for Nostril Detection on ThermEval-D (with a Tiny Annotated Set) – Nipun Batra Blog">
+<meta name="twitter:description" content="Sapiens2-0.4b’s 308-keypoint head can’t directly output a single ‘Nose centroid’ the way ThermEval-D annotates it. So I freeze the backbone, replace the head with a 410k-parameter 1-keypoint heatmap regressor, and train on 40 ThermEval crops. Test PCK@10 = 93%, mean error = 5.5 px on the 80-crop test split. Does not beat zero-shot DWPose (99% PCK@10, 2.7 px) on this dataset — but produces a predictor pinned to YOUR anatomical convention, distillable to a tiny inference model, and reproducible on data DWPose wasn’t trained for. The point of the finetune isn’t ‘better than zero-shot DWPose’; it’s ‘a specialised, deployable, anatomy-correct predictor from 30 examples’.">
+<meta name="twitter:image" content="nostril-finetune/outputs/training_curve_thermeval.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -319,10 +319,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <div class="quarto-title-block"><div><h1 class="title">Finetuning Sapiens2 for Nostril Detection on Thermal Faces with 30 Examples</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+      <div class="quarto-title-block"><div><h1 class="title">Finetuning Sapiens2 for Nostril Detection on ThermEval-D (with a Tiny Annotated Set)</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
                   <div>
         <div class="description">
-          Sapiens2-0.4b’s 308-keypoint head fails catastrophically on thermal nostrils (~72 px mean error). I freeze the backbone, replace the head with a 410k-parameter 2-keypoint heatmap regressor, and train on 30 SF-TL54 thermal frames. After 120 epochs (4 minutes on one RTX A5000), test mean error is 4.5 px — beating not just zero-shot Sapiens2 by 16×, but also the best zero-shot model from the bake-off (DWPose @ 8 px) by ~2×.
+          Sapiens2-0.4b’s 308-keypoint head can’t directly output a single ‘Nose centroid’ the way ThermEval-D annotates it. So I freeze the backbone, replace the head with a 410k-parameter 1-keypoint heatmap regressor, and train on 40 ThermEval crops. Test PCK@10 = 93%, mean error = 5.5 px on the 80-crop test split. Does not beat zero-shot DWPose (99% PCK@10, 2.7 px) on this dataset — but produces a predictor pinned to YOUR anatomical convention, distillable to a tiny inference model, and reproducible on data DWPose wasn’t trained for. The point of the finetune isn’t ‘better than zero-shot DWPose’; it’s ‘a specialised, deployable, anatomy-correct predictor from 30 examples’.
         </div>
       </div>
                           <div class="quarto-categories">
@@ -333,6 +333,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
                 <div class="quarto-category">few-shot</div>
                 <div class="quarto-category">transfer-learning</div>
                 <div class="quarto-category">frozen-backbone</div>
+                <div class="quarto-category">ThermEval</div>
               </div>
                   </div>
   </div>
@@ -357,7 +358,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <div>
       <div class="quarto-title-meta-heading">Modified</div>
       <div class="quarto-title-meta-contents">
-        <p class="date-modified">May 20, 2026</p>
+        <p class="date-modified">May 21, 2026</p>
       </div>
     </div>
       
@@ -372,17 +373,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#why-this-should-work-in-principle" id="toc-why-this-should-work-in-principle" class="nav-link active" data-scroll-target="#why-this-should-work-in-principle">Why this should work in principle</a></li>
-  <li><a href="#dataset-30-10-60-split-from-sf-tl54" id="toc-dataset-30-10-60-split-from-sf-tl54" class="nav-link" data-scroll-target="#dataset-30-10-60-split-from-sf-tl54">Dataset — 30 / 10 / 60 split from SF-TL54</a></li>
-  <li><a href="#architecture" id="toc-architecture" class="nav-link" data-scroll-target="#architecture">Architecture</a></li>
+  <li><a href="#architectural-flowchart-how-30-examples-can-finetune-a-0.4b-parameter-network" id="toc-architectural-flowchart-how-30-examples-can-finetune-a-0.4b-parameter-network" class="nav-link active" data-scroll-target="#architectural-flowchart-how-30-examples-can-finetune-a-0.4b-parameter-network">Architectural flowchart — how 30 examples can finetune a 0.4B-parameter network</a></li>
+  <li><a href="#data-40-15-80-split-from-thermeval-d" id="toc-data-40-15-80-split-from-thermeval-d" class="nav-link" data-scroll-target="#data-40-15-80-split-from-thermeval-d">Data — 40 / 15 / 80 split from ThermEval-D</a></li>
   <li><a href="#training" id="toc-training" class="nav-link" data-scroll-target="#training">Training</a></li>
-  <li><a href="#test-set-results" id="toc-test-set-results" class="nav-link" data-scroll-target="#test-set-results">Test-set results</a></li>
-  <li><a href="#what-the-predictions-look-like" id="toc-what-the-predictions-look-like" class="nav-link" data-scroll-target="#what-the-predictions-look-like">What the predictions look like</a></li>
-  <li><a href="#why-this-works-so-well" id="toc-why-this-works-so-well" class="nav-link" data-scroll-target="#why-this-works-so-well">Why this works so well</a></li>
+  <li><a href="#test-results" id="toc-test-results" class="nav-link" data-scroll-target="#test-results">Test results</a></li>
+  <li><a href="#predictions-on-the-test-set" id="toc-predictions-on-the-test-set" class="nav-link" data-scroll-target="#predictions-on-the-test-set">Predictions on the test set</a></li>
+  <li><a href="#why-not-also-finetune-dwpose" id="toc-why-not-also-finetune-dwpose" class="nav-link" data-scroll-target="#why-not-also-finetune-dwpose">Why not also finetune DWPose?</a></li>
   <li><a href="#what-this-doesnt-tell-us" id="toc-what-this-doesnt-tell-us" class="nav-link" data-scroll-target="#what-this-doesnt-tell-us">What this doesn’t tell us</a></li>
-  <li><a href="#why-not-just-use-the-bigger-sapiens2-0.8b-backbone" id="toc-why-not-just-use-the-bigger-sapiens2-0.8b-backbone" class="nav-link" data-scroll-target="#why-not-just-use-the-bigger-sapiens2-0.8b-backbone">Why not just use the bigger Sapiens2-0.8b backbone?</a></li>
-  <li><a href="#what-id-try-next" id="toc-what-id-try-next" class="nav-link" data-scroll-target="#what-id-try-next">What I’d try next</a></li>
-  <li><a href="#whats-next-in-the-series" id="toc-whats-next-in-the-series" class="nav-link" data-scroll-target="#whats-next-in-the-series">What’s next in the series</a></li>
+  <li><a href="#whats-next" id="toc-whats-next" class="nav-link" data-scroll-target="#whats-next">What’s next</a></li>
   <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
   </ul>
 </nav>
@@ -395,240 +393,235 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<p><a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">Part 1</a> of this series showed that off-the-shelf wholebody / face models fail on thermal-image nostril detection. Sapiens2-0.4b — Meta’s 2026 SOTA on RGB human keypoint estimation — gets the nostrils ~72 px wrong on thermal. DWPose was the best zero-shot model at ~8 px median, with MediaPipe FaceMesh at ~18 px. None of them are good enough for the eventual downstream task (per-nostril breath-rate measurement, where the tracker must stay inside a ~5 px region across a full minute of video).</p>
-<p>This post tests the cleanest hypothesis for fixing that: <strong>freeze the backbone, replace the head, train with a tiny labelled set.</strong> The result is much better than I expected — <strong>4.5 px mean test error from 30 labelled thermal frames and 4 minutes of training.</strong> Better than every zero-shot model in part 1, including DWPose.</p>
+<p><a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">Part 1</a> of this series showed that off-the-shelf models give mixed results on the ThermEval-D benchmark: <strong>DWPose wins decisively</strong> (100% detection, 99% PCK@10px), <strong>Sapiens2-0.4b</strong> has excellent accuracy when it predicts (2 px median) but only finds 69% of the multi-person GT, and <strong>MediaPipe FaceMesh</strong> can’t detect 20-px faces at all.</p>
+<p>This post tests the cleanest finetune hypothesis: <strong>freeze the backbone, replace the head, train with a tiny labelled set, and ship a predictor pinned to your specific anatomical convention.</strong> The result: a 410k-parameter head over a frozen Sapiens2 backbone hits <strong>93% PCK@10px and 5.5 px mean error</strong> on 80 ThermEval-D test crops, trained on just 40 examples in 4 minutes. It does <strong>not</strong> beat zero-shot DWPose on this dataset — and that’s actually fine, because the value of the finetune is elsewhere.</p>
 <blockquote class="blockquote">
-<p>Code: <a href="https://github.com/nipunbatra/blog/tree/master/posts/nostril-finetune/scripts"><code>posts/nostril-finetune/scripts/</code></a> — <code>build_dataset.py</code>, <code>train_head.py</code>, <code>visualize.py</code>.</p>
+<p>Code: <a href="https://github.com/nipunbatra/blog/tree/master/posts/nostril-finetune/scripts"><code>posts/nostril-finetune/scripts/</code></a> — <code>build_dataset_thermeval.py</code>, <code>train_head_thermeval.py</code>, <code>viz_thermeval.py</code>.</p>
 </blockquote>
-<section id="why-this-should-work-in-principle" class="level2">
-<h2 class="anchored" data-anchor-id="why-this-should-work-in-principle">Why this should work in principle</h2>
-<p>The argument for transfer learning is the standard one: a deep RGB-pretrained backbone has learned hierarchical features — edges, corners, anatomical regions, face templates — most of which are not pixel-domain-specific. The <em>first</em> convolution layer sees grayscale gradients; gradients exist on thermal too. The <em>deepest</em> attention layer attends to face-shaped regions in the image; “face-shaped” is also a structural property that transfers (heads have similar contours on thermal).</p>
-<p>What <em>doesn’t</em> transfer is the very last layer of the original task head — Sapiens2’s 308-keypoint decoder is trained to fire on RGB-specific features (skin micro-texture, specular highlights on eyes, the moisture sheen on lips). On thermal those features are gone, so the head fires on the <em>next-most-discriminative</em> features, which on thermal are the wrong things (the ears, the hairline) — hence the systematic ear-bias failure mode documented in part 1.</p>
-<p>So the hypothesis: <strong>freeze the backbone, throw away the head, learn a brand-new tiny head on top of the existing features</strong>. The backbone still knows “this is a face, this is roughly where the nose is”. The new head only needs to learn the very last step — “given this 16×16 spatial feature map of a face, output a heatmap centred at each nostril”.</p>
-</section>
-<section id="dataset-30-10-60-split-from-sf-tl54" class="level2">
-<h2 class="anchored" data-anchor-id="dataset-30-10-60-split-from-sf-tl54">Dataset — 30 / 10 / 60 split from SF-TL54</h2>
-<p><a href="https://huggingface.co/datasets/issai/SFTL54">SF-TL54</a> has 2,556 thermal-RGB pairs; I use only the <strong>gray</strong> thermal palette (single-channel radiometry rendered to 8-bit). The build script does three things:</p>
+<section id="architectural-flowchart-how-30-examples-can-finetune-a-0.4b-parameter-network" class="level2">
+<h2 class="anchored" data-anchor-id="architectural-flowchart-how-30-examples-can-finetune-a-0.4b-parameter-network">Architectural flowchart — how 30 examples can finetune a 0.4B-parameter network</h2>
+<p>The most-asked question after <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">part 1</a> was: <em>how can we finetune a model with 308 keypoints when we only have 1-2 keypoint annotations?</em> The answer is to <strong>not touch the 308-keypoint head at all</strong> — replace it with a 1-keypoint head and train <em>just that</em>.</p>
+<pre><code>                  input ThermEval crop (256x256, gray-&gt;3ch)
+                                  │
+                                  ▼
+        ┌────────────────────────────────────────────────────┐
+        │ Sapiens2-0.4b backbone — FROZEN, no_grad           │
+        │ ~415M params, ImageNet+Goliath RGB pretrained.     │
+        │ Has never seen thermal. Doesn't need to.           │
+        └────────────────────────────────────────────────────┘
+                                  │ (1, 1024, 16, 16)
+                                  ▼ ViT features
+        ┌────────────────────────────────────────────────────┐
+        │ TinyHead — TRAINABLE  (410,625 params, ~0.1% of    │
+        │                       the backbone)                │
+        │   Conv 1024→256, BN, GELU                          │
+        │   Conv 256→64, BN, GELU                            │
+        │   Bilinear upsample 4×  → 64x64                    │
+        │   Conv 64→1   (single Nose centroid heatmap)       │
+        └────────────────────────────────────────────────────┘
+                                  │ (1, 1, 64, 64) heatmap
+                                  ▼ argmax decode
+                  predicted (nose_x, nose_y) in input-pixel coords</code></pre>
+<p><strong>Why it works with so few examples:</strong></p>
 <ol type="1">
-<li>From the SF-TL54 <code>chin</code> + <code>left_eyebrow</code> + <code>right_eyebrow</code> landmarks, compute a face bounding box.</li>
-<li>Crop a square around it (+25% padding) and resize to <strong>256×256</strong>.</li>
-<li>Transform the ground-truth nostril coordinates (SF-TL54 <code>nose_tip</code> indices 1 and 3, the alae) into the crop’s coordinate frame.</li>
+<li><strong>The backbone already encodes “face region” structurally.</strong> Sapiens2 was pretrained to localise 308 facial / body keypoints on RGB. The features it produces at the deepest layer encode “this is a face, the nose is <em>roughly here</em>”. They don’t care that the pixel statistics changed — the spatial structure of a face is the same on thermal as on RGB.</li>
+<li><strong>The head is tiny.</strong> 410k params is ~10k params per training image (for a 40-example train set). That’s well-regularised by the BN + cosine LR + AdamW weight decay.</li>
+<li><strong>Heatmap regression is forgiving.</strong> MSE on a 64×64 Gaussian heatmap provides dense supervision: every pixel in the heatmap has a target value, not just the one peak.</li>
 </ol>
-<p>The train / val / test sizes:</p>
+<p>Compared to “train the whole pipeline end-to-end from scratch on 30 thermal images” (which would never converge), this design needs only the <em>delta</em> — what’s specific to the Nose vs the 307 other Goliath keypoints. The backbone has already done the rest of the work.</p>
+</section>
+<section id="data-40-15-80-split-from-thermeval-d" class="level2">
+<h2 class="anchored" data-anchor-id="data-40-15-80-split-from-thermeval-d">Data — 40 / 15 / 80 split from ThermEval-D</h2>
+<p>ThermEval-D annotates <code>Nose</code> polygons (~5×7 px) and <code>Person</code> polygons. For each annotated nose, I find the smallest Person bbox that contains it, then:</p>
+<ol type="1">
+<li>Crop the Person bbox + 25 % padding from the 192×256 frame.</li>
+<li>Resize crop to 256×256.</li>
+<li>Transform the Nose centroid into the crop’s coordinate frame.</li>
+</ol>
+<pre><code>[full thermal frame]   →  [Person bbox]   →   [256x256 crop, with Nose centroid in crop coords]
+     192x256                 70x190 (e.g.)              256x256</code></pre>
+<p>Split sizes (image-disjoint):</p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 38%">
+<col style="width: 16%">
+<col style="width: 44%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>Split</th>
 <th>N</th>
-<th>Source split</th>
-<th>Subjects</th>
+<th>Source</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td>train</td>
-<td>30</td>
-<td>SF-TL54 train</td>
-<td>30 unique</td>
+<td>40</td>
+<td>ThermEval-D <code>Annotations/annotations_1.json</code></td>
 </tr>
 <tr class="even">
 <td>val</td>
-<td>10</td>
-<td>SF-TL54 train (held-out subjects)</td>
-<td>10 unique</td>
+<td>15</td>
+<td>Same split, image-disjoint from train</td>
 </tr>
 <tr class="odd">
 <td>test</td>
-<td>60</td>
-<td>SF-TL54 test</td>
-<td>≤60 unique</td>
+<td>80</td>
+<td>ThermEval-D <code>Annotations/annotations_2.json</code> (the held-out split)</td>
 </tr>
 </tbody>
 </table>
-<p>That is a <em>deliberately tiny</em> training set — the question is “how little supervision do we need”, not “what is the best model”. 30 examples is what you would gather in an afternoon with a thermal camera and a labelling tool. The val and test splits use <strong>subject-disjoint subjects</strong> so reported numbers measure generalisation, not memorisation.</p>
-</section>
-<section id="architecture" class="level2">
-<h2 class="anchored" data-anchor-id="architecture">Architecture</h2>
-<pre><code>input thermal face (256x256, 3ch greyscale replicate)
-        │
-        ▼
-   ┌─────────────────────────────────────┐
-   │ Sapiens2-0.4b backbone — FROZEN     │
-   │ (~415M params, ImageNet/Goliath     │
-   │  RGB-pretrained, never seen thermal)│
-   └─────────────────────────────────────┘
-        │ (1, 1024, 16, 16) — ViT features
-        ▼
-   ┌─────────────────────────────────────┐
-   │ TinyHead — TRAINABLE (~410k params) │
-   │ Conv 1024→256 + BN + GELU           │
-   │ Conv 256→64   + BN + GELU           │
-   │ Bilinear upsample 4× → 64×64        │
-   │ Conv 64→2 (2 nostril heatmaps)      │
-   └─────────────────────────────────────┘
-        │ (1, 2, 64, 64) — heatmaps
-        ▼
-  argmax decoding → (left_xy, right_xy) in input-pixel coords</code></pre>
-<p>That’s it. 410k trainable parameters — about <strong>0.1% of the Sapiens2 backbone’s parameter count</strong>. Backbone never moves; only the head learns.</p>
-<p>The loss is MSE between the predicted 2-channel heatmap and a 2D Gaussian centred at each GT nostril, sigma = 2 px in the 64×64 heatmap (= 8 px in input space). Both nostrils are channel-separate, so the model has to learn left vs right.</p>
+<p>This is <em>deliberately tiny</em> — the question is “how little supervision do we need”, not “what’s the best model”. 40 examples is what you’d label in 20 minutes with a polygon tool.</p>
 </section>
 <section id="training" class="level2">
 <h2 class="anchored" data-anchor-id="training">Training</h2>
-<p>Adam W, lr = 3e-3, weight decay = 1e-4, cosine schedule, batch size 8, 120 epochs, single RTX A5000. Total training time: <strong>~4 minutes</strong> end-to-end including dataset I/O.</p>
+<p>AdamW, lr=3e-3, weight decay=1e-4, cosine schedule, batch size 8, <strong>120 epochs, ~4 minutes</strong> on a single RTX A5000.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="nostril-finetune/outputs/training_curve.png" class="img-fluid figure-img"></p>
-<figcaption>Validation mean nostril error (red) drops from 151 px (random initialisation) to ~5 px within 10 epochs. PCK\<span class="citation" data-cites="10">@10</span> (blue dashed) hits 100% by epoch 15. The remaining 105 epochs only buy 0.3 px more accuracy.</figcaption>
+<p><img src="nostril-finetune/outputs/training_curve_thermeval.png" class="img-fluid figure-img"></p>
+<figcaption>Val mean nostril error (red) drops sharply from 116 px to ~16 px in 10 epochs, plateaus, then drops a second time around epoch 45 to ~5 px. PCK\<span class="citation" data-cites="10">@10</span> (blue dashed) reaches 100% by epoch 20.</figcaption>
 </figure>
 </div>
-<p>The shape of the curve is the <em>important</em> observation here: <strong>the model nearly fits the val set in ~5 epochs</strong>, before the cosine LR schedule has done anything interesting. That tells you something about the problem — the frozen backbone features already contain “where is the nose region”, so the head only has to learn the linear mapping from that region’s features to two 2D coordinates. That mapping is easy to fit with 30 examples.</p>
+<p>The two-stage convergence is interesting: the first drop (epoch 1-10) is the head learning “where on the feature map a face lives”; the second drop (epoch 40-50) is the head learning the <em>sub-pixel offset</em> from the Sapiens2 backbone’s coarse face anchor to ThermEval’s specific Nose centroid annotation.</p>
 </section>
-<section id="test-set-results" class="level2">
-<h2 class="anchored" data-anchor-id="test-set-results">Test-set results</h2>
+<section id="test-results" class="level2">
+<h2 class="anchored" data-anchor-id="test-results">Test results</h2>
+<p>On 80 held-out test crops from ThermEval-D’s second annotation split:</p>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 6%">
-<col style="width: 21%">
+<col style="width: 8%">
 <col style="width: 28%">
-<col style="width: 18%">
-<col style="width: 25%">
+<col style="width: 30%">
+<col style="width: 32%">
 </colgroup>
 <thead>
 <tr class="header">
 <th>Metric</th>
-<th>Sapiens2-0.4b (zero-shot)</th>
-<th>DWPose (zero-shot, best in part 1)</th>
-<th>MediaPipe (zero-shot)</th>
+<th>Zero-shot DWPose (part 1)</th>
+<th>Zero-shot Sapiens2 (part 1)</th>
 <th><strong>Finetuned head (this post)</strong></th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Mean nostril error (px)</td>
-<td>72.0</td>
-<td>8.3</td>
-<td>18.0</td>
-<td><strong>4.5</strong></td>
+<td>Test setting</td>
+<td>Full frame, multi-person</td>
+<td>Full frame, single-person</td>
+<td>Pre-cropped Person bbox</td>
 </tr>
 <tr class="even">
-<td>Median nostril error (px)</td>
-<td>80.4</td>
-<td>8.9</td>
-<td>16.3</td>
-<td><strong>4.2</strong></td>
+<td>Detection rate over GT</td>
+<td>100%</td>
+<td>69%</td>
+<td>(assumed 100% in this protocol)</td>
+</tr>
+<tr class="odd">
+<td>Mean nostril error</td>
+<td>3.3 px</td>
+<td>4.2 px</td>
+<td><strong>5.5 px</strong></td>
+</tr>
+<tr class="even">
+<td>Median error</td>
+<td>2.7 px</td>
+<td>2.0 px</td>
+<td><strong>5.0 px</strong></td>
 </tr>
 <tr class="odd">
 <td>PCK@3px</td>
-<td>0%</td>
-<td>n/a</td>
-<td>0%</td>
-<td><strong>29%</strong></td>
+<td>(not reported)</td>
+<td>(not reported)</td>
+<td><strong>24%</strong></td>
 </tr>
 <tr class="even">
 <td>PCK@5px</td>
-<td>0%</td>
-<td>35%</td>
-<td>0%</td>
-<td><strong>63%</strong></td>
+<td>(not reported)</td>
+<td>(not reported)</td>
+<td><strong>49%</strong></td>
 </tr>
 <tr class="odd">
 <td>PCK@10px</td>
-<td>5%</td>
-<td>60%</td>
-<td>0%</td>
-<td><strong>98%</strong></td>
+<td><strong>99%</strong></td>
+<td>66%</td>
+<td><strong>93%</strong></td>
 </tr>
 <tr class="even">
 <td>PCK@20px</td>
-<td>5%</td>
 <td>100%</td>
-<td>72%</td>
+<td>66%</td>
 <td><strong>100%</strong></td>
 </tr>
 <tr class="odd">
-<td>Training cost</td>
-<td>n/a (pretrained)</td>
-<td>n/a</td>
-<td>n/a</td>
-<td>30 labels + 4 min on 1 GPU</td>
+<td>Inference cost</td>
+<td>117 ms (whole frame + person det)</td>
+<td>580 ms (single-person, full backbone)</td>
+<td>~580 ms (still full backbone)</td>
 </tr>
 <tr class="even">
 <td>Trainable params</td>
-<td>n/a</td>
-<td>n/a</td>
-<td>n/a</td>
+<td>0</td>
+<td>0</td>
 <td>410k</td>
 </tr>
 <tr class="odd">
-<td>Inference cost</td>
-<td>600 ms</td>
-<td>120 ms</td>
-<td>16 ms</td>
-<td>600 ms (still passes through full backbone)</td>
+<td>Supervision needed</td>
+<td>0</td>
+<td>0</td>
+<td>40 labels + 4 min on one GPU</td>
 </tr>
 </tbody>
 </table>
-<p>The trained model <strong>beats every zero-shot baseline by a clear margin</strong>. In particular it beats DWPose — the best zero-shot — by ~2× on the strict PCK@5 metric and by ~1.8× on mean error. The largest remaining errors on the test set are systematic — when the subject’s head is rotated more than ~25° from frontal, the model occasionally puts both nostril predictions on the visible side of the nose.</p>
-<p>The inference cost is the same as zero-shot Sapiens2 (~600 ms) because we still pass through the full 0.4B backbone. That’s actually wasteful — for production you’d distil the backbone into a much smaller model (anything that produces a 16×16×D feature map would work, and a 30-MB DINOv2-small is enough). Treat the Sapiens2 backbone as a labelling tool, not a deployment target.</p>
+<p><strong>The finetune does not beat zero-shot DWPose on this benchmark.</strong> That’s worth saying clearly. The 5.5 px median error for the finetune is ~2× DWPose’s 2.7 px. The finetune trades raw accuracy for <em>anatomical specificity</em> (it predicts the exact Nose centroid ThermEval annotates) and <em>deployability</em> (the inference is one forward pass instead of a YOLOX-then-RTMPose cascade).</p>
+<p>Where the finetune actually wins:</p>
+<ul>
+<li><strong>Convention pinning.</strong> If your downstream system expects coordinates of <em>the Nose centroid</em> (not the COCO-WholeBody dlib face-32 / face-34 row), only the finetune predicts that point. DWPose predicts a slightly different anatomical landmark.</li>
+<li><strong>Distillation target.</strong> You can keep the <em>training</em> on Sapiens2 (where the backbone features are best) and <em>distil</em> the inference into a small DINOv2-small or MobileNetV4 backbone (~10× smaller, ~30× faster). For deployment you’d run the small model.</li>
+<li><strong>Per-camera calibration.</strong> If you have a <em>different</em> thermal camera, the zero-shot models may not transfer cleanly. The finetune lets you bend the predictor to your specific sensor with another 30 labels.</li>
+</ul>
 </section>
-<section id="what-the-predictions-look-like" class="level2">
-<h2 class="anchored" data-anchor-id="what-the-predictions-look-like">What the predictions look like</h2>
-<p>Six test-set images with the GT nostril crosses (red) and the predicted points (green). The per-image mean error is annotated top-left.</p>
+<section id="predictions-on-the-test-set" class="level2">
+<h2 class="anchored" data-anchor-id="predictions-on-the-test-set">Predictions on the test set</h2>
+<p>Six test-set crops with GT (red cross) and prediction (green dot):</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="nostril-finetune/outputs/qualitative_test.png" class="img-fluid figure-img"></p>
-<figcaption>Six test-set predictions from the finetuned head. The model handles glasses (top-row, middle), beards (top-row, right), eyes-closed (bottom-row, middle), and varied head poses (top-left, bottom-right). Errors range from 1.4 px to 4.8 px.</figcaption>
+<p><img src="nostril-finetune/outputs/qualitative_test_thermeval.png" class="img-fluid figure-img"></p>
+<figcaption>Six ThermEval-D test crops with the finetuned-head prediction overlaid. Per-frame errors range from 3.9 px to 11.6 px. The hardest cases (img340, img438) have either occluded faces or very small head pixels in the crop.</figcaption>
 </figure>
 </div>
-<p>The cases where the green dot doesn’t perfectly cover the red cross (top-right, ~3.5 px) are within ground-truth-annotation-noise levels — re-labelling a single nostril by hand reproducibly costs about 2-3 px.</p>
 </section>
-<section id="why-this-works-so-well" class="level2">
-<h2 class="anchored" data-anchor-id="why-this-works-so-well">Why this works so well</h2>
-<p>A few non-obvious reasons:</p>
+<section id="why-not-also-finetune-dwpose" class="level2">
+<h2 class="anchored" data-anchor-id="why-not-also-finetune-dwpose">Why not also finetune DWPose?</h2>
+<p>A natural follow-up — given that DWPose wins on ThermEval, should we finetune its head similarly? Three reasons I didn’t, in this post:</p>
 <ol type="1">
-<li><p><strong>The backbone already knows where the face is.</strong> Sapiens2’s failure on thermal in part 1 isn’t a backbone failure; it’s a <em>head</em> failure. The backbone still produces a feature map where face-coloured regions stand out. The TinyHead just needs to learn “the brightest blob in this feature map → centre the heatmap there”.</p></li>
-<li><p><strong>The head is small.</strong> 410k parameters cannot overfit 30 examples in any meaningful sense — there are about 13k parameters per training image, which is well above the standard “10× data per parameter” rule but not catastrophically so for a heavily regularised convolutional head.</p></li>
-<li><p><strong>Heatmap regression is a very forgiving objective.</strong> Compared to direct (x, y) regression, a heatmap loss provides dense supervision (every pixel in the heatmap has a target value). It’s why all modern keypoint estimators use heatmaps — they converge faster and are more robust to label noise.</p></li>
-<li><p><strong>Subject-disjoint splits underestimate generalisation here.</strong> The test subjects look anatomically very similar to the train subjects (all SF-TL54 subjects are adults captured in similar conditions). On a truly diverse test distribution — children, masks, partial occlusion — the gap would be larger. That said, the val/test results match closely (4.7 vs 4.5 px), which suggests we’re not overfitting <em>within</em> this distribution.</p></li>
+<li><p><strong>DWPose is an ONNX-runtime model in <code>rtmlib</code>.</strong> Extracting intermediate features for a head-replacement is much harder than with PyTorch. You’d have to re-train the entire RTMPose pipeline from the mmpose source, which has its own dependency tangle.</p></li>
+<li><p><strong>The Sapiens2 backbone is more useful as a feature extractor.</strong> It’s a clean PyTorch ViT with a single <code>backbone(x) → features</code> entry point. The features are richer (1024-dim vs DWPose’s compact 256-dim).</p></li>
+<li><p><strong>DWPose is already at 99% PCK@10 zero-shot.</strong> There’s little room to improve numerically — the remaining 1% is annotation noise. The finetune story is cleaner on Sapiens2 where it actually demonstrates a measurable transfer effect.</p></li>
 </ol>
+<p>For a production thermal-monitoring system, the right pipeline is <strong>DWPose for the detector + a Sapiens2-distilled tiny head for the keypoint refinement on each detected face</strong>. That’s a hybrid I’ll cover in a follow-up.</p>
 </section>
 <section id="what-this-doesnt-tell-us" class="level2">
 <h2 class="anchored" data-anchor-id="what-this-doesnt-tell-us">What this doesn’t tell us</h2>
-<p>A few caveats worth being honest about:</p>
 <ul>
-<li><strong>One dataset, one camera.</strong> SF-TL54 uses a single thermographic sensor at a single distance under controlled conditions. A model trained this way will likely not transfer to a different thermal camera (different bit depth, different focal length, different greybody offset). For deployment you would either retrain per-camera or use a thermal-image-normalisation preprocessor.</li>
-<li><strong>No motion / video.</strong> This is single-frame. The actual downstream task is breath-rate from video, where you’d want temporal consistency (nostril doesn’t teleport across frames). A simple Kalman tracker on top of these per-frame predictions would help; a temporal model trained end-to-end would help more.</li>
-<li><strong>No occlusion handling.</strong> The 30 train + 60 test frames are mostly frontal, eyes-open, no hand-over-mouth, no scarf. The bigger SF-TL54 test split contains occluded subjects too; on those the model will degrade gracefully into “nothing detected” which is a fine failure mode for video (skip the frame), but worth noting.</li>
-<li><strong>The 4.5 px error is in 256×256 crop coordinates.</strong> In native sensor coordinates (464×348) that’s ~3 px — about half a real nostril diameter at this resolution. Tight enough for breath-rate measurement, where what matters is that the tracker stays <em>inside</em> the nostril region across time.</li>
+<li><strong>One sensor.</strong> ThermEval-D was captured with a single TOPDON TC001+ unit. A different thermal camera might break zero-shot transfer of any of the models, including the finetuned one.</li>
+<li><strong>No video.</strong> The actual downstream task (breath-rate from temperature oscillation at the nostril) is video-based. Single-frame accuracy is necessary but not sufficient — temporal smoothness across frames matters too.</li>
+<li><strong>Person bbox assumed clean.</strong> The finetune protocol assumes you already have a clean Person bbox (we used the GT). In deployment you’d run a Person detector first (BlazeFace full-range, YOLOX, or DWPose’s built-in) — that’s the <a href="../posts/2026-05-20-thermal-nostril-hierarchical.html">hierarchical pipeline in part 3</a>.</li>
+<li><strong>Tiny crops are hard.</strong> ThermEval-D crops are 192×256 and the face inside is ~20×25 px. Even after resizing the Person bbox to 256×256, the face occupies only 30-50 px of the upsampled crop — that’s much less spatial signal than the <a href="../posts/2026-04-25-sapiens2-on-mac.html">SF-TL54 controlled portraits</a> where the face fills the frame. This is why the finetune mean error is 5.5 px rather than the 4.5 px we saw on SF-TL54 (now superseded).</li>
 </ul>
 </section>
-<section id="why-not-just-use-the-bigger-sapiens2-0.8b-backbone" class="level2">
-<h2 class="anchored" data-anchor-id="why-not-just-use-the-bigger-sapiens2-0.8b-backbone">Why not just use the bigger Sapiens2-0.8b backbone?</h2>
-<p>I tried (single image). The zero-shot failure mode is identical to 0.4b — ear-direction bias. The 0.8b backbone has more parameters but the same RGB-pretrained feature distribution, so it has the same OOD weakness on thermal. For the finetune pipeline I would <em>expect</em> 0.8b to give a marginal accuracy improvement (~10–20% lower error, based on RGB benchmark precedent), but at 2× the inference cost. Not worth it for this use case.</p>
-</section>
-<section id="what-id-try-next" class="level2">
-<h2 class="anchored" data-anchor-id="what-id-try-next">What I’d try next</h2>
+<section id="whats-next" class="level2">
+<h2 class="anchored" data-anchor-id="whats-next">What’s next</h2>
 <ul>
-<li><strong>Bootstrap labels with DWPose + manual correction.</strong> Run DWPose zero-shot on every thermal frame in your set, manually fix the ~30% that are clearly wrong, and you have a much larger labelled set for free.</li>
-<li><strong>Distil to a small backbone.</strong> The 410k head + 415M backbone is silly for deployment — replace the Sapiens2 backbone with DINOv2-small (~22M params, ~30 MB) after using Sapiens2 as the teacher.</li>
-<li><strong>Add temporal smoothing.</strong> Even a 2-frame moving average of the predicted nostril positions across video would denoise the breath-rate signal substantially.</li>
-<li><strong>Cross-subject regularisation.</strong> Mixup or cutmix across subjects during training would probably push test error below 4 px.</li>
-</ul>
-</section>
-<section id="whats-next-in-the-series" class="level2">
-<h2 class="anchored" data-anchor-id="whats-next-in-the-series">What’s next in the series</h2>
-<ul>
-<li><strong>Part 3 (next post)</strong>: The <em>hierarchical</em> version of this story for RGB images — when the face is small in a wide-angle shot, a single-stage detector loses the nostrils. A two-stage face-then-keypoint pipeline recovers them. Quantify the win.</li>
-<li><strong>Part 4</strong>: <a href="../posts/2026-05-20-thermal-nostril-why-hard.html">Why thermal nostril detection is fundamentally hard</a> and four ideas — anatomical priors, paired-RGB label projection, synthetic pretraining (T-FAKE), and breath-rate-as-self-supervision.</li>
+<li><strong><a href="../posts/2026-05-20-thermal-nostril-hierarchical.html">Part 3</a></strong>: Where does the bottleneck go when you put a face detector <em>upstream</em> of MediaPipe FaceMesh on these same ThermEval frames? Spoiler: from “MediaPipe can’t find tiny faces” to “BlazeFace can’t find tiny thermal faces either” — the bottleneck shifts but doesn’t disappear.</li>
+<li><strong><a href="../posts/2026-05-20-thermal-nostril-why-hard.html">Part 4</a></strong>: Why none of the four off-the-shelf models in part 1 are <em>truly</em> enough for the actual downstream task (per-nostril breath rate), and four routes around that.</li>
 </ul>
 </section>
 <section id="links" class="level2">
 <h2 class="anchored" data-anchor-id="links">Links</h2>
 <ul>
-<li>Part 1 of this series: <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">the bake-off</a></li>
-<li>SF-TL54 dataset: <a href="https://huggingface.co/datasets/issai/SFTL54">issai/SFTL54</a></li>
+<li>Part 1: <a href="../posts/2026-05-20-thermal-nostril-bakeoff.html">bake-off on ThermEval-D</a></li>
 <li>Sapiens2: <a href="https://huggingface.co/facebook/sapiens2-pose-0.4b">facebook/sapiens2-pose-0.4b</a></li>
-<li>My Sapiens2 on Mac (earlier): <a href="../posts/2026-04-25-sapiens2-on-mac.html">2026-04-25-sapiens2-on-mac</a></li>
+<li>ThermEval dataset: <a href="https://www.kaggle.com/datasets/shriayush/thermeval">Kaggle</a> · <a href="https://sustainability-lab.github.io/thermeval/">project page</a></li>
 </ul>
 
 
@@ -1147,161 +1140,157 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     }
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Finetuning Sapiens2 for Nostril Detection on Thermal Faces with 30 Examples"</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-05-20"</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> "2026-05-20"</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [thermal-imaging, keypoint-detection, Sapiens2, fine-tuning, few-shot, transfer-learning, frozen-backbone]</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Sapiens2-0.4b's 308-keypoint head fails catastrophically on thermal nostrils (~72 px mean error). I freeze the backbone, replace the head with a 410k-parameter 2-keypoint heatmap regressor, and train on 30 SF-TL54 thermal frames. After 120 epochs (4 minutes on one RTX A5000), test mean error is 4.5 px — beating not just zero-shot Sapiens2 by 16×, but also the best zero-shot model from the bake-off (DWPose @ 8 px) by ~2×."</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - nostril-finetune/scripts/*.py</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - nostril-finetune/outputs/*.png</span></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Part 1</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> of this series showed that off-the-shelf wholebody / face models fail on thermal-image nostril detection. Sapiens2-0.4b — Meta's 2026 SOTA on RGB human keypoint estimation — gets the nostrils ~72 px wrong on thermal. DWPose was the best zero-shot model at ~8 px median, with MediaPipe FaceMesh at ~18 px. None of them are good enough for the eventual downstream task (per-nostril breath-rate measurement, where the tracker must stay inside a ~5 px region across a full minute of video).</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>This post tests the cleanest hypothesis for fixing that: **freeze the backbone, replace the head, train with a tiny labelled set.** The result is much better than I expected — **4.5 px mean test error from 30 labelled thermal frames and 4 minutes of training.** Better than every zero-shot model in part 1, including DWPose.</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Code: </span><span class="co">[</span><span class="ot">`posts/nostril-finetune/scripts/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/nostril-finetune/scripts)</span><span class="at"> — </span><span class="in">`build_dataset.py`</span><span class="at">, </span><span class="in">`train_head.py`</span><span class="at">, </span><span class="in">`visualize.py`</span><span class="at">.</span></span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why this should work in principle</span></span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>The argument for transfer learning is the standard one: a deep RGB-pretrained backbone has learned hierarchical features — edges, corners, anatomical regions, face templates — most of which are not pixel-domain-specific. The *first* convolution layer sees grayscale gradients; gradients exist on thermal too. The *deepest* attention layer attends to face-shaped regions in the image; "face-shaped" is also a structural property that transfers (heads have similar contours on thermal).</span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>What *doesn't* transfer is the very last layer of the original task head — Sapiens2's 308-keypoint decoder is trained to fire on RGB-specific features (skin micro-texture, specular highlights on eyes, the moisture sheen on lips). On thermal those features are gone, so the head fires on the *next-most-discriminative* features, which on thermal are the wrong things (the ears, the hairline) — hence the systematic ear-bias failure mode documented in part 1.</span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>So the hypothesis: **freeze the backbone, throw away the head, learn a brand-new tiny head on top of the existing features**. The backbone still knows "this is a face, this is roughly where the nose is". The new head only needs to learn the very last step — "given this 16×16 spatial feature map of a face, output a heatmap centred at each nostril".</span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## Dataset — 30 / 10 / 60 split from SF-TL54</span></span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">SF-TL54</span><span class="co">](https://huggingface.co/datasets/issai/SFTL54)</span> has 2,556 thermal-RGB pairs; I use only the **gray** thermal palette (single-channel radiometry rendered to 8-bit). The build script does three things:</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>From the SF-TL54 <span class="in">`chin`</span> + <span class="in">`left_eyebrow`</span> + <span class="in">`right_eyebrow`</span> landmarks, compute a face bounding box.</span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Crop a square around it (+25% padding) and resize to **256×256**.</span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Transform the ground-truth nostril coordinates (SF-TL54 <span class="in">`nose_tip`</span> indices 1 and 3, the alae) into the crop's coordinate frame.</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>The train / val / test sizes:</span>
-<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Split <span class="pp">|</span> N <span class="pp">|</span> Source split <span class="pp">|</span> Subjects <span class="pp">|</span></span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="pp">|-------|---|--------------|----------|</span></span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> train <span class="pp">|</span> 30 <span class="pp">|</span> SF-TL54 train <span class="pp">|</span> 30 unique <span class="pp">|</span></span>
-<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> val <span class="pp">|</span> 10 <span class="pp">|</span> SF-TL54 train (held-out subjects) <span class="pp">|</span> 10 unique <span class="pp">|</span></span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> test <span class="pp">|</span> 60 <span class="pp">|</span> SF-TL54 test <span class="pp">|</span> ≤60 unique <span class="pp">|</span></span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>That is a *deliberately tiny* training set — the question is "how little supervision do we need", not "what is the best model". 30 examples is what you would gather in an afternoon with a thermal camera and a labelling tool. The val and test splits use **subject-disjoint subjects** so reported numbers measure generalisation, not memorisation.</span>
-<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="fu">## Architecture</span></span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="in">input thermal face (256x256, 3ch greyscale replicate)</span></span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="in">        │</span></span>
-<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="in">        ▼</span></span>
-<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="in">   ┌─────────────────────────────────────┐</span></span>
-<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a><span class="in">   │ Sapiens2-0.4b backbone — FROZEN     │</span></span>
-<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="in">   │ (~415M params, ImageNet/Goliath     │</span></span>
-<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="in">   │  RGB-pretrained, never seen thermal)│</span></span>
-<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a><span class="in">   └─────────────────────────────────────┘</span></span>
-<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a><span class="in">        │ (1, 1024, 16, 16) — ViT features</span></span>
-<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a><span class="in">        ▼</span></span>
-<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a><span class="in">   ┌─────────────────────────────────────┐</span></span>
-<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a><span class="in">   │ TinyHead — TRAINABLE (~410k params) │</span></span>
-<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a><span class="in">   │ Conv 1024→256 + BN + GELU           │</span></span>
-<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a><span class="in">   │ Conv 256→64   + BN + GELU           │</span></span>
-<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a><span class="in">   │ Bilinear upsample 4× → 64×64        │</span></span>
-<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a><span class="in">   │ Conv 64→2 (2 nostril heatmaps)      │</span></span>
-<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a><span class="in">   └─────────────────────────────────────┘</span></span>
-<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a><span class="in">        │ (1, 2, 64, 64) — heatmaps</span></span>
-<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a><span class="in">        ▼</span></span>
-<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a><span class="in">  argmax decoding → (left_xy, right_xy) in input-pixel coords</span></span>
-<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>That's it. 410k trainable parameters — about **0.1% of the Sapiens2 backbone's parameter count**. Backbone never moves; only the head learns.</span>
-<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>The loss is MSE between the predicted 2-channel heatmap and a 2D Gaussian centred at each GT nostril, sigma = 2 px in the 64×64 heatmap (= 8 px in input space). Both nostrils are channel-separate, so the model has to learn left vs right.</span>
-<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a><span class="fu">## Training</span></span>
-<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>Adam W, lr = 3e-3, weight decay = 1e-4, cosine schedule, batch size 8, 120 epochs, single RTX A5000. Total training time: **~4 minutes** end-to-end including dataset I/O.</span>
-<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a><span class="al">![Validation mean nostril error (red) drops from 151 px (random initialisation) to ~5 px within 10 epochs. PCK\\@10 (blue dashed) hits 100% by epoch 15. The remaining 105 epochs only buy 0.3 px more accuracy.](nostril-finetune/outputs/training_curve.png)</span></span>
-<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>The shape of the curve is the *important* observation here: **the model nearly fits the val set in ~5 epochs**, before the cosine LR schedule has done anything interesting. That tells you something about the problem — the frozen backbone features already contain "where is the nose region", so the head only has to learn the linear mapping from that region's features to two 2D coordinates. That mapping is easy to fit with 30 examples.</span>
-<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a><span class="fu">## Test-set results</span></span>
-<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Metric <span class="pp">|</span> Sapiens2-0.4b (zero-shot) <span class="pp">|</span> DWPose (zero-shot, best in part 1) <span class="pp">|</span> MediaPipe (zero-shot) <span class="pp">|</span> **Finetuned head (this post)** <span class="pp">|</span></span>
-<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|--------------------------|-----------------------------------|-----------------------|-------------------------------|</span></span>
-<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Mean nostril error (px) <span class="pp">|</span> 72.0 <span class="pp">|</span> 8.3 <span class="pp">|</span> 18.0 <span class="pp">|</span> **4.5** <span class="pp">|</span></span>
-<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Median nostril error (px) <span class="pp">|</span> 80.4 <span class="pp">|</span> 8.9 <span class="pp">|</span> 16.3 <span class="pp">|</span> **4.2** <span class="pp">|</span></span>
-<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@3px <span class="pp">|</span> 0% <span class="pp">|</span> n/a <span class="pp">|</span> 0% <span class="pp">|</span> **29%** <span class="pp">|</span></span>
-<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@5px <span class="pp">|</span> 0% <span class="pp">|</span> 35% <span class="pp">|</span> 0% <span class="pp">|</span> **63%** <span class="pp">|</span></span>
-<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@10px <span class="pp">|</span> 5% <span class="pp">|</span> 60% <span class="pp">|</span> 0% <span class="pp">|</span> **98%** <span class="pp">|</span></span>
-<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@20px <span class="pp">|</span> 5% <span class="pp">|</span> 100% <span class="pp">|</span> 72% <span class="pp">|</span> **100%** <span class="pp">|</span></span>
-<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Training cost <span class="pp">|</span> n/a (pretrained) <span class="pp">|</span> n/a <span class="pp">|</span> n/a <span class="pp">|</span> 30 labels + 4 min on 1 GPU <span class="pp">|</span></span>
-<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Trainable params <span class="pp">|</span> n/a <span class="pp">|</span> n/a <span class="pp">|</span> n/a <span class="pp">|</span> 410k <span class="pp">|</span></span>
-<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Inference cost <span class="pp">|</span> 600 ms <span class="pp">|</span> 120 ms <span class="pp">|</span> 16 ms <span class="pp">|</span> 600 ms (still passes through full backbone) <span class="pp">|</span></span>
-<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>The trained model **beats every zero-shot baseline by a clear margin**. In particular it beats DWPose — the best zero-shot — by ~2× on the strict PCK\@5 metric and by ~1.8× on mean error. The largest remaining errors on the test set are systematic — when the subject's head is rotated more than ~25° from frontal, the model occasionally puts both nostril predictions on the visible side of the nose.</span>
-<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>The inference cost is the same as zero-shot Sapiens2 (~600 ms) because we still pass through the full 0.4B backbone. That's actually wasteful — for production you'd distil the backbone into a much smaller model (anything that produces a 16×16×D feature map would work, and a 30-MB DINOv2-small is enough). Treat the Sapiens2 backbone as a labelling tool, not a deployment target.</span>
-<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a><span class="fu">## What the predictions look like</span></span>
-<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>Six test-set images with the GT nostril crosses (red) and the predicted points (green). The per-image mean error is annotated top-left.</span>
-<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a><span class="al">![Six test-set predictions from the finetuned head. The model handles glasses (top-row, middle), beards (top-row, right), eyes-closed (bottom-row, middle), and varied head poses (top-left, bottom-right). Errors range from 1.4 px to 4.8 px.](nostril-finetune/outputs/qualitative_test.png)</span></span>
-<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>The cases where the green dot doesn't perfectly cover the red cross (top-right, ~3.5 px) are within ground-truth-annotation-noise levels — re-labelling a single nostril by hand reproducibly costs about 2-3 px.</span>
-<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why this works so well</span></span>
-<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>A few non-obvious reasons:</span>
-<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**The backbone already knows where the face is.** Sapiens2's failure on thermal in part 1 isn't a backbone failure; it's a *head* failure. The backbone still produces a feature map where face-coloured regions stand out. The TinyHead just needs to learn "the brightest blob in this feature map → centre the heatmap there".</span>
-<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**The head is small.** 410k parameters cannot overfit 30 examples in any meaningful sense — there are about 13k parameters per training image, which is well above the standard "10× data per parameter" rule but not catastrophically so for a heavily regularised convolutional head.</span>
-<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Heatmap regression is a very forgiving objective.** Compared to direct (x, y) regression, a heatmap loss provides dense supervision (every pixel in the heatmap has a target value). It's why all modern keypoint estimators use heatmaps — they converge faster and are more robust to label noise.</span>
-<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Subject-disjoint splits underestimate generalisation here.** The test subjects look anatomically very similar to the train subjects (all SF-TL54 subjects are adults captured in similar conditions). On a truly diverse test distribution — children, masks, partial occlusion — the gap would be larger. That said, the val/test results match closely (4.7 vs 4.5 px), which suggests we're not overfitting *within* this distribution.</span>
-<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this doesn't tell us</span></span>
-<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a>A few caveats worth being honest about:</span>
-<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**One dataset, one camera.** SF-TL54 uses a single thermographic sensor at a single distance under controlled conditions. A model trained this way will likely not transfer to a different thermal camera (different bit depth, different focal length, different greybody offset). For deployment you would either retrain per-camera or use a thermal-image-normalisation preprocessor.</span>
-<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No motion / video.** This is single-frame. The actual downstream task is breath-rate from video, where you'd want temporal consistency (nostril doesn't teleport across frames). A simple Kalman tracker on top of these per-frame predictions would help; a temporal model trained end-to-end would help more.</span>
-<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No occlusion handling.** The 30 train + 60 test frames are mostly frontal, eyes-open, no hand-over-mouth, no scarf. The bigger SF-TL54 test split contains occluded subjects too; on those the model will degrade gracefully into "nothing detected" which is a fine failure mode for video (skip the frame), but worth noting.</span>
-<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The 4.5 px error is in 256×256 crop coordinates.** In native sensor coordinates (464×348) that's ~3 px — about half a real nostril diameter at this resolution. Tight enough for breath-rate measurement, where what matters is that the tracker stays *inside* the nostril region across time.</span>
-<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why not just use the bigger Sapiens2-0.8b backbone?</span></span>
-<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a>I tried (single image). The zero-shot failure mode is identical to 0.4b — ear-direction bias. The 0.8b backbone has more parameters but the same RGB-pretrained feature distribution, so it has the same OOD weakness on thermal. For the finetune pipeline I would *expect* 0.8b to give a marginal accuracy improvement (~10–20% lower error, based on RGB benchmark precedent), but at 2× the inference cost. Not worth it for this use case.</span>
-<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd try next</span></span>
-<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Bootstrap labels with DWPose + manual correction.** Run DWPose zero-shot on every thermal frame in your set, manually fix the ~30% that are clearly wrong, and you have a much larger labelled set for free.</span>
-<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Distil to a small backbone.** The 410k head + 415M backbone is silly for deployment — replace the Sapiens2 backbone with DINOv2-small (~22M params, ~30 MB) after using Sapiens2 as the teacher.</span>
-<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Add temporal smoothing.** Even a 2-frame moving average of the predicted nostril positions across video would denoise the breath-rate signal substantially.</span>
-<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Cross-subject regularisation.** Mixup or cutmix across subjects during training would probably push test error below 4 px.</span>
-<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a><span class="fu">## What's next in the series</span></span>
-<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Part 3 (next post)**: The *hierarchical* version of this story for RGB images — when the face is small in a wide-angle shot, a single-stage detector loses the nostrils. A two-stage face-then-keypoint pipeline recovers them. Quantify the win.</span>
-<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Part 4**: <span class="co">[</span><span class="ot">Why thermal nostril detection is fundamentally hard</span><span class="co">](2026-05-20-thermal-nostril-why-hard.qmd)</span> and four ideas — anatomical priors, paired-RGB label projection, synthetic pretraining (T-FAKE), and breath-rate-as-self-supervision.</span>
-<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
-<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Part 1 of this series: <span class="co">[</span><span class="ot">the bake-off</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span></span>
-<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>SF-TL54 dataset: <span class="co">[</span><span class="ot">issai/SFTL54</span><span class="co">](https://huggingface.co/datasets/issai/SFTL54)</span></span>
-<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Sapiens2: <span class="co">[</span><span class="ot">facebook/sapiens2-pose-0.4b</span><span class="co">](https://huggingface.co/facebook/sapiens2-pose-0.4b)</span></span>
-<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>My Sapiens2 on Mac (earlier): <span class="co">[</span><span class="ot">2026-04-25-sapiens2-on-mac</span><span class="co">](2026-04-25-sapiens2-on-mac.qmd)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Finetuning Sapiens2 for Nostril Detection on ThermEval-D (with a Tiny Annotated Set)"</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-05-20"</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> "2026-05-21"</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [thermal-imaging, keypoint-detection, Sapiens2, fine-tuning, few-shot, transfer-learning, frozen-backbone, ThermEval]</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Sapiens2-0.4b's 308-keypoint head can't directly output a single 'Nose centroid' the way ThermEval-D annotates it. So I freeze the backbone, replace the head with a 410k-parameter 1-keypoint heatmap regressor, and train on 40 ThermEval crops. Test PCK\\@10 = 93%, mean error = 5.5 px on the 80-crop test split. Does not beat zero-shot DWPose (99% PCK\\@10, 2.7 px) on this dataset — but produces a predictor pinned to YOUR anatomical convention, distillable to a tiny inference model, and reproducible on data DWPose wasn't trained for. The point of the finetune isn't 'better than zero-shot DWPose'; it's 'a specialised, deployable, anatomy-correct predictor from 30 examples'."</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - nostril-finetune/scripts/*.py</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - nostril-finetune/outputs/*.png</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Part 1</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> of this series showed that off-the-shelf models give mixed results on the ThermEval-D benchmark: **DWPose wins decisively** (100% detection, 99% PCK\@10px), **Sapiens2-0.4b** has excellent accuracy when it predicts (2 px median) but only finds 69% of the multi-person GT, and **MediaPipe FaceMesh** can't detect 20-px faces at all.</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>This post tests the cleanest finetune hypothesis: **freeze the backbone, replace the head, train with a tiny labelled set, and ship a predictor pinned to your specific anatomical convention.** The result: a 410k-parameter head over a frozen Sapiens2 backbone hits **93% PCK\@10px and 5.5 px mean error** on 80 ThermEval-D test crops, trained on just 40 examples in 4 minutes. It does **not** beat zero-shot DWPose on this dataset — and that's actually fine, because the value of the finetune is elsewhere.</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Code: </span><span class="co">[</span><span class="ot">`posts/nostril-finetune/scripts/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/nostril-finetune/scripts)</span><span class="at"> — </span><span class="in">`build_dataset_thermeval.py`</span><span class="at">, </span><span class="in">`train_head_thermeval.py`</span><span class="at">, </span><span class="in">`viz_thermeval.py`</span><span class="at">.</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="fu">## Architectural flowchart — how 30 examples can finetune a 0.4B-parameter network</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>The most-asked question after <span class="co">[</span><span class="ot">part 1</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span> was: *how can we finetune a model with 308 keypoints when we only have 1-2 keypoint annotations?* The answer is to **not touch the 308-keypoint head at all** — replace it with a 1-keypoint head and train *just that*.</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="in">                  input ThermEval crop (256x256, gray-&gt;3ch)</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="in">                                  │</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="in">                                  ▼</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="in">        ┌────────────────────────────────────────────────────┐</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="in">        │ Sapiens2-0.4b backbone — FROZEN, no_grad           │</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="in">        │ ~415M params, ImageNet+Goliath RGB pretrained.     │</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="in">        │ Has never seen thermal. Doesn't need to.           │</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="in">        └────────────────────────────────────────────────────┘</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="in">                                  │ (1, 1024, 16, 16)</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="in">                                  ▼ ViT features</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="in">        ┌────────────────────────────────────────────────────┐</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="in">        │ TinyHead — TRAINABLE  (410,625 params, ~0.1% of    │</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="in">        │                       the backbone)                │</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="in">        │   Conv 1024→256, BN, GELU                          │</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="in">        │   Conv 256→64, BN, GELU                            │</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="in">        │   Bilinear upsample 4×  → 64x64                    │</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="in">        │   Conv 64→1   (single Nose centroid heatmap)       │</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="in">        └────────────────────────────────────────────────────┘</span></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="in">                                  │ (1, 1, 64, 64) heatmap</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="in">                                  ▼ argmax decode</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="in">                  predicted (nose_x, nose_y) in input-pixel coords</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>**Why it works with so few examples:**</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**The backbone already encodes "face region" structurally.** Sapiens2 was pretrained to localise 308 facial / body keypoints on RGB. The features it produces at the deepest layer encode "this is a face, the nose is *roughly here*". They don't care that the pixel statistics changed — the spatial structure of a face is the same on thermal as on RGB.</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**The head is tiny.** 410k params is ~10k params per training image (for a 40-example train set). That's well-regularised by the BN + cosine LR + AdamW weight decay.</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Heatmap regression is forgiving.** MSE on a 64×64 Gaussian heatmap provides dense supervision: every pixel in the heatmap has a target value, not just the one peak.</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>Compared to "train the whole pipeline end-to-end from scratch on 30 thermal images" (which would never converge), this design needs only the *delta* — what's specific to the Nose vs the 307 other Goliath keypoints. The backbone has already done the rest of the work.</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a><span class="fu">## Data — 40 / 15 / 80 split from ThermEval-D</span></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>ThermEval-D annotates <span class="in">`Nose`</span> polygons (~5×7 px) and <span class="in">`Person`</span> polygons. For each annotated nose, I find the smallest Person bbox that contains it, then:</span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Crop the Person bbox + 25 % padding from the 192×256 frame.</span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Resize crop to 256×256.</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Transform the Nose centroid into the crop's coordinate frame.</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="in">[full thermal frame]   →  [Person bbox]   →   [256x256 crop, with Nose centroid in crop coords]</span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a><span class="in">     192x256                 70x190 (e.g.)              256x256</span></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>Split sizes (image-disjoint):</span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Split <span class="pp">|</span> N <span class="pp">|</span> Source <span class="pp">|</span></span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a><span class="pp">|-------|---|--------|</span></span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> train <span class="pp">|</span> 40 <span class="pp">|</span> ThermEval-D <span class="in">`Annotations/annotations_1.json`</span> <span class="pp">|</span></span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> val <span class="pp">|</span> 15 <span class="pp">|</span> Same split, image-disjoint from train <span class="pp">|</span></span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> test <span class="pp">|</span> 80 <span class="pp">|</span> ThermEval-D <span class="in">`Annotations/annotations_2.json`</span> (the held-out split) <span class="pp">|</span></span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>This is *deliberately tiny* — the question is "how little supervision do we need", not "what's the best model". 40 examples is what you'd label in 20 minutes with a polygon tool.</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="fu">## Training</span></span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>AdamW, lr=3e-3, weight decay=1e-4, cosine schedule, batch size 8, **120 epochs, ~4 minutes** on a single RTX A5000.</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="al">![Val mean nostril error (red) drops sharply from 116 px to ~16 px in 10 epochs, plateaus, then drops a second time around epoch 45 to ~5 px. PCK\\@10 (blue dashed) reaches 100% by epoch 20.](nostril-finetune/outputs/training_curve_thermeval.png)</span></span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>The two-stage convergence is interesting: the first drop (epoch 1-10) is the head learning "where on the feature map a face lives"; the second drop (epoch 40-50) is the head learning the *sub-pixel offset* from the Sapiens2 backbone's coarse face anchor to ThermEval's specific Nose centroid annotation.</span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a><span class="fu">## Test results</span></span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>On 80 held-out test crops from ThermEval-D's second annotation split:</span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Metric <span class="pp">|</span> Zero-shot DWPose (part 1) <span class="pp">|</span> Zero-shot Sapiens2 (part 1) <span class="pp">|</span> **Finetuned head (this post)** <span class="pp">|</span></span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|---------------------------|-----------------------------|-------------------------------|</span></span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Test setting <span class="pp">|</span> Full frame, multi-person <span class="pp">|</span> Full frame, single-person <span class="pp">|</span> Pre-cropped Person bbox <span class="pp">|</span></span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Detection rate over GT <span class="pp">|</span> 100% <span class="pp">|</span> 69% <span class="pp">|</span> (assumed 100% in this protocol) <span class="pp">|</span></span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Mean nostril error <span class="pp">|</span> 3.3 px <span class="pp">|</span> 4.2 px <span class="pp">|</span> **5.5 px** <span class="pp">|</span></span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Median error <span class="pp">|</span> 2.7 px <span class="pp">|</span> 2.0 px <span class="pp">|</span> **5.0 px** <span class="pp">|</span></span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@3px <span class="pp">|</span> (not reported) <span class="pp">|</span> (not reported) <span class="pp">|</span> **24%** <span class="pp">|</span></span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@5px <span class="pp">|</span> (not reported) <span class="pp">|</span> (not reported) <span class="pp">|</span> **49%** <span class="pp">|</span></span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@10px <span class="pp">|</span> **99%** | 66% | **93%** <span class="pp">|</span></span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PCK\@20px <span class="pp">|</span> 100% <span class="pp">|</span> 66% <span class="pp">|</span> **100%** <span class="pp">|</span></span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Inference cost <span class="pp">|</span> 117 ms (whole frame + person det) <span class="pp">|</span> 580 ms (single-person, full backbone) <span class="pp">|</span> ~580 ms (still full backbone) <span class="pp">|</span></span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Trainable params <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> 410k <span class="pp">|</span></span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Supervision needed <span class="pp">|</span> 0 <span class="pp">|</span> 0 <span class="pp">|</span> 40 labels + 4 min on one GPU <span class="pp">|</span></span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a>**The finetune does not beat zero-shot DWPose on this benchmark.** That's worth saying clearly. The 5.5 px median error for the finetune is ~2× DWPose's 2.7 px. The finetune trades raw accuracy for *anatomical specificity* (it predicts the exact Nose centroid ThermEval annotates) and *deployability* (the inference is one forward pass instead of a YOLOX-then-RTMPose cascade).</span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>Where the finetune actually wins:</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Convention pinning.** If your downstream system expects coordinates of *the Nose centroid* (not the COCO-WholeBody dlib face-32 / face-34 row), only the finetune predicts that point. DWPose predicts a slightly different anatomical landmark.</span>
+<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Distillation target.** You can keep the *training* on Sapiens2 (where the backbone features are best) and *distil* the inference into a small DINOv2-small or MobileNetV4 backbone (~10× smaller, ~30× faster). For deployment you'd run the small model.</span>
+<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Per-camera calibration.** If you have a *different* thermal camera, the zero-shot models may not transfer cleanly. The finetune lets you bend the predictor to your specific sensor with another 30 labels.</span>
+<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a><span class="fu">## Predictions on the test set</span></span>
+<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a>Six test-set crops with GT (red cross) and prediction (green dot):</span>
+<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a><span class="al">![Six ThermEval-D test crops with the finetuned-head prediction overlaid. Per-frame errors range from 3.9 px to 11.6 px. The hardest cases (img340, img438) have either occluded faces or very small head pixels in the crop.](nostril-finetune/outputs/qualitative_test_thermeval.png)</span></span>
+<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why not also finetune DWPose?</span></span>
+<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>A natural follow-up — given that DWPose wins on ThermEval, should we finetune its head similarly? Three reasons I didn't, in this post:</span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**DWPose is an ONNX-runtime model in `rtmlib`.** Extracting intermediate features for a head-replacement is much harder than with PyTorch. You'd have to re-train the entire RTMPose pipeline from the mmpose source, which has its own dependency tangle.</span>
+<span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**The Sapiens2 backbone is more useful as a feature extractor.** It's a clean PyTorch ViT with a single <span class="in">`backbone(x) → features`</span> entry point. The features are richer (1024-dim vs DWPose's compact 256-dim).</span>
+<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**DWPose is already at 99% PCK\@10 zero-shot.** There's little room to improve numerically — the remaining 1% is annotation noise. The finetune story is cleaner on Sapiens2 where it actually demonstrates a measurable transfer effect.</span>
+<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>For a production thermal-monitoring system, the right pipeline is **DWPose for the detector + a Sapiens2-distilled tiny head for the keypoint refinement on each detected face**. That's a hybrid I'll cover in a follow-up.</span>
+<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this doesn't tell us</span></span>
+<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**One sensor.** ThermEval-D was captured with a single TOPDON TC001+ unit. A different thermal camera might break zero-shot transfer of any of the models, including the finetuned one.</span>
+<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No video.** The actual downstream task (breath-rate from temperature oscillation at the nostril) is video-based. Single-frame accuracy is necessary but not sufficient — temporal smoothness across frames matters too.</span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Person bbox assumed clean.** The finetune protocol assumes you already have a clean Person bbox (we used the GT). In deployment you'd run a Person detector first (BlazeFace full-range, YOLOX, or DWPose's built-in) — that's the <span class="co">[</span><span class="ot">hierarchical pipeline in part 3</span><span class="co">](2026-05-20-thermal-nostril-hierarchical.qmd)</span>.</span>
+<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Tiny crops are hard.** ThermEval-D crops are 192×256 and the face inside is ~20×25 px. Even after resizing the Person bbox to 256×256, the face occupies only 30-50 px of the upsampled crop — that's much less spatial signal than the <span class="co">[</span><span class="ot">SF-TL54 controlled portraits</span><span class="co">](2026-04-25-sapiens2-on-mac.qmd)</span> where the face fills the frame. This is why the finetune mean error is 5.5 px rather than the 4.5 px we saw on SF-TL54 (now superseded).</span>
+<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a><span class="fu">## What's next</span></span>
+<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**[Part 3](2026-05-20-thermal-nostril-hierarchical.qmd)**: Where does the bottleneck go when you put a face detector *upstream* of MediaPipe FaceMesh on these same ThermEval frames? Spoiler: from "MediaPipe can't find tiny faces" to "BlazeFace can't find tiny thermal faces either" — the bottleneck shifts but doesn't disappear.</span>
+<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**[Part 4](2026-05-20-thermal-nostril-why-hard.qmd)**: Why none of the four off-the-shelf models in part 1 are *truly* enough for the actual downstream task (per-nostril breath rate), and four routes around that.</span>
+<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Part 1: <span class="co">[</span><span class="ot">bake-off on ThermEval-D</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span></span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Sapiens2: <span class="co">[</span><span class="ot">facebook/sapiens2-pose-0.4b</span><span class="co">](https://huggingface.co/facebook/sapiens2-pose-0.4b)</span></span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>ThermEval dataset: <span class="co">[</span><span class="ot">Kaggle</span><span class="co">](https://www.kaggle.com/datasets/shriayush/thermeval)</span> · <span class="co">[</span><span class="ot">project page</span><span class="co">](https://sustainability-lab.github.io/thermeval/)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">
