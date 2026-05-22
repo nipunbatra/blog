@@ -170,6 +170,27 @@ The story by row, on the "all" split:
 - **SF-TL54** (controlled portraits, in-distribution): v2 nose median = 0.85 px, same as zero-shot (0.84) — finetune held the line. LPIPS 0.027 vs zero-shot 0.088 = **3.3× better perceptual quality**.
 - **ThermEval-D** (real-world scenes, harder): v2 nose median = 2.21 px, slightly better than zero-shot (2.24) and dramatically better than v1's 3.01 px. LPIPS 0.031 vs zero-shot 0.101 = **3.2× better**.
 
+### Visual comparison across datasets
+
+Three SF-TL54 portraits — for each row, left-to-right: HR target / LR 4× downsampled (NN-displayed) / zero-shot DRLN / v1 L1-only / v2 L1+LPIPS+EMA.
+
+![SF-TL54 panel: 3 subjects × 5 conditions. The LR input is essentially unrecognisable at native 48×48; all three SR methods recover the face. The differences are subtle on SF-TL54 (in-distribution data, all methods do well) — v2's outputs look slightly crisper around the eyes and mouth than v1's.](thermal-sr/outputs/panel_sftl54.png){.column-page}
+
+Three ThermEval-D crops (real-world thermal scenes, harder distribution):
+
+![ThermEval-D panel: 3 subjects × 5 conditions. Same column layout. This is the dataset where v1 regressed on downstream nose error (3.01 px median, worse than zero-shot 2.24 px). v2 visibly preserves more facial detail — look at the eyes and beard area in row 2, and the silhouette edge in row 3.](thermal-sr/outputs/panel_thermeval.png){.column-page}
+
+All six side by side, head-to-head:
+
+![Six test crops (3 SF-TL54 + 3 ThermEval-D), 5 conditions per row. The HR/LR/restoration progression on every row.](thermal-sr/outputs/panel_all.png){.column-page}
+
+What to look at:
+
+- **Sharpness**: bicubic-like in the LR column, smooth in v1, crisper in v2 (especially around eyes / mouth).
+- **Artefacts**: v1 sometimes oversmooths bright regions; v2 preserves them.
+- **Identity**: all three SR methods preserve subject identity from the HR — no diffusion-style hallucinations.
+- **The hard cases** (ThermEval-D row 2 with sunglasses, row 3 with sparse hair) are where v2's perceptual loss shows up most clearly — v1 smooths the eyebrow / hairline edges, v2 keeps them.
+
 ### The LPIPS-loss contribution, in one chart
 
 ![Training-log diagnostic: v2's val LPIPS during training drops from 0.108 (zero-shot baseline) to 0.029 over 200 epochs. The L1 loss alone (v1) couldn't move this number meaningfully because L1 doesn't see perceptual structure.](thermal-sr/outputs/v2_lpips.png)
