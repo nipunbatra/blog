@@ -382,6 +382,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#v2-test-results" id="toc-v2-test-results" class="nav-link" data-scroll-target="#v2-test-results">v2 test results</a></li>
   <li><a href="#per-dataset-story" id="toc-per-dataset-story" class="nav-link" data-scroll-target="#per-dataset-story">Per-dataset story</a></li>
+  <li><a href="#visual-comparison-across-datasets" id="toc-visual-comparison-across-datasets" class="nav-link" data-scroll-target="#visual-comparison-across-datasets">Visual comparison across datasets</a></li>
   <li><a href="#the-lpips-loss-contribution-in-one-chart" id="toc-the-lpips-loss-contribution-in-one-chart" class="nav-link" data-scroll-target="#the-lpips-loss-contribution-in-one-chart">The LPIPS-loss contribution, in one chart</a></li>
   <li><a href="#why-the-perception-distortion-trade-actually-works-here" id="toc-why-the-perception-distortion-trade-actually-works-here" class="nav-link" data-scroll-target="#why-the-perception-distortion-trade-actually-works-here">Why the perception-distortion trade actually works here</a></li>
   </ul></li>
@@ -829,6 +830,37 @@ Important
 <ul>
 <li><strong>SF-TL54</strong> (controlled portraits, in-distribution): v2 nose median = 0.85 px, same as zero-shot (0.84) — finetune held the line. LPIPS 0.027 vs zero-shot 0.088 = <strong>3.3× better perceptual quality</strong>.</li>
 <li><strong>ThermEval-D</strong> (real-world scenes, harder): v2 nose median = 2.21 px, slightly better than zero-shot (2.24) and dramatically better than v1’s 3.01 px. LPIPS 0.031 vs zero-shot 0.101 = <strong>3.2× better</strong>.</li>
+</ul>
+</section>
+<section id="visual-comparison-across-datasets" class="level3 page-columns page-full">
+<h3 class="anchored" data-anchor-id="visual-comparison-across-datasets">Visual comparison across datasets</h3>
+<p>Three SF-TL54 portraits — for each row, left-to-right: HR target / LR 4× downsampled (NN-displayed) / zero-shot DRLN / v1 L1-only / v2 L1+LPIPS+EMA.</p>
+<div class="quarto-figure quarto-figure-center page-columns page-full">
+<figure class="figure page-columns page-full">
+<p class="page-columns page-full"><img src="thermal-sr/outputs/panel_sftl54.png" class="img-fluid figure-img column-page"></p>
+<figcaption>SF-TL54 panel: 3 subjects × 5 conditions. The LR input is essentially unrecognisable at native 48×48; all three SR methods recover the face. The differences are subtle on SF-TL54 (in-distribution data, all methods do well) — v2’s outputs look slightly crisper around the eyes and mouth than v1’s.</figcaption>
+</figure>
+</div>
+<p>Three ThermEval-D crops (real-world thermal scenes, harder distribution):</p>
+<div class="quarto-figure quarto-figure-center page-columns page-full">
+<figure class="figure page-columns page-full">
+<p class="page-columns page-full"><img src="thermal-sr/outputs/panel_thermeval.png" class="img-fluid figure-img column-page"></p>
+<figcaption>ThermEval-D panel: 3 subjects × 5 conditions. Same column layout. This is the dataset where v1 regressed on downstream nose error (3.01 px median, worse than zero-shot 2.24 px). v2 visibly preserves more facial detail — look at the eyes and beard area in row 2, and the silhouette edge in row 3.</figcaption>
+</figure>
+</div>
+<p>All six side by side, head-to-head:</p>
+<div class="quarto-figure quarto-figure-center page-columns page-full">
+<figure class="figure page-columns page-full">
+<p class="page-columns page-full"><img src="thermal-sr/outputs/panel_all.png" class="img-fluid figure-img column-page"></p>
+<figcaption>Six test crops (3 SF-TL54 + 3 ThermEval-D), 5 conditions per row. The HR/LR/restoration progression on every row.</figcaption>
+</figure>
+</div>
+<p>What to look at:</p>
+<ul>
+<li><strong>Sharpness</strong>: bicubic-like in the LR column, smooth in v1, crisper in v2 (especially around eyes / mouth).</li>
+<li><strong>Artefacts</strong>: v1 sometimes oversmooths bright regions; v2 preserves them.</li>
+<li><strong>Identity</strong>: all three SR methods preserve subject identity from the HR — no diffusion-style hallucinations.</li>
+<li><strong>The hard cases</strong> (ThermEval-D row 2 with sunglasses, row 3 with sparse hair) are where v2’s perceptual loss shows up most clearly — v1 smooths the eyebrow / hairline edges, v2 keeps them.</li>
 </ul>
 </section>
 <section id="the-lpips-loss-contribution-in-one-chart" class="level3">
@@ -1621,67 +1653,88 @@ Important
 <span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**SF-TL54** (controlled portraits, in-distribution): v2 nose median = 0.85 px, same as zero-shot (0.84) — finetune held the line. LPIPS 0.027 vs zero-shot 0.088 = **3.3× better perceptual quality**.</span>
 <span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**ThermEval-D** (real-world scenes, harder): v2 nose median = 2.21 px, slightly better than zero-shot (2.24) and dramatically better than v1's 3.01 px. LPIPS 0.031 vs zero-shot 0.101 = **3.2× better**.</span>
 <span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a><span class="fu">### The LPIPS-loss contribution, in one chart</span></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a><span class="fu">### Visual comparison across datasets</span></span>
 <span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a><span class="al">![Training-log diagnostic: v2's val LPIPS during training drops from 0.108 (zero-shot baseline) to 0.029 over 200 epochs. The L1 loss alone (v1) couldn't move this number meaningfully because L1 doesn't see perceptual structure.](thermal-sr/outputs/v2_lpips.png)</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a>Three SF-TL54 portraits — for each row, left-to-right: HR target / LR 4× downsampled (NN-displayed) / zero-shot DRLN / v1 L1-only / v2 L1+LPIPS+EMA.</span>
 <span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a><span class="fu">### Why the perception-distortion trade actually works here</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a><span class="al">![SF-TL54 panel: 3 subjects × 5 conditions. The LR input is essentially unrecognisable at native 48×48; all three SR methods recover the face. The differences are subtle on SF-TL54 (in-distribution data, all methods do well) — v2's outputs look slightly crisper around the eyes and mouth than v1's.](thermal-sr/outputs/panel_sftl54.png)</span>{.column-page}</span>
 <span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>The classical result (<span class="co">[</span><span class="ot">Blau &amp; Michaeli, CVPR 2018</span><span class="co">](https://arxiv.org/abs/1711.06077)</span>) says that PSNR and perceptual quality are *fundamentally* in tension — you can't maximise both. The right thing to do is pick where on the Pareto frontier you sit:</span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>Three ThermEval-D crops (real-world thermal scenes, harder distribution):</span>
 <span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**L1-only training (v1)** sits at the "max PSNR" end. Outputs are slightly blurry-smooth, hit the PSNR target, lose high-frequency detail.</span>
-<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**L1 + LPIPS (v2)** sits closer to the "max perceptual quality" end. Outputs preserve more high-frequency content. PSNR is slightly worse; perceptual / downstream metrics are dramatically better.</span>
-<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a>For thermal SR specifically — where the downstream consumer is usually another vision model (DWPose for nostril localisation, a fever-screening classifier, a thermal face recogniser) — **the perceptual end of the trade-off is the right pick**. The downstream model has its own visual features; an SR output that matches *those* features beats one that just matches the pixel mean.</span>
-<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a><span class="fu">## What's left for a real PBVS TISR submission</span></span>
-<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Replace 4× with 8×** to match PBVS Track-1. Same recipe, more challenging task. Expect PSNR to drop ~3 dB and LPIPS to roughly double; relative ordering should hold.</span>
-<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Add a downstream-task loss directly**. Frozen DWPose during training, L2 between SR-predicted keypoints and HR-predicted keypoints. Cost: 1× DWPose forward per training step. Reward: optimise the metric we actually care about.</span>
-<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Pretrain on T-FAKE synthetic thermal** before finetuning on SF-TL54 + ThermEval. Likely +0.5 to +1 dB.</span>
-<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Add CIDIS test data** (the actual PBVS test set) once access is approved. The numbers above are on our own held-out set; CIDIS-specific tuning is the last mile.</span>
-<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Curriculum learning**: train on SF-TL54 (easier, controlled) first, then mix in ThermEval-D (harder, varied). May or may not help — worth a sweep.</span>
-<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RGB-guided Track-2**: same backbone, RGB image as 2nd 3-channel input. We have the paired RGB on SF-TL54 already.</span>
-<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a>The legacy "paper directions" list:</span>
-<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd submit to PBVS TISR</span></span>
-<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a>If today's checkpoint were a PBVS challenge submission, I'd report:</span>
-<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Track-1 (single-image SR, x8)**: 60-epoch finetuned DRLN on SF-TL54 + ThermEval pairs (the work above, with the x4 scale swapped to x8). Expected PSNR: ~36 dB on the CIDIS test set (extrapolating from zero-shot baselines reported in the <span class="co">[</span><span class="ot">2024 challenge results paper</span><span class="co">](https://openaccess.thecvf.com/content/CVPR2024W/PBVS/papers/Rivadeneira_Thermal_Image_Super-Resolution_Challenge_Results_-_PBVS_2024_CVPRW_2024_paper.pdf)</span>). Add a small VGG-LPIPS loss term and that should push to 36.5+ dB.</span>
-<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Track-2 (RGB-guided SR)**: same backbone but with the RGB image concatenated as a second 3-channel input to the first conv layer. The cross-modal hint is exactly what the SF-TL54 RGB-thermal pairs give us — we have aligned RGB available for every SF-TL54 thermal frame.</span>
-<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**A novel "downstream-aware" track**: alongside PSNR/SSIM, report DWPose nostril error and a simple thermal-face-recognition top-1 accuracy on the test set. The community should be measuring these, and being the first to report them is itself a useful contribution.</span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a><span class="al">![ThermEval-D panel: 3 subjects × 5 conditions. Same column layout. This is the dataset where v1 regressed on downstream nose error (3.01 px median, worse than zero-shot 2.24 px). v2 visibly preserves more facial detail — look at the eyes and beard area in row 2, and the silhouette edge in row 3.](thermal-sr/outputs/panel_thermeval.png)</span>{.column-page}</span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a>All six side by side, head-to-head:</span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a><span class="al">![Six test crops (3 SF-TL54 + 3 ThermEval-D), 5 conditions per row. The HR/LR/restoration progression on every row.](thermal-sr/outputs/panel_all.png)</span>{.column-page}</span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a>What to look at:</span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Sharpness**: bicubic-like in the LR column, smooth in v1, crisper in v2 (especially around eyes / mouth).</span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Artefacts**: v1 sometimes oversmooths bright regions; v2 preserves them.</span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Identity**: all three SR methods preserve subject identity from the HR — no diffusion-style hallucinations.</span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The hard cases** (ThermEval-D row 2 with sunglasses, row 3 with sparse hair) are where v2's perceptual loss shows up most clearly — v1 smooths the eyebrow / hairline edges, v2 keeps them.</span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a><span class="fu">### The LPIPS-loss contribution, in one chart</span></span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a><span class="al">![Training-log diagnostic: v2's val LPIPS during training drops from 0.108 (zero-shot baseline) to 0.029 over 200 epochs. The L1 loss alone (v1) couldn't move this number meaningfully because L1 doesn't see perceptual structure.](thermal-sr/outputs/v2_lpips.png)</span></span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a><span class="fu">### Why the perception-distortion trade actually works here</span></span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a>The classical result (<span class="co">[</span><span class="ot">Blau &amp; Michaeli, CVPR 2018</span><span class="co">](https://arxiv.org/abs/1711.06077)</span>) says that PSNR and perceptual quality are *fundamentally* in tension — you can't maximise both. The right thing to do is pick where on the Pareto frontier you sit:</span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**L1-only training (v1)** sits at the "max PSNR" end. Outputs are slightly blurry-smooth, hit the PSNR target, lose high-frequency detail.</span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**L1 + LPIPS (v2)** sits closer to the "max perceptual quality" end. Outputs preserve more high-frequency content. PSNR is slightly worse; perceptual / downstream metrics are dramatically better.</span>
 <span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this experiment is not</span></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a>For thermal SR specifically — where the downstream consumer is usually another vision model (DWPose for nostril localisation, a fever-screening classifier, a thermal face recogniser) — **the perceptual end of the trade-off is the right pick**. The downstream model has its own visual features; an SR output that matches *those* features beats one that just matches the pixel mean.</span>
 <span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a full challenge submission.** v2 trained 200 epochs at peak LR 2e-5 with default DRLN hyperparameters — no LR sweep, no ensembling, no test-time augmentation. A real submission would add all of those. Expected additional gain: +0.5-1.5 dB.</span>
-<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not CIDIS data.** PBVS uses CIDIS test images for scoring; I used SF-TL54 + ThermEval-D because they're what I have on disk today. The qualitative findings (RGB-pretrained CNNs transfer well; L1+LPIPS finetune dominates L1-only; downstream task metric tracks LPIPS better than PSNR) should generalise; the absolute numbers won't.</span>
-<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not 8× SR.** PBVS Track-1 is 8×; this is 4×. Re-running with <span class="in">`scale=8`</span> and dropping the same <span class="in">`DrlnModel.from_pretrained(..., scale=8)`</span> would be a one-line change.</span>
-<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a><span class="fu">## What's actually deployable today (updated with v2)</span></span>
-<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a>Final recommendation matrix:</span>
-<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Use case <span class="pp">|</span> Pick <span class="pp">|</span> Why <span class="pp">|</span></span>
-<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------|------|-----|</span></span>
-<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Maximum PSNR / pixel fidelity** | **v1 (L1-only)** <span class="pp">|</span> PSNR 39.16 (+2.27 dB over zero-shot). Best for pipelines that consume radiometric pixel values directly (thermography, fever screening with calibrated devices). <span class="pp">|</span></span>
-<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Maximum perceptual quality + downstream task accuracy** | **v2 (L1+LPIPS+EMA)** ✅ <span class="pp">|</span> PSNR 38.68 (+1.79 dB over zero-shot), LPIPS 0.029 (3.2× better), nostril median error 1.18 px (BEST of all three options). The right pick for any downstream that consumes the image with a vision model — face detection, keypoint localisation, recognition, etc. <span class="pp">|</span></span>
-<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **No GPU at inference time** <span class="pp">|</span> Bicubic <span class="pp">|</span> Free, no model. PSNR 34.4 — not great but no compute. <span class="pp">|</span></span>
-<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Don't have a thermal training set yet** | **Zero-shot DRLN** <span class="pp">|</span> PSNR 36.89, nose error 1.52 px — already very usable, no labels needed. <span class="pp">|</span></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a><span class="fu">## What's left for a real PBVS TISR submission</span></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Replace 4× with 8×** to match PBVS Track-1. Same recipe, more challenging task. Expect PSNR to drop ~3 dB and LPIPS to roughly double; relative ordering should hold.</span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Add a downstream-task loss directly**. Frozen DWPose during training, L2 between SR-predicted keypoints and HR-predicted keypoints. Cost: 1× DWPose forward per training step. Reward: optimise the metric we actually care about.</span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Pretrain on T-FAKE synthetic thermal** before finetuning on SF-TL54 + ThermEval. Likely +0.5 to +1 dB.</span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Add CIDIS test data** (the actual PBVS test set) once access is approved. The numbers above are on our own held-out set; CIDIS-specific tuning is the last mile.</span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Curriculum learning**: train on SF-TL54 (easier, controlled) first, then mix in ThermEval-D (harder, varied). May or may not help — worth a sweep.</span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RGB-guided Track-2**: same backbone, RGB image as 2nd 3-channel input. We have the paired RGB on SF-TL54 already.</span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a>The legacy "paper directions" list:</span>
+<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd submit to PBVS TISR</span></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a>If today's checkpoint were a PBVS challenge submission, I'd report:</span>
 <span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a>The **v2 finetune (L1 + 0.05·LPIPS + EMA, 200 ep)** is the new headline recipe. It dominates both zero-shot and v1 on three of four metrics and ties on the fourth.</span>
-<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Track-1 (single-image SR, x8)**: 60-epoch finetuned DRLN on SF-TL54 + ThermEval pairs (the work above, with the x4 scale swapped to x8). Expected PSNR: ~36 dB on the CIDIS test set (extrapolating from zero-shot baselines reported in the <span class="co">[</span><span class="ot">2024 challenge results paper</span><span class="co">](https://openaccess.thecvf.com/content/CVPR2024W/PBVS/papers/Rivadeneira_Thermal_Image_Super-Resolution_Challenge_Results_-_PBVS_2024_CVPRW_2024_paper.pdf)</span>). Add a small VGG-LPIPS loss term and that should push to 36.5+ dB.</span>
+<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Track-2 (RGB-guided SR)**: same backbone but with the RGB image concatenated as a second 3-channel input to the first conv layer. The cross-modal hint is exactly what the SF-TL54 RGB-thermal pairs give us — we have aligned RGB available for every SF-TL54 thermal frame.</span>
+<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**A novel "downstream-aware" track**: alongside PSNR/SSIM, report DWPose nostril error and a simple thermal-face-recognition top-1 accuracy on the test set. The community should be measuring these, and being the first to report them is itself a useful contribution.</span>
 <span id="cb4-225"><a href="#cb4-225" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Experiment scripts: <span class="co">[</span><span class="ot">`build_sr_dataset.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/build_sr_dataset.py)</span> · <span class="co">[</span><span class="ot">`finetune_drln.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/finetune_drln.py)</span> · <span class="co">[</span><span class="ot">`test_drln.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/test_drln.py)</span></span>
-<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Zero-shot baseline post: <span class="co">[</span><span class="ot">thermal super-resolution head-to-head</span><span class="co">](2026-05-21-thermal-super-resolution.qmd)</span></span>
-<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>PBVS Thermal Image SR Challenge: <span class="co">[</span><span class="ot">pbvs-workshop.github.io/challenge.html</span><span class="co">](https://pbvs-workshop.github.io/challenge.html)</span> · <span class="co">[</span><span class="ot">Codabench leaderboard</span><span class="co">](https://www.codabench.org/competitions/12339/)</span></span>
-<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Perception-distortion trade-off (Blau &amp; Michaeli, CVPR 2018): <span class="co">[</span><span class="ot">arXiv:1711.06077</span><span class="co">](https://arxiv.org/abs/1711.06077)</span></span>
-<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>SRGAN — the original perceptual SR paper: <span class="co">[</span><span class="ot">arXiv:1609.04802</span><span class="co">](https://arxiv.org/abs/1609.04802)</span></span>
-<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>DRLN: <span class="co">[</span><span class="ot">Anwar &amp; Barnes, TPAMI 2020</span><span class="co">](https://ieeexplore.ieee.org/document/9098875)</span></span>
-<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>super-image package: <span class="co">[</span><span class="ot">eugenesiow/super-image</span><span class="co">](https://github.com/eugenesiow/super-image)</span></span>
-<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Companion thermal posts: <span class="co">[</span><span class="ot">Gemini thermal generation</span><span class="co">](2026-05-21-thermal-image-generation-gemini.qmd)</span> · <span class="co">[</span><span class="ot">thermal nostril series</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a><span class="fu">## What this experiment is not</span></span>
+<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not a full challenge submission.** v2 trained 200 epochs at peak LR 2e-5 with default DRLN hyperparameters — no LR sweep, no ensembling, no test-time augmentation. A real submission would add all of those. Expected additional gain: +0.5-1.5 dB.</span>
+<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not CIDIS data.** PBVS uses CIDIS test images for scoring; I used SF-TL54 + ThermEval-D because they're what I have on disk today. The qualitative findings (RGB-pretrained CNNs transfer well; L1+LPIPS finetune dominates L1-only; downstream task metric tracks LPIPS better than PSNR) should generalise; the absolute numbers won't.</span>
+<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Not 8× SR.** PBVS Track-1 is 8×; this is 4×. Re-running with <span class="in">`scale=8`</span> and dropping the same <span class="in">`DrlnModel.from_pretrained(..., scale=8)`</span> would be a one-line change.</span>
+<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a><span class="fu">## What's actually deployable today (updated with v2)</span></span>
+<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-234"><a href="#cb4-234" aria-hidden="true" tabindex="-1"></a>Final recommendation matrix:</span>
+<span id="cb4-235"><a href="#cb4-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-236"><a href="#cb4-236" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Use case <span class="pp">|</span> Pick <span class="pp">|</span> Why <span class="pp">|</span></span>
+<span id="cb4-237"><a href="#cb4-237" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------|------|-----|</span></span>
+<span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Maximum PSNR / pixel fidelity** | **v1 (L1-only)** <span class="pp">|</span> PSNR 39.16 (+2.27 dB over zero-shot). Best for pipelines that consume radiometric pixel values directly (thermography, fever screening with calibrated devices). <span class="pp">|</span></span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Maximum perceptual quality + downstream task accuracy** | **v2 (L1+LPIPS+EMA)** ✅ <span class="pp">|</span> PSNR 38.68 (+1.79 dB over zero-shot), LPIPS 0.029 (3.2× better), nostril median error 1.18 px (BEST of all three options). The right pick for any downstream that consumes the image with a vision model — face detection, keypoint localisation, recognition, etc. <span class="pp">|</span></span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **No GPU at inference time** <span class="pp">|</span> Bicubic <span class="pp">|</span> Free, no model. PSNR 34.4 — not great but no compute. <span class="pp">|</span></span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Don't have a thermal training set yet** | **Zero-shot DRLN** <span class="pp">|</span> PSNR 36.89, nose error 1.52 px — already very usable, no labels needed. <span class="pp">|</span></span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-243"><a href="#cb4-243" aria-hidden="true" tabindex="-1"></a>The **v2 finetune (L1 + 0.05·LPIPS + EMA, 200 ep)** is the new headline recipe. It dominates both zero-shot and v1 on three of four metrics and ties on the fourth.</span>
+<span id="cb4-244"><a href="#cb4-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-245"><a href="#cb4-245" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb4-246"><a href="#cb4-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-247"><a href="#cb4-247" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Experiment scripts: <span class="co">[</span><span class="ot">`build_sr_dataset.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/build_sr_dataset.py)</span> · <span class="co">[</span><span class="ot">`finetune_drln.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/finetune_drln.py)</span> · <span class="co">[</span><span class="ot">`test_drln.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/test_drln.py)</span></span>
+<span id="cb4-248"><a href="#cb4-248" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Zero-shot baseline post: <span class="co">[</span><span class="ot">thermal super-resolution head-to-head</span><span class="co">](2026-05-21-thermal-super-resolution.qmd)</span></span>
+<span id="cb4-249"><a href="#cb4-249" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>PBVS Thermal Image SR Challenge: <span class="co">[</span><span class="ot">pbvs-workshop.github.io/challenge.html</span><span class="co">](https://pbvs-workshop.github.io/challenge.html)</span> · <span class="co">[</span><span class="ot">Codabench leaderboard</span><span class="co">](https://www.codabench.org/competitions/12339/)</span></span>
+<span id="cb4-250"><a href="#cb4-250" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Perception-distortion trade-off (Blau &amp; Michaeli, CVPR 2018): <span class="co">[</span><span class="ot">arXiv:1711.06077</span><span class="co">](https://arxiv.org/abs/1711.06077)</span></span>
+<span id="cb4-251"><a href="#cb4-251" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>SRGAN — the original perceptual SR paper: <span class="co">[</span><span class="ot">arXiv:1609.04802</span><span class="co">](https://arxiv.org/abs/1609.04802)</span></span>
+<span id="cb4-252"><a href="#cb4-252" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>DRLN: <span class="co">[</span><span class="ot">Anwar &amp; Barnes, TPAMI 2020</span><span class="co">](https://ieeexplore.ieee.org/document/9098875)</span></span>
+<span id="cb4-253"><a href="#cb4-253" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>super-image package: <span class="co">[</span><span class="ot">eugenesiow/super-image</span><span class="co">](https://github.com/eugenesiow/super-image)</span></span>
+<span id="cb4-254"><a href="#cb4-254" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Companion thermal posts: <span class="co">[</span><span class="ot">Gemini thermal generation</span><span class="co">](2026-05-21-thermal-image-generation-gemini.qmd)</span> · <span class="co">[</span><span class="ot">thermal nostril series</span><span class="co">](2026-05-20-thermal-nostril-bakeoff.qmd)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">
