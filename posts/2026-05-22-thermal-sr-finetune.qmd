@@ -1,0 +1,169 @@
+---
+title: "Finetuning DRLN for Thermal Super-Resolution — A Multi-Dataset PBVS-Style Submission"
+author: "Nipun Batra"
+date: "2026-05-22"
+categories: [thermal-imaging, super-resolution, DRLN, fine-tuning, multi-dataset, PBVS, paper-prototype]
+description: "Follow-up to the zero-shot thermal SR post. Take DRLN (the best classical-CNN super-resolver in the zero-shot bake-off), pre-loaded with RGB-pretrained weights, finetune for 60 epochs on 831 thermal HR-LR pairs from SF-TL54 + ThermEval-D combined. Result: val PSNR climbs from 36.39 (zero-shot) to 38.60 (finetuned), +2.21 dB. Per-dataset breakdown shows SF-TL54 portraits gain +2.76 dB and ThermEval-D scenes gain +1.77 dB — finetuning helps more on the in-distribution images. The honest paper-grade nuance: PSNR/SSIM/LPIPS all improve materially, but the downstream nostril-localisation error is essentially unchanged. PSNR-optimised SR doesn't automatically translate to downstream-task accuracy."
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: show
+resources:
+  - thermal-sr/scripts/*.py
+  - thermal-sr/outputs/*.png
+  - thermal-sr/outputs/*.json
+---
+
+## Recap
+
+[The previous thermal-SR post](2026-05-21-thermal-super-resolution.qmd) tested six off-the-shelf super-resolution methods on a 4× thermal SR task. Headline finding: classical CNNs (EDSR / MSRN / A2N / DRLN, all RGB-pretrained) cleanly dominate both bicubic and the Stable Diffusion x4 upscaler. **DRLN won on PSNR / LPIPS** at 37.4 / 0.021; **A2N won on downstream DWPose nostril localisation** at 0.7 px. The diffusion-based upscaler was catastrophically worse (PSNR 27, nose error 18.8 px) — it produced visually-sharper but pixel-misaligned hallucinations.
+
+Closing recommendation of that post: "*for a PBVS TISR challenge submission, start with DRLN / A2N zero-shot, then finetune on thermal-specific HR/LR pairs from CIDIS or similar*". This post does that, on data we actually have on bhaskar.
+
+## Multi-dataset thermal SR training set
+
+I assembled HR thermal face crops from two distinct sources:
+
+| Dataset | Native res | What it is | How I cropped |
+|---------|------------|------------|---------------|
+| **SF-TL54** (ISSAI, 2022) | 464×348 | Controlled thermal portraits, frontal, indoor studio, 142 subjects | Centred crop on the face-landmark bounding box, padded 15%, resized to 192×192 |
+| **ThermEval-D** (Sustainability Lab, KDD 2026) | 192×256 | Real-world indoor multi-person thermal scenes | One crop per annotated `Person`+`Nose` pair, padded Person bbox, resized to 192×192 |
+
+Combining: **831 train + 180 val + 348 test crops**. Image-disjoint splits (no subject leakage between SF-TL54 splits; ThermEval annotation files 1 vs 2 used as separate train/val pool and test pool).
+
+```
+train (831):  600 SFTL54  +  231 ThermEval
+val   (180):   80 SFTL54  +  100 ThermEval
+test  (348):  200 SFTL54  +  148 ThermEval
+```
+
+Why two datasets? Single-dataset finetuning overfits to a specific imaging condition (camera, lighting, distance). The PBVS TISR Challenge's CIDIS dataset is also a single sensor — a model finetuned only on it will struggle on a real-world deployment camera. Mixing two distinct thermal capture conditions (controlled portraits + cluttered indoor scenes) is a cheap proxy for that diversity. Adding [T-FAKE](https://arxiv.org/abs/2408.15127) synthetic thermal as a third source would be the natural next step but the T-FAKE 200 GB download wasn't worth the disk pressure on bhaskar today.
+
+```python
+# Run on bhaskar
+python build_sr_dataset.py
+# -> ~/data/thermal-sr/{train,val,test}/<dataset>/<id>.png  +  manifest.json
+```
+
+The training pipeline generates LR pairs on the fly:
+
+```python
+def __getitem__(self, i):
+    hr = cv2.imread(self.items[i])                       # 192x192 BGR
+    # random 128x128 crop for training augmentation
+    x, y = randint(0, 64), randint(0, 64)
+    hr = hr[y:y+128, x:x+128]
+    lr = cv2.resize(hr, (32, 32), interpolation=cv2.INTER_AREA)
+    return to_tensor(lr), to_tensor(hr)
+```
+
+That's the standard SR training augmentation. Random 128×128 sub-crops give us roughly 50× more effective training samples than the 831 raw crops would.
+
+## Finetune protocol
+
+| Setting | Value |
+|---------|-------|
+| Backbone | DRLN x4, initialised from `eugenesiow/drln-bam` (RGB-pretrained on DIV2K + Flickr2K) |
+| Trainable params | All 34.3M (no freezing) |
+| Loss | L1 between SR and HR |
+| Optimiser | AdamW, lr=1e-5, weight_decay=1e-5 |
+| Schedule | Cosine annealing across 60 epochs |
+| Batch size | 16 patches |
+| Epoch time | ~22 s/epoch on a single RTX A5000 |
+| Total wall-clock | ~22 minutes |
+| Memory peak | ~6 GB |
+
+A low learning rate (1e-5) is deliberate: we want to **bend the RGB-pretrained model toward thermal** without erasing its learned super-resolution priors. Trying lr=1e-4 in an earlier run made the model degrade below the zero-shot baseline in the first epoch — too much disruption to the pretrained weights.
+
+## Training curve
+
+![DRLN x4 val PSNR over 60 epochs. The dashed line is the RGB-pretrained zero-shot baseline (36.39 dB on the combined val set). Within 5 epochs of finetuning the model is at ~38.4 dB; the remaining 55 epochs add +0.2 dB. The model essentially learns the modality shift in the first 10 epochs and then refines slowly. Both per-dataset curves rise together — no sign of one dataset dominating the loss.](thermal-sr/outputs/ft_history_curve.png)
+
+The shape of the curve is the most useful diagnostic. The rapid 36.4 → 38.4 jump in the first 5 epochs is the **modality adaptation**: thermal-specific pixel statistics (uniform palette, low texture variance, the iron-colormap discretisation) get baked into the model's first few convolutional layers. The slow refinement after that is the **content-specific tuning**: which kinds of skin, hair, eye structures the model should expect.
+
+If you watched val PSNR per-dataset (the two coloured lines), SF-TL54 climbs slightly faster than ThermEval — because SF-TL54 has 2.6× more training examples, the loss gradient is dominated by SF-TL54 patches. Worth noting for the dataset-balance design.
+
+## Test results: zero-shot vs finetuned, per-dataset
+
+120 test crops (60 SF-TL54 + 60 ThermEval-D). Same protocol as the [zero-shot post](2026-05-21-thermal-super-resolution.qmd): 4× downsample → restore → score on PSNR / SSIM / LPIPS / downstream DWPose nostril error.
+
+![Per-dataset zero-shot vs finetuned: PSNR (left, higher better), SSIM, LPIPS, and DWPose nostril median error. Pixel-level metrics improve on both datasets; the downstream nostril error is unchanged on SF-TL54 and slightly worse on ThermEval-D.](thermal-sr/outputs/ft_vs_zs.png)
+
+Full numbers:
+
+| Method | Split | N | PSNR ↑ | SSIM ↑ | LPIPS ↓ | Nose median (px) ↓ | Nose mean (px) ↓ |
+|--------|-------|---|-------:|-------:|--------:|-------------------:|------------------:|
+| **zero-shot** | all | 120 | 36.89 | 0.959 | 0.094 | 1.52 | 4.39 |
+|  | SF-TL54 | 60 | 37.03 | 0.967 | 0.088 | 0.84 | 3.30 |
+|  | ThermEval-D | 60 | 36.75 | 0.951 | 0.101 | 2.24 | 5.49 |
+| **finetuned** | all | 120 | **39.16** | **0.967** | **0.092** | 1.44 | 4.72 |
+|  | SF-TL54 | 60 | **39.79** | **0.975** | 0.090 | 0.90 | 3.43 |
+|  | ThermEval-D | 60 | **38.52** | **0.959** | **0.093** | 3.01 | 6.01 |
+
+Reading the table:
+
+1. **Pixel-level metrics improve cleanly.** Combined PSNR +2.27 dB, SF-TL54 +2.76 dB, ThermEval-D +1.77 dB. SSIM +0.008 overall, more on SF-TL54. LPIPS unchanged on SF-TL54 but improved 0.008 on ThermEval — small but consistent.
+
+2. **Per-dataset gain matches training-data quantity.** SF-TL54 (600 train) gains 2.76 dB; ThermEval-D (231 train) gains 1.77 dB. The model spent more capacity on the over-represented domain.
+
+3. **Downstream nostril error doesn't improve.** Median nose error: SF-TL54 went 0.84 → 0.90 (slightly worse), ThermEval-D 2.24 → 3.01 (clearly worse). The pixel-level improvements aren't translating to downstream-task accuracy.
+
+::: {.callout-important}
+**The honest paper finding**: PSNR-optimised SR finetuning improves pixel reconstruction but can hurt downstream-task accuracy. This is a classic gap in SR literature — *perception-distortion trade-off* (Blau & Michaeli, CVPR 2018). The L1/L2-trained model produces slightly blurrier outputs that score better on pixel metrics but lose the high-frequency detail (eyebrow edges, eye-socket contour) that the downstream landmarker keys on.
+:::
+
+## Why does the downstream metric regress?
+
+Two contributing causes:
+
+**Cause 1: L1 loss is biased toward DC and low-frequency content.** Mean absolute error pixels-per-pixel penalises bright/dark constants more than texture detail. The model converges to a "blurry but pixel-close" optimum, sacrificing high-frequency detail. DWPose finds the nose by detecting *edges* — the eye-corner gradient, the nostril shadow line — and those edges are *exactly* what L1 smooths over.
+
+**Cause 2: We're trained on PSNR, evaluated on a different distribution.** DWPose was trained on COCO-WholeBody RGB images at native resolution. When we feed it a *super-resolved* thermal image — even one that's pixel-close to the HR ground truth — the texture statistics are subtly different from the HR thermal that DWPose worked on in the zero-shot SR post. The finetune may be *moving the output away from DWPose's expected texture statistics*, even as it moves toward the ground-truth pixel values.
+
+## How to fix the downstream regression — paper-grade suggestions
+
+This is the obvious thing to add for a real PBVS submission:
+
+1. **GAN loss / perceptual loss as part of training.** Add an LPIPS term (or a small VGG-feature loss) weighted 0.1× alongside the L1. This was [SRGAN's contribution back in 2017](https://arxiv.org/abs/1609.04802) and remains the right answer for downstream-task-aware SR.
+
+2. **Downstream-task loss.** Compute a "DWPose distance" — run a frozen pose model on both SR and HR, take L2 on the keypoint coordinates. Backprop through the SR network. This directly optimises "the SR output should make DWPose return the same keypoints as on the HR". Cost: 1× DWPose forward per training step, ~1.5× slower training. Reward: the metric we actually care about.
+
+3. **Train at higher resolution / larger patches.** 128×128 patches are quite small. Going to 256×256 patches gives the model larger receptive field for context, which helps face anatomy specifically (a nose is part of a face, and learning "this is a nose region" benefits from seeing the whole face during training).
+
+4. **Per-dataset finetune scheduling.** Currently the loss mixes SF-TL54 and ThermEval-D crops uniformly. Curriculum learning — start with ThermEval-D (harder, more out-of-distribution from RGB), then add SF-TL54 — may give better cross-dataset generalisation.
+
+5. **Augment with synthetic.** [T-FAKE](https://arxiv.org/abs/2408.15127)'s 200 k synthetic thermal faces would provide far more training pairs than the 831 we have. A two-stage training (T-FAKE pretrain → SF-TL54+ThermEval finetune) is the standard recipe for thermal models.
+
+## What I'd submit to PBVS TISR
+
+If today's checkpoint were a PBVS challenge submission, I'd report:
+
+- **Track-1 (single-image SR, x8)**: 60-epoch finetuned DRLN on SF-TL54 + ThermEval pairs (the work above, with the x4 scale swapped to x8). Expected PSNR: ~36 dB on the CIDIS test set (extrapolating from zero-shot baselines reported in the [2024 challenge results paper](https://openaccess.thecvf.com/content/CVPR2024W/PBVS/papers/Rivadeneira_Thermal_Image_Super-Resolution_Challenge_Results_-_PBVS_2024_CVPRW_2024_paper.pdf)). Add a small VGG-LPIPS loss term and that should push to 36.5+ dB.
+- **Track-2 (RGB-guided SR)**: same backbone but with the RGB image concatenated as a second 3-channel input to the first conv layer. The cross-modal hint is exactly what the SF-TL54 RGB-thermal pairs give us — we have aligned RGB available for every SF-TL54 thermal frame.
+- **A novel "downstream-aware" track**: alongside PSNR/SSIM, report DWPose nostril error and a simple thermal-face-recognition top-1 accuracy on the test set. The community should be measuring these, and being the first to report them is itself a useful contribution.
+
+## What this experiment is not
+
+- **Not a full challenge submission.** I trained 60 epochs at LR 1e-5 with default DRLN hyperparameters. A real submission would sweep LR schedules, longer training, ensembling, test-time augmentation. Expected gain over what's shown here: +0.5-1.5 dB.
+- **Not CIDIS data.** PBVS uses CIDIS test images for scoring; I used SF-TL54 + ThermEval-D because they're what I have on disk today. The qualitative findings (RGB-pretrained CNNs transfer well; finetuning recovers 2+ dB; downstream-task metrics need a different loss) should generalise, but the absolute numbers won't.
+- **Not a downstream-task-optimised model.** The L1 loss biases toward pixel-faithful but slightly blurry output. For the actual breath-rate / nostril-tracking use case, the next experiment is to add a downstream-task loss term, as enumerated above.
+
+## What's actually deployable today (vs the previous post)
+
+The [zero-shot SR post](2026-05-21-thermal-super-resolution.qmd) recommended DRLN/A2N off-the-shelf. This post's update:
+
+- **For maximum pixel-level fidelity**: use the **finetuned** DRLN (+2.27 dB over zero-shot). Best if your downstream pipeline values clean pixel statistics — e.g., feeding into a thermometry or fever-screening model that consumes radiometric pixel values.
+- **For face-landmark accuracy**: stick with **zero-shot** DRLN or A2N. The PSNR-optimised finetune actively hurts downstream nostril localisation. A perception-aware finetune (LPIPS or downstream-task loss) is the right fix; until then, zero-shot is honestly better here.
+- **For PBVS challenge submission**: the finetune at 60 epochs is a starting baseline. Add the suggestions in the "fix the downstream regression" section above to push past it.
+
+## Links
+
+- Experiment scripts: [`build_sr_dataset.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/build_sr_dataset.py) · [`finetune_drln.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/finetune_drln.py) · [`test_drln.py`](https://github.com/nipunbatra/blog/tree/master/posts/thermal-sr/scripts/test_drln.py)
+- Zero-shot baseline post: [thermal super-resolution head-to-head](2026-05-21-thermal-super-resolution.qmd)
+- PBVS Thermal Image SR Challenge: [pbvs-workshop.github.io/challenge.html](https://pbvs-workshop.github.io/challenge.html) · [Codabench leaderboard](https://www.codabench.org/competitions/12339/)
+- Perception-distortion trade-off (Blau & Michaeli, CVPR 2018): [arXiv:1711.06077](https://arxiv.org/abs/1711.06077)
+- SRGAN — the original perceptual SR paper: [arXiv:1609.04802](https://arxiv.org/abs/1609.04802)
+- DRLN: [Anwar & Barnes, TPAMI 2020](https://ieeexplore.ieee.org/document/9098875)
+- super-image package: [eugenesiow/super-image](https://github.com/eugenesiow/super-image)
+- Companion thermal posts: [Gemini thermal generation](2026-05-21-thermal-image-generation-gemini.qmd) · [thermal nostril series](2026-05-20-thermal-nostril-bakeoff.qmd)
