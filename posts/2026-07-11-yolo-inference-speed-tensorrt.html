@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nipun Batra">
+<meta name="dcterms.date" content="2026-07-11">
+<meta name="description" content="The same COCO-pretrained YOLO11 weights, one RTX A5000, six execution strategies — PyTorch FP32/FP16, ONNX Runtime, TensorRT FP32/FP16/INT8 — each scored on three axes: time, accuracy, and what adopting it actually takes. TensorRT FP16 halves end-to-end latency (7.5 -> 3.8 ms) and speeds the network itself up 4-5x, for a ~90 s one-time engine build and zero mAP loss. The surprises: PyTorch’s half=True does NOTHING at batch 1 (it pays only at batch >= 4); INT8 is both SLOWER than FP16 on the n/s models AND costs up to 0.048 mAP - strictly dominated; ONNX Runtime helps the nano, hurts the medium; a dynamic-batch engine is 1.7x slower at batch 1 than a static one; and once TensorRT shrinks inference to 1.3 ms, preprocessing + NMS become 2/3 of every frame. Bonus: yolo11m on TensorRT is faster end-to-end than yolo11n on vanilla PyTorch - the runtime choice outweighs two model-size steps.">
+
+<title>Same Model, Same GPU, Half the Latency: What TensorRT, ONNX Runtime, and FP16 Actually Buy You — and What They Cost – Nipun Batra Blog</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-b174d82012d95c5b164e50ff853e6622.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-f68a118d2f2af7e6cf8ce6368831e660.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-b174d82012d95c5b164e50ff853e6622.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-796612bf7397dae662d04283c8cc06bc.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-ad5c37a8ddeebf8fafae0b1f6b9576d2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-796612bf7397dae662d04283c8cc06bc.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+
+<meta property="og:title" content="Same Model, Same GPU, Half the Latency: What TensorRT, ONNX Runtime, and FP16 Actually Buy You — and What They Cost – Nipun Batra Blog">
+<meta property="og:description" content="The same COCO-pretrained YOLO11 weights, one RTX A5000, six execution strategies — PyTorch FP32/FP16, ONNX Runtime, TensorRT FP32/FP16/INT8 — each scored on three axes: time, accuracy, and what adopting it actually takes. TensorRT FP16 halves end-to-end latency (7.5 -> 3.8 ms) and speeds the network itself up 4-5x, for a ~90 s one-time engine build and zero mAP loss. The surprises: PyTorch’s half=True does NOTHING at batch 1 (it pays only at batch >= 4); INT8 is both SLOWER than FP16 on the n/s models AND costs up to 0.048 mAP - strictly dominated; ONNX Runtime helps the nano, hurts the medium; a dynamic-batch engine is 1.7x slower at batch 1 than a static one; and once TensorRT shrinks inference to 1.3 ms, preprocessing + NMS become 2/3 of every frame. Bonus: yolo11m on TensorRT is faster end-to-end than yolo11n on vanilla PyTorch - the runtime choice outweighs two model-size steps.">
+<meta property="og:image" content="yolo-speed/outputs/latency_backends.png">
+<meta property="og:site_name" content="Nipun Batra Blog">
+<meta name="twitter:title" content="Same Model, Same GPU, Half the Latency: What TensorRT, ONNX Runtime, and FP16 Actually Buy You — and What They Cost – Nipun Batra Blog">
+<meta name="twitter:description" content="The same COCO-pretrained YOLO11 weights, one RTX A5000, six execution strategies — PyTorch FP32/FP16, ONNX Runtime, TensorRT FP32/FP16/INT8 — each scored on three axes: time, accuracy, and what adopting it actually takes. TensorRT FP16 halves end-to-end latency (7.5 -> 3.8 ms) and speeds the network itself up 4-5x, for a ~90 s one-time engine build and zero mAP loss. The surprises: PyTorch’s half=True does NOTHING at batch 1 (it pays only at batch >= 4); INT8 is both SLOWER than FP16 on the n/s models AND costs up to 0.048 mAP - strictly dominated; ONNX Runtime helps the nano, hurts the medium; a dynamic-batch engine is 1.7x slower at batch 1 than a static one; and once TensorRT shrinks inference to 1.3 ms, preprocessing + NMS become 2/3 of every frame. Bonus: yolo11m on TensorRT is faster end-to-end than yolo11n on vanilla PyTorch - the runtime choice outweighs two model-size steps.">
+<meta name="twitter:image" content="yolo-speed/outputs/latency_backends.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">Nipun Batra Blog</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://nipunbatra.github.io"> 
+<span class="menu-text">Homepage</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <div class="quarto-title-block"><div><h1 class="title">Same Model, Same GPU, Half the Latency: What TensorRT, ONNX Runtime, and FP16 Actually Buy You — and What They Cost</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+                  <div>
+        <div class="description">
+          The same COCO-pretrained YOLO11 weights, one RTX A5000, six execution strategies — PyTorch FP32/FP16, ONNX Runtime, TensorRT FP32/FP16/INT8 — each scored on three axes: time, accuracy, and what adopting it actually takes. TensorRT FP16 halves end-to-end latency (7.5 -&gt; 3.8 ms) and speeds the network itself up 4-5x, for a ~90 s one-time engine build and zero mAP loss. The surprises: PyTorch’s half=True does NOTHING at batch 1 (it pays only at batch &gt;= 4); INT8 is both SLOWER than FP16 on the n/s models AND costs up to 0.048 mAP - strictly dominated; ONNX Runtime helps the nano, hurts the medium; a dynamic-batch engine is 1.7x slower at batch 1 than a static one; and once TensorRT shrinks inference to 1.3 ms, preprocessing + NMS become 2/3 of every frame. Bonus: yolo11m on TensorRT is faster end-to-end than yolo11n on vanilla PyTorch - the runtime choice outweighs two model-size steps.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">object-detection</div>
+                <div class="quarto-category">YOLO</div>
+                <div class="quarto-category">TensorRT</div>
+                <div class="quarto-category">ONNX</div>
+                <div class="quarto-category">onnxruntime</div>
+                <div class="quarto-category">OpenVINO</div>
+                <div class="quarto-category">quantization</div>
+                <div class="quarto-category">INT8</div>
+                <div class="quarto-category">FP16</div>
+                <div class="quarto-category">inference</div>
+                <div class="quarto-category">deployment</div>
+                <div class="quarto-category">benchmarks</div>
+                <div class="quarto-category">computer-vision</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nipun Batra </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">July 11, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#the-question" id="toc-the-question" class="nav-link active" data-scroll-target="#the-question">The question</a></li>
+  <li><a href="#the-contenders" id="toc-the-contenders" class="nav-link" data-scroll-target="#the-contenders">The contenders</a></li>
+  <li><a href="#the-setup" id="toc-the-setup" class="nav-link" data-scroll-target="#the-setup">The setup</a></li>
+  <li><a href="#axis-1a-batch-1-latency" id="toc-axis-1a-batch-1-latency" class="nav-link" data-scroll-target="#axis-1a-batch-1-latency">Axis 1a: batch-1 latency</a></li>
+  <li><a href="#where-the-milliseconds-actually-go" id="toc-where-the-milliseconds-actually-go" class="nav-link" data-scroll-target="#where-the-milliseconds-actually-go">Where the milliseconds actually go</a></li>
+  <li><a href="#axis-1b-throughput-and-pytorch-fp16s-redemption" id="toc-axis-1b-throughput-and-pytorch-fp16s-redemption" class="nav-link" data-scroll-target="#axis-1b-throughput-and-pytorch-fp16s-redemption">Axis 1b: throughput, and PyTorch FP16’s redemption</a></li>
+  <li><a href="#axis-2-does-the-fast-path-cost-accuracy" id="toc-axis-2-does-the-fast-path-cost-accuracy" class="nav-link" data-scroll-target="#axis-2-does-the-fast-path-cost-accuracy">Axis 2: does the fast path cost accuracy?</a></li>
+  <li><a href="#axis-3-what-adopting-each-strategy-actually-takes" id="toc-axis-3-what-adopting-each-strategy-actually-takes" class="nav-link" data-scroll-target="#axis-3-what-adopting-each-strategy-actually-takes">Axis 3: what adopting each strategy actually takes</a></li>
+  <li><a href="#no-gpu-the-cpu-story-briefly" id="toc-no-gpu-the-cpu-story-briefly" class="nav-link" data-scroll-target="#no-gpu-the-cpu-story-briefly">No GPU? The CPU story, briefly</a></li>
+  <li><a href="#what-id-actually-do" id="toc-what-id-actually-do" class="nav-link" data-scroll-target="#what-id-actually-do">What I’d actually do</a></li>
+  <li><a href="#caveats" id="toc-caveats" class="nav-link" data-scroll-target="#caveats">Caveats</a></li>
+  <li><a href="#reproduce" id="toc-reproduce" class="nav-link" data-scroll-target="#reproduce">Reproduce</a></li>
+  <li><a href="#links" id="toc-links" class="nav-link" data-scroll-target="#links">Links</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+
+<blockquote class="blockquote">
+<p><strong>TL;DR.</strong> Same YOLO11 weights, same RTX A5000, six ways to run them. Scored on <strong>time, accuracy, and adoption cost</strong> against the original <code>model.predict()</code> on the <code>.pt</code> file: <strong>TensorRT FP16</strong> is the clear winner — <strong>~2× lower end-to-end latency</strong> (7.5 → 3.8 ms for yolo11s), <strong>4–5× faster on the network itself</strong> (5.3 → 1.3 ms), <strong>2.6× higher batched throughput</strong> (472 → 1241 img/s), <strong>zero accuracy loss</strong>, for a one-time ~90 s engine build that is locked to this GPU model and TensorRT version. Four honest surprises: PyTorch’s <code>half=True</code> does <strong>nothing</strong> at batch 1 (it pays only at batch ≥ 4); <strong>TensorRT INT8 is strictly dominated by FP16</strong> on the n/s models (slower <em>and</em> −0.02 to −0.05 mAP); <strong>ONNX Runtime helps the nano but is slower than plain PyTorch on the medium</strong>; and a <strong>dynamic-batch engine costs 1.7×</strong> at batch 1 vs a static one. Once TensorRT shrinks inference to 1.3 ms, <strong>preprocessing + NMS are two-thirds of every frame</strong> — the next milliseconds live outside the network.</p>
+</blockquote>
+<section id="the-question" class="level2">
+<h2 class="anchored" data-anchor-id="the-question">The question</h2>
+<p>You trained (or just downloaded) a YOLO model. You call <code>model.predict()</code> and it feels fast — a few milliseconds on a decent GPU. Most people stop there.</p>
+<p>But the <em>weights</em> and the <em>runtime that executes them</em> are two different choices, and the second one is a knob that costs no retraining and no new data. The same <code>yolo11s.pt</code> can be executed by PyTorch eager mode, by ONNX Runtime, or compiled into a TensorRT engine at FP32, FP16, or INT8. Vendor benchmarks promise big multipliers at the fast end of that list. This post measures the whole menu, holding everything else fixed, and scores every strategy on <strong>three axes against the original</strong>:</p>
+<ol type="1">
+<li><strong>Time</strong> — batch-1 latency and batched throughput.</li>
+<li><strong>Accuracy</strong> — does mAP survive the trip?</li>
+<li><strong>Adoption cost</strong> — what the strategy <em>demands</em>: code changes, new dependencies, build time, calibration data, and what you give up in portability.</li>
+</ol>
+</section>
+<section id="the-contenders" class="level2">
+<h2 class="anchored" data-anchor-id="the-contenders">The contenders</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Strategy</th>
+<th>What it is</th>
+<th>Why it should be fast</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>PyTorch FP32</strong></td>
+<td><code>model.predict()</code> on the <code>.pt</code> — the original</td>
+<td>baseline: eager kernels, full precision</td>
+</tr>
+<tr class="even">
+<td><strong>PyTorch FP16</strong></td>
+<td>same call, <code>half=True</code></td>
+<td>half precision on tensor cores; one flag</td>
+</tr>
+<tr class="odd">
+<td><strong>ONNX Runtime (CUDA)</strong></td>
+<td>graph exported to <code>.onnx</code>, run by ORT’s CUDA provider</td>
+<td>graph-level fusion + optimized kernels</td>
+</tr>
+<tr class="even">
+<td><strong>TensorRT FP32</strong></td>
+<td>ONNX further compiled into a GPU-specific <code>.engine</code></td>
+<td>kernel auto-tuning <em>for this exact GPU</em></td>
+</tr>
+<tr class="odd">
+<td><strong>TensorRT FP16</strong></td>
+<td>same, half precision</td>
+<td>fusion + tensor cores</td>
+</tr>
+<tr class="even">
+<td><strong>TensorRT INT8</strong></td>
+<td>same, 8-bit, calibrated on sample images</td>
+<td>8-bit tensor cores, least memory traffic</td>
+</tr>
+</tbody>
+</table>
+<p>The mental model: PyTorch executes the network <strong>op by op</strong>, each op a separate pre-compiled CUDA kernel launch. ONNX Runtime first <strong>rewrites the graph</strong> (folds constants, fuses adjacent ops) and then executes it. TensorRT goes furthest: it <strong>compiles</strong> the graph offline for one specific GPU, trying multiple kernel implementations per layer and keeping the fastest, at a chosen precision. The further right you go, the more build-time work, the less portability — and, usually, the more speed.</p>
+<p>The <em>entire</em> code delta between these strategies, thanks to ultralytics wrapping every backend behind one API:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> ultralytics <span class="im">import</span> YOLO</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> YOLO(<span class="st">"yolo11s.pt"</span>)                               <span class="co"># the original</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>model.predict(img, half<span class="op">=</span><span class="va">True</span>)                            <span class="co"># strategy: FP16, one flag</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>model.export(<span class="bu">format</span><span class="op">=</span><span class="st">"onnx"</span>)                              <span class="co"># strategy: ONNX, one-time export</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>model.export(<span class="bu">format</span><span class="op">=</span><span class="st">"engine"</span>, half<span class="op">=</span><span class="va">True</span>)                 <span class="co"># strategy: TensorRT FP16</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>model.export(<span class="bu">format</span><span class="op">=</span><span class="st">"engine"</span>, int8<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>             data<span class="op">=</span><span class="st">"coco128.yaml"</span>)                        <span class="co"># strategy: INT8 (needs calib images)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>YOLO(<span class="st">"yolo11s.engine"</span>).predict(img)                      <span class="co"># inference code: unchanged</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="the-setup" class="level2">
+<h2 class="anchored" data-anchor-id="the-setup">The setup</h2>
+<ul>
+<li><strong>Hardware:</strong> one NVIDIA RTX A5000 (24 GB, Ampere) in our lab server; Xeon Gold 6326 (16C/32T) for the CPU section.</li>
+<li><strong>Software:</strong> Python 3.11, torch 2.8.0+cu126, ultralytics 8.4.92, TensorRT 11.1 (cu12 build), onnxruntime-gpu 1.24.4, OpenVINO 2026.2. Driver CUDA 12.4.</li>
+<li><strong>Models:</strong> YOLO11 n / s / m, COCO-pretrained, 640×640 throughout.</li>
+<li><strong>Latency protocol:</strong> <code>model.predict()</code> on a pre-loaded image (ultralytics’ <code>bus.jpg</code>; disk I/O excluded), 30 warmup + 200 timed calls, batch = 1. I report <strong>medians</strong>, and use ultralytics’ own per-stage timers for the preprocess / inference / postprocess split.</li>
+<li><strong>Throughput protocol:</strong> pure forward pass on a resident CUDA tensor with explicit <code>torch.cuda.synchronize()</code> — no image decode, no NMS — to isolate what the runtime actually accelerates.</li>
+<li><strong>Accuracy protocol:</strong> mAP50-95 on COCO128 for every backend of every model.</li>
+<li><strong>Fairness rule:</strong> every backend gets ultralytics’ defaults — no per-backend tuning for anyone. All detectors returned the <strong>same 5 detections</strong> on the test image, INT8 included.</li>
+</ul>
+</section>
+<section id="axis-1a-batch-1-latency" class="level2">
+<h2 class="anchored" data-anchor-id="axis-1a-batch-1-latency">Axis 1a: batch-1 latency</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="yolo-speed/outputs/latency_backends.png" class="img-fluid figure-img"></p>
+<figcaption>Median end-to-end <code>predict()</code> latency (preprocess + inference + postprocess), batch = 1, 640×640, 200 timed iterations on an RTX A5000. Bars are colored by runtime family (blue = PyTorch, green = ONNX Runtime, red = TensorRT; lighter = lower precision); annotations give the speedup over PyTorch FP32. TensorRT FP16 roughly halves latency for every model size. Note PyTorch FP16 ≈ FP32 (the flag does nothing here) and ONNX Runtime <em>losing</em> to PyTorch on yolo11m.</figcaption>
+</figure>
+</div>
+<p>The same data for yolo11s, with the inference-only time that the runtimes actually compete on:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>yolo11s, batch=1</th>
+<th style="text-align: right;">end-to-end (ms)</th>
+<th style="text-align: right;">vs original</th>
+<th style="text-align: right;">inference only (ms)</th>
+<th style="text-align: right;">vs original</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>PyTorch FP32 (original)</td>
+<td style="text-align: right;">7.54</td>
+<td style="text-align: right;">1.0×</td>
+<td style="text-align: right;">5.27</td>
+<td style="text-align: right;">1.0×</td>
+</tr>
+<tr class="even">
+<td>PyTorch FP16</td>
+<td style="text-align: right;">7.84</td>
+<td style="text-align: right;"><strong>0.96×</strong></td>
+<td style="text-align: right;">5.54</td>
+<td style="text-align: right;">0.95×</td>
+</tr>
+<tr class="odd">
+<td>ONNX Runtime</td>
+<td style="text-align: right;">7.33</td>
+<td style="text-align: right;">1.03×</td>
+<td style="text-align: right;">4.78</td>
+<td style="text-align: right;">1.10×</td>
+</tr>
+<tr class="even">
+<td>TensorRT FP32</td>
+<td style="text-align: right;">4.87</td>
+<td style="text-align: right;">1.55×</td>
+<td style="text-align: right;">2.45</td>
+<td style="text-align: right;">2.15×</td>
+</tr>
+<tr class="odd">
+<td><strong>TensorRT FP16</strong></td>
+<td style="text-align: right;"><strong>3.76</strong></td>
+<td style="text-align: right;"><strong>2.0×</strong></td>
+<td style="text-align: right;"><strong>1.30</strong></td>
+<td style="text-align: right;"><strong>4.1×</strong></td>
+</tr>
+<tr class="even">
+<td>TensorRT INT8</td>
+<td style="text-align: right;">4.18</td>
+<td style="text-align: right;">1.8×</td>
+<td style="text-align: right;">1.75</td>
+<td style="text-align: right;">3.0×</td>
+</tr>
+</tbody>
+</table>
+<p>Three findings that vendor decks won’t show you:</p>
+<ol type="1">
+<li><strong><code>half=True</code> is a placebo at batch 1.</strong> On all three models, PyTorch FP16 is marginally <em>slower</em> than FP32 (7.8 vs 7.5 ms on yolo11s). At batch 1 the GPU is nowhere near saturated — the time goes to kernel <em>launches</em>, not kernel <em>math</em> — so halving the math changes nothing, and the input/output casts add a little. Hold this thought until the batching section, where the same flag becomes a 1.6× win.</li>
+<li><strong>INT8 is <em>slower</em> than FP16 for yolo11n and yolo11s</strong> (3.82 vs 3.41, 4.18 vs 3.76 ms), and only reaches parity on yolo11m (4.73 vs 4.85 ms). TensorRT 11 quantizes via explicit quantize/dequantize nodes, and for small networks at 640 px their overhead eats the 8-bit savings on Ampere. “INT8 = fastest” is not a law; it’s a hypothesis to test on your model, your GPU.</li>
+<li><strong>ONNX Runtime’s value depends on model size</strong>: 1.6× on the nano, a wash on the small, <strong>0.8× (slower than the original!) on the medium.</strong> Its CUDA kernels beat eager PyTorch on launch-bound tiny models but lose on compute-bound bigger ones.</li>
+</ol>
+<p>And the headline I did not expect when I started: <strong>yolo11m on TensorRT FP16 (4.85 ms) is faster end-to-end than yolo11n on vanilla PyTorch (7.22 ms)</strong> — while scoring +0.12 mAP50-95. The runtime choice outweighs <em>two</em> model-size steps. If you picked the nano because the small felt too slow, you may have paid accuracy for speed that a one-line export would have bought for free.</p>
+</section>
+<section id="where-the-milliseconds-actually-go" class="level2">
+<h2 class="anchored" data-anchor-id="where-the-milliseconds-actually-go">Where the milliseconds actually go</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="yolo-speed/outputs/latency_breakdown.png" class="img-fluid figure-img"></p>
+<figcaption>The same yolo11s batch-1 latency, split into ultralytics’ three stages. Inference (blue) is the only part the runtimes compete on: TensorRT FP16 cuts it from 5.3 ms to 1.3 ms. Preprocessing (gray, ~1.4 ms of resize/normalize/upload) and postprocess/NMS (red, ~0.8 ms) are untouched — so they grow from ~30% of the frame to about two-thirds.</figcaption>
+</figure>
+</div>
+<p>This is Amdahl’s law with a bounding box. TensorRT FP16 makes the <em>network</em> 4.1× faster, but the <code>predict()</code> call only gets 2.0× faster, because ~2.2 ms of every frame is spent outside the network — resizing and normalizing the image, and running NMS on the raw predictions. Once inference costs 1.3 ms, <strong>the model is no longer the bottleneck; the pipeline is.</strong></p>
+<p>Two practical corollaries:</p>
+<ul>
+<li>Below ~4 ms of end-to-end budget, further <em>model</em> optimization (INT8, pruning, a smaller model) buys almost nothing. The next wins are pipeline wins: GPU-side preprocessing (e.g. DALI), batching the NMS, or exporting with NMS fused <em>into</em> the engine (<code>nms=True</code>).</li>
+<li>This is why “up to N× faster” claims and your stopwatch disagree: the N× is the blue segment, your stopwatch times the whole bar.</li>
+</ul>
+</section>
+<section id="axis-1b-throughput-and-pytorch-fp16s-redemption" class="level2">
+<h2 class="anchored" data-anchor-id="axis-1b-throughput-and-pytorch-fp16s-redemption">Axis 1b: throughput, and PyTorch FP16’s redemption</h2>
+<p>Batch-1 latency is the streaming-camera number. If you are chewing through a folder of images or a recorded video, what matters is <strong>images per second at the best batch size</strong> — so here is the pure GPU forward pass (no NMS, no preprocessing) for yolo11s, batch 1 → 32:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="yolo-speed/outputs/throughput_batch.png" class="img-fluid figure-img"></p>
+<figcaption>Pure forward-pass throughput vs batch size, yolo11s, RTX A5000. TensorRT FP16 (red) leads everywhere and peaks at 1241 img/s. PyTorch FP16 (solid blue) is indistinguishable from FP32 (dashed blue) until batch 4, then pulls away to a 1.65× win — precision pays only once there is enough parallel work. ONNX Runtime on a dynamic-shape graph (green) <em>degrades</em> with batch size. The open diamond: the same TensorRT FP16 model compiled as a static batch-1 engine is 1.7× faster at batch 1 than the dynamic-batch engine.</figcaption>
+</figure>
+</div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>yolo11s, pure forward</th>
+<th style="text-align: right;">batch 1</th>
+<th style="text-align: right;">batch 32 (peak)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>PyTorch FP32 (original)</td>
+<td style="text-align: right;">205 img/s</td>
+<td style="text-align: right;">472 img/s</td>
+</tr>
+<tr class="even">
+<td>PyTorch FP16</td>
+<td style="text-align: right;">197 img/s</td>
+<td style="text-align: right;"><strong>778 img/s</strong></td>
+</tr>
+<tr class="odd">
+<td>ONNX Runtime (dynamic)</td>
+<td style="text-align: right;">145 img/s</td>
+<td style="text-align: right;">131 img/s (peak 180 @ b4)</td>
+</tr>
+<tr class="even">
+<td>TensorRT FP16 (dynamic)</td>
+<td style="text-align: right;">459 img/s</td>
+<td style="text-align: right;"><strong>1241 img/s</strong></td>
+</tr>
+<tr class="odd">
+<td>TensorRT FP16 (static b=1)</td>
+<td style="text-align: right;"><strong>771 img/s</strong></td>
+<td style="text-align: right;">—</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>The <code>half=True</code> story completes</strong>: useless at batch 1, +65% at batch 32. FP16 needs saturation to matter. If you serve single frames, skip the flag; if you batch, take it — it’s still free.</li>
+<li><strong>Shape flexibility has a price.</strong> The dynamic-batch TensorRT engine does 459 img/s at batch 1; a static batch-1 engine of the <em>same model at the same precision</em> does 771 img/s — <strong>1.7×</strong>. TensorRT tunes kernels for the shapes you promise it; promise less, get more. If your batch size is fixed in production, build a static engine for exactly that shape.</li>
+<li><strong>ONNX Runtime collapses on the dynamic graph</strong> — throughput <em>falls</em> as batch grows (180 → 131 img/s), 9.5× behind TensorRT at batch 32. With static shapes (the batch-1 latency test above) it behaves; dynamic shapes are its unhappy path, at least with default session options. A tuned ORT setup (IO binding, its own TensorRT execution provider) would close some of this gap — but “needs tuning” is itself an adoption cost, and everyone here got defaults.</li>
+</ul>
+</section>
+<section id="axis-2-does-the-fast-path-cost-accuracy" class="level2">
+<h2 class="anchored" data-anchor-id="axis-2-does-the-fast-path-cost-accuracy">Axis 2: does the fast path cost accuracy?</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="yolo-speed/outputs/accuracy_backends.png" class="img-fluid figure-img"></p>
+<figcaption>mAP50-95 on COCO128 per backend, per model. The gray vertical line is each model’s PyTorch FP32 baseline. Everything above INT8 sits within ±0.005 of the line — FP16 and the export round-trips are accuracy-free. TensorRT INT8 (lightest red) pays a real, model-size-dependent tax: −0.048 on the nano, −0.020 on the small, −0.016 on the medium.</figcaption>
+</figure>
+</div>
+<p>(COCO128 is a 128-image slice of COCO <em>train</em>, so the absolute values are optimistic; what matters here is the <em>relative</em> drop across backends of identical weights — which is exactly what precision changes affect.)</p>
+<ul>
+<li><strong>FP16 is free.</strong> Across all three models and both FP16 backends, mAP moves by at most ±0.005 — noise. Combined with the speed results: there is <strong>no accuracy reason to ever run TensorRT at FP32</strong> for these models.</li>
+<li><strong>INT8’s tax is real and biggest where you’d want it most.</strong> The nano loses 0.048 mAP50-95 (~10% relative). Small models have less redundancy to absorb quantization error. Put together with Axis 1 — INT8 was also <em>slower</em> than FP16 on n/s — and the verdict on this GPU is blunt: <strong>TensorRT INT8 is strictly dominated by TensorRT FP16 for yolo11n/s: slower AND less accurate.</strong> For yolo11m it buys 0.1 ms for 0.016 mAP — still a bad trade in most settings. (A larger, more careful calibration set than my 128 train images would likely shrink the mAP gap somewhat; it cannot fix “not faster.”)</li>
+</ul>
+</section>
+<section id="axis-3-what-adopting-each-strategy-actually-takes" class="level2">
+<h2 class="anchored" data-anchor-id="axis-3-what-adopting-each-strategy-actually-takes">Axis 3: what adopting each strategy actually takes</h2>
+<p>Speed and accuracy tell you what you <em>get</em>. Here is what each strategy <em>demands</em> — the axis that never makes it into benchmark charts. Build times and artifact sizes are measured (<code>exports.json</code>), for yolo11s:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Strategy</th>
+<th>Code change</th>
+<th>New dependencies</th>
+<th style="text-align: right;">One-time build</th>
+<th style="text-align: right;">Artifact</th>
+<th>Runs on</th>
+<th>Accuracy risk</th>
+<th>Payoff (e2e / peak throughput)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>PyTorch FP32 (original)</td>
+<td>—</td>
+<td>—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">19 MB <code>.pt</code></td>
+<td>anywhere PyTorch runs</td>
+<td>—</td>
+<td>1.0× / 472 img/s</td>
+</tr>
+<tr class="even">
+<td>PyTorch FP16</td>
+<td><code>half=True</code></td>
+<td>none</td>
+<td style="text-align: right;">none</td>
+<td style="text-align: right;">same <code>.pt</code></td>
+<td>any modern NVIDIA GPU</td>
+<td>none (±0.001)</td>
+<td>1.0× / 778 img/s</td>
+</tr>
+<tr class="odd">
+<td>ONNX Runtime</td>
+<td>1-line export, once</td>
+<td><code>onnx</code>, <code>onnxslim</code>, <code>onnxruntime-gpu</code></td>
+<td style="text-align: right;">~1–2 s</td>
+<td style="text-align: right;">38 MB <code>.onnx</code></td>
+<td>~any platform with an ORT build</td>
+<td>none</td>
+<td>1.0–1.6× / 180 img/s</td>
+</tr>
+<tr class="even">
+<td>TensorRT FP32</td>
+<td>1-line export, once</td>
+<td><code>tensorrt-cu12</code> (+<code>nvidia-modelopt</code>)</td>
+<td style="text-align: right;">83 s</td>
+<td style="text-align: right;">46 MB <code>.engine</code></td>
+<td><strong>this GPU model + this TRT version only</strong></td>
+<td>none</td>
+<td>1.5× / —</td>
+</tr>
+<tr class="odd">
+<td><strong>TensorRT FP16</strong></td>
+<td>1-line export, once</td>
+<td>same</td>
+<td style="text-align: right;"><strong>90 s</strong> (159 s dynamic)</td>
+<td style="text-align: right;">22 MB <code>.engine</code></td>
+<td>same lock-in</td>
+<td>none</td>
+<td><strong>2.0× / 1241 img/s</strong></td>
+</tr>
+<tr class="even">
+<td>TensorRT INT8</td>
+<td>export + <strong>calibration images</strong></td>
+<td>same</td>
+<td style="text-align: right;">146 s</td>
+<td style="text-align: right;">15 MB <code>.engine</code></td>
+<td>same lock-in</td>
+<td><strong>−0.02 to −0.05 mAP</strong></td>
+<td>1.8× (≤ FP16)</td>
+</tr>
+<tr class="odd">
+<td>OpenVINO (CPU)</td>
+<td>1-line export, once</td>
+<td><code>openvino</code></td>
+<td style="text-align: right;">4 s</td>
+<td style="text-align: right;">11 MB dir</td>
+<td>any x86 CPU</td>
+<td>not re-measured here</td>
+<td>3.0× vs PyTorch CPU</td>
+</tr>
+</tbody>
+</table>
+<p>The non-obvious costs, in words:</p>
+<ul>
+<li><strong>The <code>.engine</code> file is a compilation artifact, not a model.</strong> It is specific to the GPU architecture it was built on <em>and</em> the TensorRT major version that built it. New GPU model → rebuild. TensorRT upgrade → rebuild. Ship to a fleet of mixed GPUs → one build per GPU type. The ~90 s is per model × per precision × per shape profile × per GPU type. (My full 10-engine build for this post: ~21 GPU-minutes.)</li>
+<li><strong>INT8 additionally demands data</strong> — representative calibration images. That’s a small pipeline to maintain, and a silent way to go stale as your deployment domain drifts.</li>
+<li><strong>ONNX is the portability sweet spot</strong>: a 2-second export to an artifact that runs on NVIDIA, CPUs, mobile — but as Axis 1 showed, on this GPU its <em>speed</em> is only worth it for small models.</li>
+</ul>
+<div class="callout callout-style-simple callout-warning">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><strong>The install log they don’t show you (mid-2026 edition).</strong> Getting the fast lane running on a CUDA 12.4-driver machine took four non-obvious fixes, each failing late and cryptically:</p>
+<ol type="1">
+<li><code>pip install tensorrt</code> now silently resolves to <strong>CUDA-13 wheels</strong> that an R550 driver cannot load — you want <code>tensorrt-cu12</code>.</li>
+<li>TensorRT ≥ 11 removed implicit quantization, so ultralytics builds FP16/INT8 engines through <strong><code>nvidia-modelopt</code></strong> — which it auto-installs by shelling out to pip… which <strong>doesn’t exist in a <code>uv</code> venv</strong> by default.</li>
+<li>modelopt requires <strong>torch ≥ 2.8</strong> and will happily drag in a <code>+cu130</code> torch your driver can’t use; pin <code>torch==2.8.0 torchvision==0.23.0</code> from the cu126 index, <em>last</em>.</li>
+<li>onnxruntime-gpu finds cuDNN via <code>LD_LIBRARY_PATH</code>; when it doesn’t, it <strong>silently falls back to CPU</strong> while still <em>listing</em> CUDA as available — verify with <code>session.get_providers()</code> after creating a real session, never with <code>get_available_providers()</code>.</li>
+</ol>
+<p>None of this is hard once you know it; all of it is part of the true cost of the fast lane. The working recipe is in <a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/setup_env.sh"><code>setup_env.sh</code></a>.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="no-gpu-the-cpu-story-briefly" class="level2">
+<h2 class="anchored" data-anchor-id="no-gpu-the-cpu-story-briefly">No GPU? The CPU story, briefly</h2>
+<p>Same protocol, yolo11n on the host Xeon (PyTorch capped at 8 threads by ultralytics’ default; ORT and OpenVINO manage their own pools):</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="yolo-speed/outputs/cpu_backends.png" class="img-fluid figure-img"></p>
+<figcaption>yolo11n end-to-end batch-1 latency on a Xeon Gold 6326. PyTorch 33 ms, ONNX Runtime 26 ms, OpenVINO 11 ms — the runtime lesson is the same as on GPU, but the multiplier is bigger. The dotted red line marks the best GPU backend (3.4 ms) for scale.</figcaption>
+</figure>
+</div>
+<p>The ordering repeats, amplified: the vendor-optimized runtime (Intel’s OpenVINO, on an Intel CPU) is <strong>3× faster than eager PyTorch</strong> — from a 4-second export. A 30 fps nano detector on a plain Xeon is entirely practical; and if your “GPU plan” was PyTorch eager on a nano, know that a well-run CPU gets within 1.6× of it.</p>
+</section>
+<section id="what-id-actually-do" class="level2">
+<h2 class="anchored" data-anchor-id="what-id-actually-do">What I’d actually do</h2>
+<div class="callout callout-style-simple callout-note">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><strong>Decision rules from these numbers:</strong></p>
+<ul>
+<li><strong>Streaming, single camera, NVIDIA GPU</strong> → TensorRT FP16, <strong>static</strong> engine at your exact shape. 2× end-to-end now, and your next win is pipeline work (fused NMS, GPU preprocessing), not more model compression.</li>
+<li><strong>Offline / batched processing</strong> → TensorRT FP16 dynamic engine at batch ≥ 16 (2.6× throughput). Can’t take the TensorRT dependency? <code>half=True</code> + batching gets you 62% of its throughput for literally zero effort.</li>
+<li><strong>Must run on heterogeneous / unknown hardware</strong> → ONNX. Portability is its product; treat any GPU speedup as a bonus, and benchmark per model size — it can be <em>slower</em> than PyTorch (yolo11m here).</li>
+<li><strong>CPU-only</strong> → OpenVINO, no contest (3× over PyTorch).</li>
+<li><strong>INT8</strong> → only after FP16 is proven insufficient, only with a real calibration set, and only if measurement on <em>your</em> GPU + model shows it winning. Here it lost to FP16 on both axes for two of three models.</li>
+<li><strong>Whatever you pick: re-run a val set through the exported artifact</strong> (one <code>model.val()</code> call) before shipping. Accuracy surviving the export is an empirical claim, not a guarantee.</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section id="caveats" class="level2">
+<h2 class="anchored" data-anchor-id="caveats">Caveats</h2>
+<ul>
+<li><strong>One GPU, one architecture.</strong> A5000 = Ampere. On Ada/Hopper/Blackwell the FP8/INT8 tensor-core story is different and INT8 may well win where it lost here. The <em>method</em> transfers; the verdicts are per-GPU.</li>
+<li><strong>One test image for latency.</strong> NMS time depends on how many boxes a scene produces; <code>bus.jpg</code> (5 detections) is easy. Crowded scenes shift the postprocess share up — strengthening, not weakening, the Amdahl point.</li>
+<li><strong>COCO128 for accuracy</strong> is 128 <em>training</em> images: inflated absolute mAP, small sample. Fine for backend-relative deltas; do not quote the absolute values. A proper COCO val run (or your own val set) is the pre-ship check.</li>
+<li><strong><code>predict()</code> includes Python-loop overhead</strong> (~1–1.5 ms) that a C++ / Triton / DeepStream deployment wouldn’t pay. Pure-runtime gaps are bigger than the end-to-end ones — see the throughput section.</li>
+<li><strong>Defaults for everyone.</strong> ORT without IO-binding/TRT-EP tuning, TensorRT with default workspace, OpenVINO in latency mode, torch CPU capped at ultralytics’ 8 threads. Tuning any backend moves its numbers; tuning is also adoption cost.</li>
+<li><strong>INT8 calibration used 128 train images</strong> — the lazy path. More/better calibration data typically recovers some mAP; it does not change that INT8 was not faster than FP16 here.</li>
+</ul>
+</section>
+<section id="reproduce" class="level2">
+<h2 class="anchored" data-anchor-id="reproduce">Reproduce</h2>
+<p>Everything ran on one RTX A5000; total compute ≈ 45 GPU-minutes, half of it engine builds. Scripts in <a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts"><code>posts/yolo-speed/scripts/</code></a>:</p>
+<ul>
+<li><a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/setup_env.sh"><code>setup_env.sh</code></a> — the environment, including the four landmine fixes.</li>
+<li><a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/export_all.py"><code>export_all.py</code></a> — every artifact (ONNX static/dynamic, TensorRT FP32/FP16/INT8 × n/s/m, OpenVINO), with build times → <code>exports.json</code>.</li>
+<li><a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_latency.py"><code>bench_latency.py</code></a> — batch-1 <code>predict()</code> latency with per-stage split.</li>
+<li><a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_batch.py"><code>bench_batch.py</code></a> — pure-forward throughput vs batch size, incl.&nbsp;the static-vs-dynamic engine comparison.</li>
+<li><a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_accuracy.py"><code>bench_accuracy.py</code></a> — mAP50-95 on COCO128 per backend.</li>
+<li><a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_cpu.py"><code>bench_cpu.py</code></a> — the CPU shootout.</li>
+<li><a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/visualize.py"><code>visualize.py</code></a> — all figures from the result JSONs (also in <a href="https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/outputs"><code>outputs/</code></a>).</li>
+</ul>
+</section>
+<section id="links" class="level2">
+<h2 class="anchored" data-anchor-id="links">Links</h2>
+<ul>
+<li><a href="https://docs.ultralytics.com/modes/export/">Ultralytics export docs</a> · <a href="https://docs.ultralytics.com/integrations/tensorrt/">TensorRT integration guide</a> (their T4 benchmarks make a nice cross-GPU comparison to these A5000 numbers)</li>
+<li><a href="https://developer.nvidia.com/tensorrt">TensorRT</a> · <a href="https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html">ONNX Runtime CUDA provider</a> · <a href="https://docs.openvino.ai/">OpenVINO</a></li>
+<li><a href="https://github.com/NVIDIA/TensorRT-Model-Optimizer">nvidia-modelopt</a> — the explicit-quantization toolchain TensorRT ≥ 11 exports go through</li>
+<li>Related posts: <a href="2026-06-06-detection-vs-tracking.qmd">Detection Has No Memory (YOLO + ByteTrack)</a> — what tracking adds on top of detection; this post is about making the detection itself cheap.</li>
+</ul>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+        for (let i=0; i<annoteTargets.length; i++) {
+          const annoteTarget = annoteTargets[i];
+          const targetCell = annoteTarget.getAttribute("data-target-cell");
+          const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+          const contentFn = () => {
+            const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+            if (content) {
+              const tipContent = content.cloneNode(true);
+              tipContent.classList.add("code-annotation-tip-content");
+              return tipContent.outerHTML;
+            }
+          }
+          const config = {
+            allowHTML: true,
+            content: contentFn,
+            onShow: (instance) => {
+              selectCodeLines(instance.reference);
+              instance.reference.classList.add('code-annotation-active');
+              window.tippy.hideAll();
+            },
+            onHide: (instance) => {
+              unselectCodeLines();
+              instance.reference.classList.remove('code-annotation-active');
+            },
+            maxWidth: 300,
+            delay: [50, 0],
+            duration: [200, 0],
+            offset: [5, 10],
+            arrow: true,
+            trigger: 'click',
+            appendTo: function(el) {
+              return el.parentElement.parentElement.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'quarto',
+            placement: 'right',
+            positionFixed: true,
+            popperOptions: {
+              modifiers: [
+              {
+                name: 'flip',
+                options: {
+                  flipVariations: false, // true by default
+                  allowedAutoPlacements: ['right'],
+                  fallbackPlacements: ['right', 'top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end', 'left'],
+                },
+              },
+              {
+                name: 'preventOverflow',
+                options: {
+                  mainAxis: false,
+                  altAxis: false
+                }
+              }
+              ]        
+            }      
+          };
+          window.tippy(annoteTarget, config); 
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Same Model, Same GPU, Half the Latency: What TensorRT, ONNX Runtime, and FP16 Actually Buy You — and What They Cost"</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Nipun Batra"</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-07-11"</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [object-detection, YOLO, TensorRT, ONNX, onnxruntime, OpenVINO, quantization, INT8, FP16, inference, deployment, benchmarks, computer-vision]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "The same COCO-pretrained YOLO11 weights, one RTX A5000, six execution strategies — PyTorch FP32/FP16, ONNX Runtime, TensorRT FP32/FP16/INT8 — each scored on three axes: time, accuracy, and what adopting it actually takes. TensorRT FP16 halves end-to-end latency (7.5 -&gt; 3.8 ms) and speeds the network itself up 4-5x, for a ~90 s one-time engine build and zero mAP loss. The surprises: PyTorch's half=True does NOTHING at batch 1 (it pays only at batch &gt;= 4); INT8 is both SLOWER than FP16 on the n/s models AND costs up to 0.048 mAP - strictly dominated; ONNX Runtime helps the nano, hurts the medium; a dynamic-batch engine is 1.7x slower at batch 1 than a static one; and once TensorRT shrinks inference to 1.3 ms, preprocessing + NMS become 2/3 of every frame. Bonus: yolo11m on TensorRT is faster end-to-end than yolo11n on vanilla PyTorch - the runtime choice outweighs two model-size steps."</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="an">resources:</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">  - yolo-speed/scripts/*.py</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">  - yolo-speed/scripts/*.sh</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">  - yolo-speed/outputs/*.png</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">  - yolo-speed/outputs/*.json</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **TL;DR.** Same YOLO11 weights, same RTX A5000, six ways to run them. Scored on **time,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; accuracy, and adoption cost** against the original </span><span class="in">`model.predict()`</span><span class="at"> on the </span><span class="in">`.pt`</span><span class="at"> file:</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **TensorRT FP16** is the clear winner — **~2× lower end-to-end latency** (7.5 → 3.8 ms for</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; yolo11s), **4–5× faster on the network itself** (5.3 → 1.3 ms), **2.6× higher batched</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; throughput** (472 → 1241 img/s), **zero accuracy loss**, for a one-time ~90 s engine build</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; that is locked to this GPU model and TensorRT version. Four honest surprises: PyTorch's</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="in">`half=True`</span><span class="at"> does **nothing** at batch 1 (it pays only at batch ≥ 4); **TensorRT INT8 is</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; strictly dominated by FP16** on the n/s models (slower *and* −0.02 to −0.05 mAP); **ONNX</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; Runtime helps the nano but is slower than plain PyTorch on the medium**; and a</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **dynamic-batch engine costs 1.7×** at batch 1 vs a static one. Once TensorRT shrinks</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; inference to 1.3 ms, **preprocessing + NMS are two-thirds of every frame** — the next</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; milliseconds live outside the network.</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## The question</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>You trained (or just downloaded) a YOLO model. You call <span class="in">`model.predict()`</span> and it feels fast —</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>a few milliseconds on a decent GPU. Most people stop there.</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>But the *weights* and the *runtime that executes them* are two different choices, and the second</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>one is a knob that costs no retraining and no new data. The same <span class="in">`yolo11s.pt`</span> can be executed by</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>PyTorch eager mode, by ONNX Runtime, or compiled into a TensorRT engine at FP32, FP16, or INT8.</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>Vendor benchmarks promise big multipliers at the fast end of that list. This post measures the</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>whole menu, holding everything else fixed, and scores every strategy on **three axes against the</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>original**:</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Time** — batch-1 latency and batched throughput.</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Accuracy** — does mAP survive the trip?</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Adoption cost** — what the strategy *demands*: code changes, new dependencies, build time,</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>   calibration data, and what you give up in portability.</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="fu">## The contenders</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Strategy <span class="pp">|</span> What it is <span class="pp">|</span> Why it should be fast <span class="pp">|</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **PyTorch FP32** <span class="pp">|</span> <span class="in">`model.predict()`</span> on the <span class="in">`.pt`</span> — the original <span class="pp">|</span> baseline: eager kernels, full precision <span class="pp">|</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **PyTorch FP16** <span class="pp">|</span> same call, <span class="in">`half=True`</span> <span class="pp">|</span> half precision on tensor cores; one flag <span class="pp">|</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **ONNX Runtime (CUDA)** <span class="pp">|</span> graph exported to <span class="in">`.onnx`</span>, run by ORT's CUDA provider <span class="pp">|</span> graph-level fusion + optimized kernels <span class="pp">|</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **TensorRT FP32** <span class="pp">|</span> ONNX further compiled into a GPU-specific <span class="in">`.engine`</span> <span class="pp">|</span> kernel auto-tuning *for this exact GPU* <span class="pp">|</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **TensorRT FP16** <span class="pp">|</span> same, half precision <span class="pp">|</span> fusion + tensor cores <span class="pp">|</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **TensorRT INT8** <span class="pp">|</span> same, 8-bit, calibrated on sample images <span class="pp">|</span> 8-bit tensor cores, least memory traffic <span class="pp">|</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>The mental model: PyTorch executes the network **op by op**, each op a separate pre-compiled CUDA</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>kernel launch. ONNX Runtime first **rewrites the graph** (folds constants, fuses adjacent ops) and</span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>then executes it. TensorRT goes furthest: it **compiles** the graph offline for one specific GPU,</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>trying multiple kernel implementations per layer and keeping the fastest, at a chosen precision.</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>The further right you go, the more build-time work, the less portability — and, usually, the more</span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>speed.</span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>The *entire* code delta between these strategies, thanks to ultralytics wrapping every backend</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>behind one API:</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> ultralytics <span class="im">import</span> YOLO</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> YOLO(<span class="st">"yolo11s.pt"</span>)                               <span class="co"># the original</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>model.predict(img, half<span class="op">=</span><span class="va">True</span>)                            <span class="co"># strategy: FP16, one flag</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>model.export(<span class="bu">format</span><span class="op">=</span><span class="st">"onnx"</span>)                              <span class="co"># strategy: ONNX, one-time export</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>model.export(<span class="bu">format</span><span class="op">=</span><span class="st">"engine"</span>, half<span class="op">=</span><span class="va">True</span>)                 <span class="co"># strategy: TensorRT FP16</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>model.export(<span class="bu">format</span><span class="op">=</span><span class="st">"engine"</span>, int8<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>             data<span class="op">=</span><span class="st">"coco128.yaml"</span>)                        <span class="co"># strategy: INT8 (needs calib images)</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>YOLO(<span class="st">"yolo11s.engine"</span>).predict(img)                      <span class="co"># inference code: unchanged</span></span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a><span class="fu">## The setup</span></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Hardware:** one NVIDIA RTX A5000 (24 GB, Ampere) in our lab server; Xeon Gold 6326</span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>  (16C/32T) for the CPU section.</span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Software:** Python 3.11, torch 2.8.0+cu126, ultralytics 8.4.92, TensorRT 11.1 (cu12 build),</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>  onnxruntime-gpu 1.24.4, OpenVINO 2026.2. Driver CUDA 12.4.</span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Models:** YOLO11 n / s / m, COCO-pretrained, 640×640 throughout.</span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Latency protocol:** <span class="in">`model.predict()`</span> on a pre-loaded image (ultralytics' <span class="in">`bus.jpg`</span>; disk</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>  I/O excluded), 30 warmup + 200 timed calls, batch = 1. I report **medians**, and use</span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>  ultralytics' own per-stage timers for the preprocess / inference / postprocess split.</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Throughput protocol:** pure forward pass on a resident CUDA tensor with explicit</span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>  <span class="in">`torch.cuda.synchronize()`</span> — no image decode, no NMS — to isolate what the runtime actually</span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>  accelerates.</span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Accuracy protocol:** mAP50-95 on COCO128 for every backend of every model.</span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Fairness rule:** every backend gets ultralytics' defaults — no per-backend tuning for</span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>  anyone. All detectors returned the **same 5 detections** on the test image, INT8 included.</span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a><span class="fu">## Axis 1a: batch-1 latency</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a><span class="al">![Median end-to-end `predict()` latency (preprocess + inference + postprocess), batch = 1, 640×640, 200 timed iterations on an RTX A5000. Bars are colored by runtime family (blue = PyTorch, green = ONNX Runtime, red = TensorRT; lighter = lower precision); annotations give the speedup over PyTorch FP32. TensorRT FP16 roughly halves latency for every model size. Note PyTorch FP16 ≈ FP32 (the flag does nothing here) and ONNX Runtime *losing* to PyTorch on yolo11m.](yolo-speed/outputs/latency_backends.png)</span></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>The same data for yolo11s, with the inference-only time that the runtimes actually compete on:</span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> yolo11s, batch=1 <span class="pp">|</span> end-to-end (ms) <span class="pp">|</span> vs original <span class="pp">|</span> inference only (ms) <span class="pp">|</span> vs original <span class="pp">|</span></span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|</span>--:<span class="pp">|</span>--:<span class="pp">|</span>--:<span class="pp">|</span>--:<span class="pp">|</span></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PyTorch FP32 (original) <span class="pp">|</span> 7.54 <span class="pp">|</span> 1.0× <span class="pp">|</span> 5.27 <span class="pp">|</span> 1.0× <span class="pp">|</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PyTorch FP16 <span class="pp">|</span> 7.84 <span class="pp">|</span> **0.96×** <span class="pp">|</span> 5.54 <span class="pp">|</span> 0.95× <span class="pp">|</span></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ONNX Runtime <span class="pp">|</span> 7.33 <span class="pp">|</span> 1.03× <span class="pp">|</span> 4.78 <span class="pp">|</span> 1.10× <span class="pp">|</span></span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TensorRT FP32 <span class="pp">|</span> 4.87 <span class="pp">|</span> 1.55× <span class="pp">|</span> 2.45 <span class="pp">|</span> 2.15× <span class="pp">|</span></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **TensorRT FP16** | **3.76** | **2.0×** | **1.30** | **4.1×** <span class="pp">|</span></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TensorRT INT8 <span class="pp">|</span> 4.18 <span class="pp">|</span> 1.8× <span class="pp">|</span> 1.75 <span class="pp">|</span> 3.0× <span class="pp">|</span></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>Three findings that vendor decks won't show you:</span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**`half=True` is a placebo at batch 1.** On all three models, PyTorch FP16 is marginally</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>   *slower* than FP32 (7.8 vs 7.5 ms on yolo11s). At batch 1 the GPU is nowhere near saturated —</span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a>   the time goes to kernel *launches*, not kernel *math* — so halving the math changes nothing,</span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a>   and the input/output casts add a little. Hold this thought until the batching section, where</span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>   the same flag becomes a 1.6× win.</span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**INT8 is *slower* than FP16 for yolo11n and yolo11s** (3.82 vs 3.41, 4.18 vs 3.76 ms), and</span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a>   only reaches parity on yolo11m (4.73 vs 4.85 ms). TensorRT 11 quantizes via explicit</span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a>   quantize/dequantize nodes, and for small networks at 640 px their overhead eats the 8-bit</span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a>   savings on Ampere. "INT8 = fastest" is not a law; it's a hypothesis to test on your model,</span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a>   your GPU.</span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**ONNX Runtime's value depends on model size**: 1.6× on the nano, a wash on the small,</span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a>   **0.8× (slower than the original!) on the medium.** Its CUDA kernels beat eager PyTorch on</span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a>   launch-bound tiny models but lose on compute-bound bigger ones.</span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>And the headline I did not expect when I started: **yolo11m on TensorRT FP16 (4.85 ms) is faster</span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a>end-to-end than yolo11n on vanilla PyTorch (7.22 ms)** — while scoring +0.12 mAP50-95. The</span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a>runtime choice outweighs *two* model-size steps. If you picked the nano because the small felt</span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>too slow, you may have paid accuracy for speed that a one-line export would have bought for free.</span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a><span class="fu">## Where the milliseconds actually go</span></span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a><span class="al">![The same yolo11s batch-1 latency, split into ultralytics' three stages. Inference (blue) is the only part the runtimes compete on: TensorRT FP16 cuts it from 5.3 ms to 1.3 ms. Preprocessing (gray, ~1.4 ms of resize/normalize/upload) and postprocess/NMS (red, ~0.8 ms) are untouched — so they grow from ~30% of the frame to about two-thirds.](yolo-speed/outputs/latency_breakdown.png)</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a>This is Amdahl's law with a bounding box. TensorRT FP16 makes the *network* 4.1× faster, but the</span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a><span class="in">`predict()`</span> call only gets 2.0× faster, because ~2.2 ms of every frame is spent outside the</span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>network — resizing and normalizing the image, and running NMS on the raw predictions. Once</span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>inference costs 1.3 ms, **the model is no longer the bottleneck; the pipeline is.**</span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a>Two practical corollaries:</span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Below ~4 ms of end-to-end budget, further *model* optimization (INT8, pruning, a smaller</span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>  model) buys almost nothing. The next wins are pipeline wins: GPU-side preprocessing (e.g.</span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>  DALI), batching the NMS, or exporting with NMS fused *into* the engine (<span class="in">`nms=True`</span>).</span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>This is why "up to N× faster" claims and your stopwatch disagree: the N× is the blue segment,</span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>  your stopwatch times the whole bar.</span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a><span class="fu">## Axis 1b: throughput, and PyTorch FP16's redemption</span></span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>Batch-1 latency is the streaming-camera number. If you are chewing through a folder of images or</span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>a recorded video, what matters is **images per second at the best batch size** — so here is the</span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>pure GPU forward pass (no NMS, no preprocessing) for yolo11s, batch 1 → 32:</span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a><span class="al">![Pure forward-pass throughput vs batch size, yolo11s, RTX A5000. TensorRT FP16 (red) leads everywhere and peaks at 1241 img/s. PyTorch FP16 (solid blue) is indistinguishable from FP32 (dashed blue) until batch 4, then pulls away to a 1.65× win — precision pays only once there is enough parallel work. ONNX Runtime on a dynamic-shape graph (green) *degrades* with batch size. The open diamond: the same TensorRT FP16 model compiled as a static batch-1 engine is 1.7× faster at batch 1 than the dynamic-batch engine.](yolo-speed/outputs/throughput_batch.png)</span></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> yolo11s, pure forward <span class="pp">|</span> batch 1 <span class="pp">|</span> batch 32 (peak) <span class="pp">|</span></span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|</span>--:<span class="pp">|</span>--:<span class="pp">|</span></span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PyTorch FP32 (original) <span class="pp">|</span> 205 img/s <span class="pp">|</span> 472 img/s <span class="pp">|</span></span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PyTorch FP16 <span class="pp">|</span> 197 img/s <span class="pp">|</span> **778 img/s** <span class="pp">|</span></span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ONNX Runtime (dynamic) <span class="pp">|</span> 145 img/s <span class="pp">|</span> 131 img/s (peak 180 @ b4) <span class="pp">|</span></span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TensorRT FP16 (dynamic) <span class="pp">|</span> 459 img/s <span class="pp">|</span> **1241 img/s** <span class="pp">|</span></span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TensorRT FP16 (static b=1) <span class="pp">|</span> **771 img/s** <span class="pp">|</span> — <span class="pp">|</span></span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The `half=True` story completes**: useless at batch 1, +65% at batch 32. FP16 needs</span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>  saturation to matter. If you serve single frames, skip the flag; if you batch, take it — it's</span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>  still free.</span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Shape flexibility has a price.** The dynamic-batch TensorRT engine does 459 img/s at batch 1;</span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a>  a static batch-1 engine of the *same model at the same precision* does 771 img/s — **1.7×**.</span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>  TensorRT tunes kernels for the shapes you promise it; promise less, get more. If your batch</span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>  size is fixed in production, build a static engine for exactly that shape.</span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**ONNX Runtime collapses on the dynamic graph** — throughput *falls* as batch grows (180 →</span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>  131 img/s), 9.5× behind TensorRT at batch 32. With static shapes (the batch-1 latency test</span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a>  above) it behaves; dynamic shapes are its unhappy path, at least with default session options.</span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>  A tuned ORT setup (IO binding, its own TensorRT execution provider) would close some of this</span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>  gap — but "needs tuning" is itself an adoption cost, and everyone here got defaults.</span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a><span class="fu">## Axis 2: does the fast path cost accuracy?</span></span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a><span class="al">![mAP50-95 on COCO128 per backend, per model. The gray vertical line is each model's PyTorch FP32 baseline. Everything above INT8 sits within ±0.005 of the line — FP16 and the export round-trips are accuracy-free. TensorRT INT8 (lightest red) pays a real, model-size-dependent tax: −0.048 on the nano, −0.020 on the small, −0.016 on the medium.](yolo-speed/outputs/accuracy_backends.png)</span></span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>(COCO128 is a 128-image slice of COCO *train*, so the absolute values are optimistic; what</span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a>matters here is the *relative* drop across backends of identical weights — which is exactly what</span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a>precision changes affect.)</span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**FP16 is free.** Across all three models and both FP16 backends, mAP moves by at most ±0.005</span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a>  — noise. Combined with the speed results: there is **no accuracy reason to ever run TensorRT</span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>  at FP32** for these models.</span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**INT8's tax is real and biggest where you'd want it most.** The nano loses 0.048 mAP50-95</span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a>  (~10% relative). Small models have less redundancy to absorb quantization error. Put together</span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a>  with Axis 1 — INT8 was also *slower* than FP16 on n/s — and the verdict on this GPU is blunt:</span>
+<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a>  **TensorRT INT8 is strictly dominated by TensorRT FP16 for yolo11n/s: slower AND less</span>
+<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a>  accurate.** For yolo11m it buys 0.1 ms for 0.016 mAP — still a bad trade in most settings.</span>
+<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a>  (A larger, more careful calibration set than my 128 train images would likely shrink the mAP</span>
+<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a>  gap somewhat; it cannot fix "not faster.")</span>
+<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a><span class="fu">## Axis 3: what adopting each strategy actually takes</span></span>
+<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a>Speed and accuracy tell you what you *get*. Here is what each strategy *demands* — the axis that</span>
+<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a>never makes it into benchmark charts. Build times and artifact sizes are measured</span>
+<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a>(<span class="in">`exports.json`</span>), for yolo11s:</span>
+<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Strategy <span class="pp">|</span> Code change <span class="pp">|</span> New dependencies <span class="pp">|</span> One-time build <span class="pp">|</span> Artifact <span class="pp">|</span> Runs on <span class="pp">|</span> Accuracy risk <span class="pp">|</span> Payoff (e2e / peak throughput) <span class="pp">|</span></span>
+<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|</span>--:<span class="pp">|</span>--:<span class="pp">|---|---|---|</span></span>
+<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PyTorch FP32 (original) <span class="pp">|</span> — <span class="pp">|</span> — <span class="pp">|</span> — <span class="pp">|</span> 19 MB <span class="in">`.pt`</span> <span class="pp">|</span> anywhere PyTorch runs <span class="pp">|</span> — <span class="pp">|</span> 1.0× / 472 img/s <span class="pp">|</span></span>
+<span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> PyTorch FP16 <span class="pp">|</span> <span class="in">`half=True`</span> <span class="pp">|</span> none <span class="pp">|</span> none <span class="pp">|</span> same <span class="in">`.pt`</span> <span class="pp">|</span> any modern NVIDIA GPU <span class="pp">|</span> none (±0.001) <span class="pp">|</span> 1.0× / 778 img/s <span class="pp">|</span></span>
+<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ONNX Runtime <span class="pp">|</span> 1-line export, once <span class="pp">|</span> <span class="in">`onnx`</span>, <span class="in">`onnxslim`</span>, <span class="in">`onnxruntime-gpu`</span> <span class="pp">|</span> ~1–2 s <span class="pp">|</span> 38 MB <span class="in">`.onnx`</span> <span class="pp">|</span> ~any platform with an ORT build <span class="pp">|</span> none <span class="pp">|</span> 1.0–1.6× / 180 img/s <span class="pp">|</span></span>
+<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TensorRT FP32 <span class="pp">|</span> 1-line export, once <span class="pp">|</span> <span class="in">`tensorrt-cu12`</span> (+<span class="in">`nvidia-modelopt`</span>) <span class="pp">|</span> 83 s <span class="pp">|</span> 46 MB <span class="in">`.engine`</span> <span class="pp">|</span> **this GPU model + this TRT version only** <span class="pp">|</span> none <span class="pp">|</span> 1.5× / — <span class="pp">|</span></span>
+<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **TensorRT FP16** | 1-line export, once | same | **90 s** (159 s dynamic) | 22 MB `.engine` | same lock-in | none | **2.0× / 1241 img/s** <span class="pp">|</span></span>
+<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> TensorRT INT8 <span class="pp">|</span> export + **calibration images** | same | 146 s | 15 MB `.engine` | same lock-in | **−0.02 to −0.05 mAP** <span class="pp">|</span> 1.8× (≤ FP16) <span class="pp">|</span></span>
+<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> OpenVINO (CPU) <span class="pp">|</span> 1-line export, once <span class="pp">|</span> <span class="in">`openvino`</span> <span class="pp">|</span> 4 s <span class="pp">|</span> 11 MB dir <span class="pp">|</span> any x86 CPU <span class="pp">|</span> not re-measured here <span class="pp">|</span> 3.0× vs PyTorch CPU <span class="pp">|</span></span>
+<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a>The non-obvious costs, in words:</span>
+<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**The `.engine` file is a compilation artifact, not a model.** It is specific to the GPU</span>
+<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a>  architecture it was built on *and* the TensorRT major version that built it. New GPU model →</span>
+<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a>  rebuild. TensorRT upgrade → rebuild. Ship to a fleet of mixed GPUs → one build per GPU type.</span>
+<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a>  The ~90 s is per model × per precision × per shape profile × per GPU type. (My full 10-engine</span>
+<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a>  build for this post: ~21 GPU-minutes.)</span>
+<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**INT8 additionally demands data** — representative calibration images. That's a small</span>
+<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a>  pipeline to maintain, and a silent way to go stale as your deployment domain drifts.</span>
+<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**ONNX is the portability sweet spot**: a 2-second export to an artifact that runs on NVIDIA,</span>
+<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a>  CPUs, mobile — but as Axis 1 showed, on this GPU its *speed* is only worth it for small models.</span>
+<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning appearance="simple"}</span>
+<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a>**The install log they don't show you (mid-2026 edition).** Getting the fast lane running on a</span>
+<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a>CUDA 12.4-driver machine took four non-obvious fixes, each failing late and cryptically:</span>
+<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span><span class="in">`pip install tensorrt`</span> now silently resolves to **CUDA-13 wheels** that an R550 driver cannot</span>
+<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a>   load — you want <span class="in">`tensorrt-cu12`</span>.</span>
+<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>TensorRT ≥ 11 removed implicit quantization, so ultralytics builds FP16/INT8 engines through</span>
+<span id="cb2-237"><a href="#cb2-237" aria-hidden="true" tabindex="-1"></a>   **`nvidia-modelopt`** — which it auto-installs by shelling out to pip… which **doesn't exist</span>
+<span id="cb2-238"><a href="#cb2-238" aria-hidden="true" tabindex="-1"></a>   in a <span class="in">`uv`</span> venv** by default.</span>
+<span id="cb2-239"><a href="#cb2-239" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>modelopt requires **torch ≥ 2.8** and will happily drag in a <span class="in">`+cu130`</span> torch your driver can't</span>
+<span id="cb2-240"><a href="#cb2-240" aria-hidden="true" tabindex="-1"></a>   use; pin <span class="in">`torch==2.8.0 torchvision==0.23.0`</span> from the cu126 index, *last*.</span>
+<span id="cb2-241"><a href="#cb2-241" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>onnxruntime-gpu finds cuDNN via <span class="in">`LD_LIBRARY_PATH`</span>; when it doesn't, it **silently falls back</span>
+<span id="cb2-242"><a href="#cb2-242" aria-hidden="true" tabindex="-1"></a>   to CPU** while still *listing* CUDA as available — verify with <span class="in">`session.get_providers()`</span></span>
+<span id="cb2-243"><a href="#cb2-243" aria-hidden="true" tabindex="-1"></a>   after creating a real session, never with <span class="in">`get_available_providers()`</span>.</span>
+<span id="cb2-244"><a href="#cb2-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-245"><a href="#cb2-245" aria-hidden="true" tabindex="-1"></a>None of this is hard once you know it; all of it is part of the true cost of the fast lane.</span>
+<span id="cb2-246"><a href="#cb2-246" aria-hidden="true" tabindex="-1"></a>The working recipe is in <span class="co">[</span><span class="ot">`setup_env.sh`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/setup_env.sh)</span>.</span>
+<span id="cb2-247"><a href="#cb2-247" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-248"><a href="#cb2-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-249"><a href="#cb2-249" aria-hidden="true" tabindex="-1"></a><span class="fu">## No GPU? The CPU story, briefly</span></span>
+<span id="cb2-250"><a href="#cb2-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-251"><a href="#cb2-251" aria-hidden="true" tabindex="-1"></a>Same protocol, yolo11n on the host Xeon (PyTorch capped at 8 threads by ultralytics' default;</span>
+<span id="cb2-252"><a href="#cb2-252" aria-hidden="true" tabindex="-1"></a>ORT and OpenVINO manage their own pools):</span>
+<span id="cb2-253"><a href="#cb2-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-254"><a href="#cb2-254" aria-hidden="true" tabindex="-1"></a><span class="al">![yolo11n end-to-end batch-1 latency on a Xeon Gold 6326. PyTorch 33 ms, ONNX Runtime 26 ms, OpenVINO 11 ms — the runtime lesson is the same as on GPU, but the multiplier is bigger. The dotted red line marks the best GPU backend (3.4 ms) for scale.](yolo-speed/outputs/cpu_backends.png)</span></span>
+<span id="cb2-255"><a href="#cb2-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-256"><a href="#cb2-256" aria-hidden="true" tabindex="-1"></a>The ordering repeats, amplified: the vendor-optimized runtime (Intel's OpenVINO, on an Intel</span>
+<span id="cb2-257"><a href="#cb2-257" aria-hidden="true" tabindex="-1"></a>CPU) is **3× faster than eager PyTorch** — from a 4-second export. A 30 fps nano detector on a</span>
+<span id="cb2-258"><a href="#cb2-258" aria-hidden="true" tabindex="-1"></a>plain Xeon is entirely practical; and if your "GPU plan" was PyTorch eager on a nano, know that</span>
+<span id="cb2-259"><a href="#cb2-259" aria-hidden="true" tabindex="-1"></a>a well-run CPU gets within 1.6× of it.</span>
+<span id="cb2-260"><a href="#cb2-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-261"><a href="#cb2-261" aria-hidden="true" tabindex="-1"></a><span class="fu">## What I'd actually do</span></span>
+<span id="cb2-262"><a href="#cb2-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-263"><a href="#cb2-263" aria-hidden="true" tabindex="-1"></a>::: {.callout-note appearance="simple"}</span>
+<span id="cb2-264"><a href="#cb2-264" aria-hidden="true" tabindex="-1"></a>**Decision rules from these numbers:**</span>
+<span id="cb2-265"><a href="#cb2-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-266"><a href="#cb2-266" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Streaming, single camera, NVIDIA GPU** → TensorRT FP16, **static** engine at your exact</span>
+<span id="cb2-267"><a href="#cb2-267" aria-hidden="true" tabindex="-1"></a>  shape. 2× end-to-end now, and your next win is pipeline work (fused NMS, GPU preprocessing),</span>
+<span id="cb2-268"><a href="#cb2-268" aria-hidden="true" tabindex="-1"></a>  not more model compression.</span>
+<span id="cb2-269"><a href="#cb2-269" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Offline / batched processing** → TensorRT FP16 dynamic engine at batch ≥ 16 (2.6× throughput).</span>
+<span id="cb2-270"><a href="#cb2-270" aria-hidden="true" tabindex="-1"></a>  Can't take the TensorRT dependency? <span class="in">`half=True`</span> + batching gets you 62% of its throughput</span>
+<span id="cb2-271"><a href="#cb2-271" aria-hidden="true" tabindex="-1"></a>  for literally zero effort.</span>
+<span id="cb2-272"><a href="#cb2-272" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Must run on heterogeneous / unknown hardware** → ONNX. Portability is its product;</span>
+<span id="cb2-273"><a href="#cb2-273" aria-hidden="true" tabindex="-1"></a>  treat any GPU speedup as a bonus, and benchmark per model size — it can be *slower* than</span>
+<span id="cb2-274"><a href="#cb2-274" aria-hidden="true" tabindex="-1"></a>  PyTorch (yolo11m here).</span>
+<span id="cb2-275"><a href="#cb2-275" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CPU-only** → OpenVINO, no contest (3× over PyTorch).</span>
+<span id="cb2-276"><a href="#cb2-276" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**INT8** → only after FP16 is proven insufficient, only with a real calibration set, and only</span>
+<span id="cb2-277"><a href="#cb2-277" aria-hidden="true" tabindex="-1"></a>  if measurement on *your* GPU + model shows it winning. Here it lost to FP16 on both axes for</span>
+<span id="cb2-278"><a href="#cb2-278" aria-hidden="true" tabindex="-1"></a>  two of three models.</span>
+<span id="cb2-279"><a href="#cb2-279" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Whatever you pick: re-run a val set through the exported artifact** (one <span class="in">`model.val()`</span> call)</span>
+<span id="cb2-280"><a href="#cb2-280" aria-hidden="true" tabindex="-1"></a>  before shipping. Accuracy surviving the export is an empirical claim, not a guarantee.</span>
+<span id="cb2-281"><a href="#cb2-281" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-282"><a href="#cb2-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a><span class="fu">## Caveats</span></span>
+<span id="cb2-284"><a href="#cb2-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-285"><a href="#cb2-285" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**One GPU, one architecture.** A5000 = Ampere. On Ada/Hopper/Blackwell the FP8/INT8 tensor-core</span>
+<span id="cb2-286"><a href="#cb2-286" aria-hidden="true" tabindex="-1"></a>  story is different and INT8 may well win where it lost here. The *method* transfers; the</span>
+<span id="cb2-287"><a href="#cb2-287" aria-hidden="true" tabindex="-1"></a>  verdicts are per-GPU.</span>
+<span id="cb2-288"><a href="#cb2-288" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**One test image for latency.** NMS time depends on how many boxes a scene produces; <span class="in">`bus.jpg`</span></span>
+<span id="cb2-289"><a href="#cb2-289" aria-hidden="true" tabindex="-1"></a>  (5 detections) is easy. Crowded scenes shift the postprocess share up — strengthening, not</span>
+<span id="cb2-290"><a href="#cb2-290" aria-hidden="true" tabindex="-1"></a>  weakening, the Amdahl point.</span>
+<span id="cb2-291"><a href="#cb2-291" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**COCO128 for accuracy** is 128 *training* images: inflated absolute mAP, small sample. Fine</span>
+<span id="cb2-292"><a href="#cb2-292" aria-hidden="true" tabindex="-1"></a>  for backend-relative deltas; do not quote the absolute values. A proper COCO val run (or your</span>
+<span id="cb2-293"><a href="#cb2-293" aria-hidden="true" tabindex="-1"></a>  own val set) is the pre-ship check.</span>
+<span id="cb2-294"><a href="#cb2-294" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`predict()` includes Python-loop overhead** (~1–1.5 ms) that a C++ / Triton / DeepStream</span>
+<span id="cb2-295"><a href="#cb2-295" aria-hidden="true" tabindex="-1"></a>  deployment wouldn't pay. Pure-runtime gaps are bigger than the end-to-end ones — see the</span>
+<span id="cb2-296"><a href="#cb2-296" aria-hidden="true" tabindex="-1"></a>  throughput section.</span>
+<span id="cb2-297"><a href="#cb2-297" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Defaults for everyone.** ORT without IO-binding/TRT-EP tuning, TensorRT with default</span>
+<span id="cb2-298"><a href="#cb2-298" aria-hidden="true" tabindex="-1"></a>  workspace, OpenVINO in latency mode, torch CPU capped at ultralytics' 8 threads. Tuning any</span>
+<span id="cb2-299"><a href="#cb2-299" aria-hidden="true" tabindex="-1"></a>  backend moves its numbers; tuning is also adoption cost.</span>
+<span id="cb2-300"><a href="#cb2-300" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**INT8 calibration used 128 train images** — the lazy path. More/better calibration data</span>
+<span id="cb2-301"><a href="#cb2-301" aria-hidden="true" tabindex="-1"></a>  typically recovers some mAP; it does not change that INT8 was not faster than FP16 here.</span>
+<span id="cb2-302"><a href="#cb2-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-303"><a href="#cb2-303" aria-hidden="true" tabindex="-1"></a><span class="fu">## Reproduce</span></span>
+<span id="cb2-304"><a href="#cb2-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-305"><a href="#cb2-305" aria-hidden="true" tabindex="-1"></a>Everything ran on one RTX A5000; total compute ≈ 45 GPU-minutes, half of it engine builds.</span>
+<span id="cb2-306"><a href="#cb2-306" aria-hidden="true" tabindex="-1"></a>Scripts in <span class="co">[</span><span class="ot">`posts/yolo-speed/scripts/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts)</span>:</span>
+<span id="cb2-307"><a href="#cb2-307" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-308"><a href="#cb2-308" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">`setup_env.sh`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/setup_env.sh)</span> — the environment, including the four landmine fixes.</span>
+<span id="cb2-309"><a href="#cb2-309" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">`export_all.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/export_all.py)</span> — every artifact (ONNX static/dynamic, TensorRT FP32/FP16/INT8 × n/s/m, OpenVINO), with build times → <span class="in">`exports.json`</span>.</span>
+<span id="cb2-310"><a href="#cb2-310" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">`bench_latency.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_latency.py)</span> — batch-1 <span class="in">`predict()`</span> latency with per-stage split.</span>
+<span id="cb2-311"><a href="#cb2-311" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">`bench_batch.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_batch.py)</span> — pure-forward throughput vs batch size, incl. the static-vs-dynamic engine comparison.</span>
+<span id="cb2-312"><a href="#cb2-312" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">`bench_accuracy.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_accuracy.py)</span> — mAP50-95 on COCO128 per backend.</span>
+<span id="cb2-313"><a href="#cb2-313" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">`bench_cpu.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/bench_cpu.py)</span> — the CPU shootout.</span>
+<span id="cb2-314"><a href="#cb2-314" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">`visualize.py`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/scripts/visualize.py)</span> — all figures from the result JSONs (also in <span class="co">[</span><span class="ot">`outputs/`</span><span class="co">](https://github.com/nipunbatra/blog/tree/master/posts/yolo-speed/outputs)</span>).</span>
+<span id="cb2-315"><a href="#cb2-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-316"><a href="#cb2-316" aria-hidden="true" tabindex="-1"></a><span class="fu">## Links</span></span>
+<span id="cb2-317"><a href="#cb2-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-318"><a href="#cb2-318" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Ultralytics export docs</span><span class="co">](https://docs.ultralytics.com/modes/export/)</span> · <span class="co">[</span><span class="ot">TensorRT integration guide</span><span class="co">](https://docs.ultralytics.com/integrations/tensorrt/)</span> (their T4 benchmarks make a nice cross-GPU comparison to these A5000 numbers)</span>
+<span id="cb2-319"><a href="#cb2-319" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">TensorRT</span><span class="co">](https://developer.nvidia.com/tensorrt)</span> · <span class="co">[</span><span class="ot">ONNX Runtime CUDA provider</span><span class="co">](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html)</span> · <span class="co">[</span><span class="ot">OpenVINO</span><span class="co">](https://docs.openvino.ai/)</span></span>
+<span id="cb2-320"><a href="#cb2-320" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">nvidia-modelopt</span><span class="co">](https://github.com/NVIDIA/TensorRT-Model-Optimizer)</span> — the explicit-quantization toolchain TensorRT ≥ 11 exports go through</span>
+<span id="cb2-321"><a href="#cb2-321" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Related posts: <span class="co">[</span><span class="ot">Detection Has No Memory (YOLO + ByteTrack)</span><span class="co">](2026-06-06-detection-vs-tracking.qmd)</span> — what tracking adds on top of detection; this post is about making the detection itself cheap.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© Nipun Batra</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      <ul class="footer-items list-unstyled">
+    <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/nipunbatra">
+      <i class="bi bi-github" role="img">
+</i> 
+    </a>
+  </li>  
+</ul>
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
